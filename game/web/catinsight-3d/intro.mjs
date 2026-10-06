@@ -67,6 +67,17 @@ export function activateSlide(i) {
   if (host && WIDGETS[key]) { host.innerHTML = key === 'hero' ? host.innerHTML : ''; stopCurrent = WIDGETS[key](host, el) || null; }
 }
 export function deactivate() { if (stopCurrent) { stopCurrent(); stopCurrent = null; } slideEls.forEach((el) => el.classList.remove('on')); current = -1; }
+// 捲動版(story.mjs)用:把某一頁的 widget 單獨掛到 host(手機螢幕)上,回傳停止函式
+export function mountWidget(key, host) {
+  host.innerHTML = '';
+  if (key === 'hero') {
+    const sl = SLIDES[0];
+    host.innerHTML = `<div class="hero"><canvas class="bgc"></canvas><div class="chips"></div>
+      <div class="icon img"><img src="/assets/icon-180.png" alt="CatInsight Stock"></div><h2>${sl.title}</h2><p>${sl.text}</p></div>`;
+    return WIDGETS.hero(host.querySelector('.hero')) || (() => {});
+  }
+  return (WIDGETS[key] && WIDGETS[key](host)) || (() => {});
+}
 
 // ---------- 各頁 widget ----------
 const WIDGETS = {};

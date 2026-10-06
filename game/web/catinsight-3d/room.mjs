@@ -6,7 +6,13 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
-import { buildSlides, activateSlide, deactivate } from './intro.mjs?v=11';
+import { buildSlides, activateSlide, deactivate } from './intro.mjs?v=12';
+// 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
+const STORY = new URLSearchParams(location.search).has('story');
+// 畫面濾鏡:發光物的光暈、調色、暗角、底片顆粒(預設開;網址加 ?nofx 看沒有濾鏡的樣子)
+const FX = !new URLSearchParams(location.search).has('nofx');
+let composer = null, fxGrade = null;
+let story = null;
 
 // ---------- 配色(參考圖) ----------
 const C = {
@@ -435,9 +441,10 @@ box(3.6, 0.05, 2.7, C.rug, { x: -1.1, y: 0.075, z: 0.9, r: 0.02, seg: 1 });   //
 // ---------- 書桌 / 螢幕 / 鍵盤 ----------
 const screenCanvas = document.createElement('canvas'); screenCanvas.width = 640; screenCanvas.height = 400;
 const screenTex = new THREE.CanvasTexture(screenCanvas); screenTex.colorSpace = THREE.SRGBColorSpace; screenTex.anisotropy = 8;
-let screenMesh;
+let screenMesh, deskGroup;
 {
   const d = group(1.25, 0, -0.4);   // 往仙人掌(牆邊)方向移
+  deskGroup = d;
   box(2.9, 0.12, 1.3, C.desk, { y: 1.35, r: 0.05, parent: d });
   for (const [x, z] of [[-1.3, 0.55], [-1.3, -0.55], [1.3, 0.55], [1.3, -0.55]]) {
     cyl(0.05, 0.05, 1.3, C.deskLeg, { x, y: 0.65, z, parent: d });
@@ -750,6 +757,7 @@ const orbitPos = new THREE.Vector3(), orbitTarget = new THREE.Vector3();
 const tagPos = new THREE.Vector3(), tagLook = new THREE.Vector3();
 const scrPos = new THREE.Vector3(), scrNormal = new THREE.Vector3(), endPos = new THREE.Vector3(), lookTgt = new THREE.Vector3();
 canvas.addEventListener('wheel', (e) => {
+  if (story && !storyBusy()) return;                                      // 捲動版:滾輪交給 story.mjs
   e.preventDefault();
   if (performance.now() < wheelLockUntil) return;                        // 剛從螢幕退出:忽略滾輪慣性
   zoomGoal = Math.max(0, Math.min(1, zoomGoal + e.deltaY * 0.0015));   // 和介紹頁同方向:往前滾 = 前進
@@ -828,10 +836,10 @@ function uiNav(dir) {
   if (dir > 0) { if (slide < SLIDE_COUNT - 1) setSlide(slide + 1); }
   else { if (slide > 0) setSlide(slide - 1); else hideUI(); }
 }
-ui.addEventListener('wheel', (e) => { e.preventDefault(); if (Math.abs(e.deltaY) < 6) return; uiNav(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+ui.addEventListener('wheel', (e) => { if (story) return; e.preventDefault(); if (Math.abs(e.deltaY) < 6) return; uiNav(e.deltaY > 0 ? 1 : -1); }, { passive: false });
 let touchY0 = null;
 ui.addEventListener('touchstart', (e) => { touchY0 = e.touches[0].clientY; }, { passive: true });
-ui.addEventListener('touchend', (e) => { if (touchY0 === null) return; const dy = touchY0 - e.changedTouches[0].clientY; touchY0 = null; if (Math.abs(dy) > 40) uiNav(dy > 0 ? 1 : -1); });
+ui.addEventListener('touchend', (e) => { if (story || touchY0 === null) return; const dy = touchY0 - e.changedTouches[0].clientY; touchY0 = null; if (Math.abs(dy) > 40) uiNav(dy > 0 ? 1 : -1); });
 // 底部控制列:‹ / › 等於滾輪往回 / 往前,中間鍵在房間 ↔ 螢幕之間切換
 // 在房間裡:點一下 = 像滾一格(前進 1/3),按住不放 = 持續慢慢靠近/退遠;在介紹頁:點一下翻一頁
 function holdButton(id, dir) {
@@ -840,7 +848,7 @@ function holdButton(id, dir) {
   el.addEventListener('pointerdown', (e) => {
     e.preventDefault(); el.setPointerCapture(e.pointerId);
     t0 = performance.now(); moved = false;
-    if (uiOn || gameOn) return;
+    if (uiOn || gameOn || (story && !storyBusy())) return;
     timer = setInterval(() => {
       if (performance.now() - t0 < 220) return;                     // 220ms 內放開算點一下
       moved = true; zoomGoal = Math.max(0, Math.min(1, zoomGoal + dir * 0.02));   // 每 30ms 一小步 ≈ 1.5 秒走完
@@ -849,6 +857,7 @@ function holdButton(id, dir) {
   const release = () => {
     if (timer) { clearInterval(timer); timer = null; }
     if (gameOn) { if (dir < 0) hideGame(); return; }
+    if (story && !storyBusy()) { story.goto(Math.round(story.target) + dir); return; }
     if (uiOn) { uiNav(dir); return; }
     if (!moved) zoomGoal = Math.max(0, Math.min(1, zoomGoal + dir * 0.34));
   };
@@ -861,8 +870,9 @@ document.getElementById('brand').onclick = (e) => {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
   e.preventDefault();
   if (gameOn) hideGame(); else if (uiOn) hideUI(); else { focusArcade = false; zoomGoal = 0; }
+  if (story) story.goto(0);
 };
-document.getElementById('mid').onclick = () => { if (gameOn) hideGame(); else if (uiOn) hideUI(); else { focusArcade = false; zoomGoal = zoomGoal >= 1 ? 0 : 1; } };
+document.getElementById('mid').onclick = () => { if (story && !storyBusy()) { story.goto(story.active ? 0 : 1); return; } if (gameOn) hideGame(); else if (uiOn) hideUI(); else { focusArcade = false; zoomGoal = zoomGoal >= 1 ? 0 : 1; } };
 window.addEventListener('keydown', (e) => {
   if (gameOn) { if (e.key === 'Escape') hideGame(); return; }
   if (arcadeMenu && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(); return; }
@@ -875,6 +885,7 @@ window.addEventListener('keydown', (e) => {
 const raycaster = new THREE.Raycaster(); const ndc = new THREE.Vector2(); let pd = null;
 canvas.addEventListener('pointerdown', (e) => { pd = { x: e.clientX, y: e.clientY }; });
 canvas.addEventListener('pointerup', (e) => {
+  if (story && story.active) { pd = null; return; }                       // 捲動版離開房間後,點畫面不做房間的事
   if (!pd || Math.hypot(e.clientX - pd.x, e.clientY - pd.y) > 6 || !screenMesh) { pd = null; return; }
   pd = null;
   ndc.set((e.clientX / canvas.clientWidth) * 2 - 1, -(e.clientY / canvas.clientHeight) * 2 + 1);
@@ -888,7 +899,7 @@ canvas.addEventListener('pointerup', (e) => {
       return;
     }
   }
-  if (raycaster.intersectObject(screenMesh).length) { focusArcade = false; zoomGoal = 1; }
+  if (raycaster.intersectObject(screenMesh).length) { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } }
   else if ((arcadeScreen && raycaster.intersectObject(arcadeScreen).length) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length)) { focusArcade = true; zoomGoal = 1; }
 });
 
@@ -1037,6 +1048,7 @@ function resize() {
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
   if (Math.abs(camera.aspect - lastAspect) > 0.01) { lastAspect = camera.aspect; fitCamera(camera.aspect); }
+  if (composer && (composer._w !== w || composer._h !== h)) { composer._w = w; composer._h = h; composer.setSize(w, h); fxGrade.uniforms.uRes.value.set(w, h); }
 }
 let frameNo = 0;
 function loop() {
@@ -1095,8 +1107,74 @@ function loop() {
   drawScreen(t);
   if (arcadeScreen && (frameNo++ % 2 === 0)) { drawArcadeScreen(t); arcadeScreenTex.needsUpdate = true; }   // 街機螢幕每 2 幀更新
   if (livePoster && (liveN++ % 2 === 1)) livePoster(t);                                                       // 會動的照片每 2 幀更新(和街機錯開)
-  updateZoom(dt);
-  renderer.render(scene, camera);
+  if (story && !focusArcade && zoomT === 0) {
+    if (!story.active) updateZoom(dt);                                    // 還在房間:照舊左右慢慢轉
+    story.update(dt, t); story.render();
+  } else { if (story) story.idle(); updateZoom(dt); if (composer) { fxGrade.uniforms.uTime.value = t; composer.render(dt); } else renderer.render(scene, camera); }
+}
+// 街機在用(飛過去 / 選單 / 遊戲中)時,捲動版不接滾輪
+const storyBusy = () => gameOn || (focusArcade && (zoomGoal > 0 || zoomT > 0));
+if (FX) {
+  const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { ShaderPass }] = await Promise.all([
+    import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/RenderPass.js'), import('three/addons/postprocessing/UnrealBloomPass.js'),
+    import('three/addons/postprocessing/OutputPass.js'), import('three/addons/postprocessing/ShaderPass.js')]);
+  // 背景:原本是網頁的紫色漸層透出來;開濾鏡後改畫在場景裡,暗角 / 調色才會一起套到
+  const bg = document.createElement('canvas'); bg.width = bg.height = 512;
+  { const g = bg.getContext('2d'), gr = g.createRadialGradient(256, 205, 0, 256, 205, 400); gr.addColorStop(0, '#3a2a66'); gr.addColorStop(0.45, '#2a1f4e'); gr.addColorStop(1, '#1d1538'); g.fillStyle = gr; g.fillRect(0, 0, 512, 512); }
+  const bgTex = new THREE.CanvasTexture(bg); bgTex.colorSpace = THREE.SRGBColorSpace; scene.background = bgTex;
+  const w = canvas.clientWidth, h = canvas.clientHeight, pr = renderer.getPixelRatio();
+  // ── 只讓「自己會發光」的東西暈開(霓虹、螢幕、窗戶燈、燈泡):另外畫一張只有發光物、其他全黑的圖去做光暈,再疊回去。
+  //    直接對整張畫面做光暈的話,被桌燈照得很亮的桌面也會暈成一片白
+  // 貓咪模型有一點金黃自發光(0.3)只是為了顏色,不算發光物;很亮的大螢幕(街機、電腦)暈開要弱一點
+  const glows = (m) => m && m.colorWrite !== false && (m.isMeshBasicMaterial || (m.emissive && m.emissiveIntensity >= 0.5 && m.emissive.getHex() !== 0));
+  const gainOf = (o) => (o === arcadeScreen ? 0.18 : o === screenMesh ? 0.3 : 1);
+  const black = new THREE.MeshBasicMaterial({ color: 0x000000 }), swapped = [], hidden = [], glowMats = new Map();
+  const glowMat = (m, g) => {          // 發光圖用的版本:只留自發光(表面被燈照亮的部分不算),再乘上強度
+    const key = m.uuid + g; let c = glowMats.get(key);
+    if (!c) { c = m.clone(); if (c.isMeshBasicMaterial) c.color.multiplyScalar(g); else { c.color.set(0x000000); c.emissiveIntensity *= g; } glowMats.set(key, c); }
+    return c;
+  };
+  const darken = () => scene.traverse((o) => {
+    if (!o.visible) return;
+    if (o.isMesh) { const m = Array.isArray(o.material) ? o.material[0] : o.material; swapped.push([o, o.material]); o.material = glows(m) ? glowMat(m, gainOf(o)) : black; }
+    else if (o.isLine || o.isPoints || o.isSprite) { hidden.push(o); o.visible = false; }
+  });
+  const restore = () => { for (const [o, m] of swapped) o.material = m; for (const o of hidden) o.visible = true; swapped.length = hidden.length = 0; };
+  const bloomComposer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, stencilBuffer: true }));
+  bloomComposer.renderToScreen = false; bloomComposer.setPixelRatio(pr * 0.5);   // 光暈本來就是糊的,用一半解析度算就好(手機省很多)
+  bloomComposer.addPass(new RenderPass(scene, camera));
+  bloomComposer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 1.15, 0.5, 0.18));   // 強度、範圍、門檻(發光物以外都是黑的,門檻可以很低)
+  const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true });   // 自己的 MSAA(走濾鏡就不會用到畫布的抗鋸齒)
+  composer = new EffectComposer(renderer, rt); composer._w = w; composer._h = h;
+  composer.addPass(new RenderPass(scene, camera));
+  // 環境遮蔽(GTAO)試過:這個場景在桌子下面會算出一塊黑色方塊,效果又不明顯,先不用
+  const mix = new ShaderPass({ uniforms: { tDiffuse: { value: null }, tBloom: { value: null } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform sampler2D tDiffuse, tBloom; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); gl_FragColor = vec4(c.rgb + texture2D(tBloom, vUv).rgb, c.a); }' });
+  mix.uniforms.tBloom.value = bloomComposer.renderTarget2.texture;   // 建立後再指定(render target 的貼圖不能被 cloneUniforms 複製)
+  mix.needsSwap = true; composer.addPass(mix);
+  composer.addPass(new OutputPass());                 // 色調映射(ACES)+ 轉 sRGB
+  fxGrade = new ShaderPass({                          // 調色(暗部偏紫、亮部偏暖、對比 / 飽和度一點點)+ 暗角 + 底片顆粒
+    uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(w, h) }, uVig: { value: 0.3 }, uGrain: { value: 0.035 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain; uniform vec2 uRes; varying vec2 vUv;
+      void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb; float l = dot(c, vec3(.299, .587, .114));
+        c *= mix(vec3(1.05, 1.02, .95), vec3(1.0, .97, 1.07), 1.0 - l);
+        c = (c - .5) * 1.06 + .5; c = mix(vec3(l), c, 1.08);
+        vec2 p = vUv - .5; p.x *= uRes.x / uRes.y; c *= mix(1.0 - uVig, 1.0, smoothstep(.95, .3, length(p)));
+        float n = fract(sin(dot(floor(vUv * uRes) + fract(uTime * 7.13) * 91.0, vec2(12.9898, 78.233))) * 43758.5453) - .5;
+        gl_FragColor = vec4(c + n * uGrain, 1.0); }` });
+  composer.addPass(fxGrade);
+  // 每格:先畫發光圖(背景也要黑),再畫正式的
+  const composerRender = composer.render.bind(composer), composerSize = composer.setSize.bind(composer);
+  composer.render = (dt) => { scene.background = null; darken(); renderer.setClearColor(0x000000, 1); bloomComposer.render(dt); restore(); renderer.setClearColor(0x000000, 0); scene.background = bgTex; composerRender(dt); };
+  composer.setSize = (W, H) => { composerSize(W, H); bloomComposer.setSize(W, H); };
+}
+if (STORY) {
+  const ln = document.createElement('link'); ln.rel = 'stylesheet'; ln.href = './story.css?v=2'; document.head.appendChild(ln);
+  const { initStory } = await import('./story.mjs?v=2');
+  story = initStory({ THREE, scene, camera, controls, renderer, canvas, desk: deskGroup, orbit: { pos: orbitPos, target: orbitTarget }, busy: storyBusy });
+  window.__story = story;
 }
 loop();
 // 等兩個模型都載好再收掉 loading(最多等 6 秒,網路慢就先進房間、模型稍後出現)

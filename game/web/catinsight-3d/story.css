@@ -1,0 +1,103 @@
+/* 捲動版(?story):手機螢幕上的 HTML、旁邊的大字、右邊的 K 棒進度 */
+.story-css { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+.story-css > div { pointer-events: none; }
+.story-top { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: none; }
+
+/* 手機螢幕(390 × 844 的 HTML,CSS3D 縮到手機上) */
+#screen-ui.phone-mode { position: relative; inset: auto; width: 390px; height: 844px; z-index: auto; opacity: 0; pointer-events: auto; touch-action: auto;
+  border-radius: 54px; overflow: hidden; color: #fff; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: radial-gradient(130% 60% at 50% 0%, #212a52 0%, #0d1122 55%, #090b14 100%); background-size: auto; transition: none; }
+#screen-ui.phone-mode .pbar { position: absolute; top: 0; left: 0; right: 0; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 6px 34px 0; font-size: 15px; z-index: 2; }
+#screen-ui.phone-mode .pbar i { font-style: normal; font-size: 11px; opacity: .8; letter-spacing: 1px; }
+#screen-ui.phone-mode .isl { position: absolute; left: 50%; top: 14px; width: 118px; height: 34px; margin-left: -59px; border-radius: 20px; background: #000; }
+#screen-ui.phone-mode .papp { position: absolute; inset: 70px 18px 34px; display: grid; place-items: center; transition: opacity .16s ease, transform .35s cubic-bezier(.2,.8,.2,1); }
+#screen-ui.phone-mode.swap .papp { opacity: 0; transform: translateY(16px) scale(.97); }
+#screen-ui.phone-mode .wgin { width: 100%; display: grid; place-items: center; }
+/* widget 改成手機尺寸 */
+#screen-ui.phone-mode .card { width: 100%; padding: 16px 14px; border-radius: 24px; }
+#screen-ui.phone-mode .row { grid-template-columns: 20px 1fr 64px 30px 46px; gap: 8px; height: 50px; font-size: 13px; }
+#screen-ui.phone-mode .picks .list { height: 270px; }
+#screen-ui.phone-mode .picks .row { height: 50px; }
+#screen-ui.phone-mode .gainers .row { grid-template-columns: 20px 1fr 76px 66px; }
+#screen-ui.phone-mode .gainers .ch .tabs span { padding: 5px 8px; }
+#screen-ui.phone-mode .chart canvas { height: 300px; }
+#screen-ui.phone-mode .news .head { font-size: 21px; }
+#screen-ui.phone-mode .news .sum { font-size: 15px; min-height: 170px; }
+#screen-ui.phone-mode .voice { grid-template-columns: 1fr; justify-items: center; }
+#screen-ui.phone-mode .voice .orb { grid-column: 1; grid-row: auto; width: 250px; height: 250px; }
+#screen-ui.phone-mode .voice .state { grid-column: 1; grid-row: auto; }
+#screen-ui.phone-mode .bubbles { grid-column: 1; grid-row: auto; width: 100%; }
+#screen-ui.phone-mode .phone { width: 100%; height: 640px; background: none; border: 0; box-shadow: none; padding: 0; }
+#screen-ui.phone-mode .phone .status { display: none; }
+#screen-ui.phone-mode .hero { height: 100%; }
+#screen-ui.phone-mode .hero > * { opacity: 1; transform: none; }
+#screen-ui.phone-mode .hero .bgc { opacity: .45; }
+#screen-ui.phone-mode .hero h2 { font-size: 34px; margin-bottom: 10px; }
+#screen-ui.phone-mode .hero p { font-size: 15px; padding: 0 12px; }
+#screen-ui.phone-mode .icon { width: 96px; height: 96px; margin-bottom: 22px; }
+#screen-ui.phone-mode .chip { font-size: 11px; }
+#screen-ui.phone-mode .dl .qr { padding: 26px; }
+
+/* 旁邊的大字 */
+.story-txt { position: fixed; inset: 0; z-index: 3; pointer-events: none; color: #fff; font-family: "Avenir Next", "SF Pro Display", "PingFang TC", system-ui, sans-serif; }
+.stx { position: absolute; top: 50%; transform: translateY(-50%); width: min(38vw, 540px); }
+.stx.side-l { left: 7vw; }
+.stx.side-r { right: 7vw; }
+.stx .num { position: absolute; left: -.06em; top: -.62em; z-index: -1; font-size: clamp(120px, 17vw, 260px); font-weight: 800; line-height: 1; letter-spacing: -.04em;
+  color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,.09); opacity: 0; transition: opacity .8s; }
+.stx .eb { font-size: 12px; letter-spacing: .32em; font-weight: 700; color: var(--c); margin-bottom: 20px; }
+.stx h2 { margin: 0 0 22px; font-size: clamp(40px, 5.2vw, 86px); line-height: .98; font-weight: 800; letter-spacing: -.025em; }
+.stx h2 .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .1em; margin-bottom: -.1em; }
+.stx h2 .w > span { display: inline-block; transform: translateY(110%); transition: transform .9s cubic-bezier(.16,1,.3,1); transition-delay: calc(var(--d) * 70ms); }
+.stx p { margin: 0; font-size: clamp(15px, 1.25vw, 19px); line-height: 1.6; opacity: .78; max-width: 30em; }
+.stx .zh { margin-top: 12px; font-size: 14px; opacity: .5; }
+.stx .store { display: inline-flex; margin-top: 26px; padding: 15px 28px; border-radius: 999px; background: #fff; color: #0b0e17; font-weight: 700; font-size: 17px; text-decoration: none; pointer-events: auto; }
+.stx .eb, .stx p, .stx .zh, .stx .store { opacity: 0; transform: translateY(16px); transition: opacity .7s, transform .9s cubic-bezier(.16,1,.3,1); }
+.stx.on h2 .w > span { transform: none; }
+.stx.on .num { opacity: 1; }
+.stx.on .eb { opacity: 1; transform: none; }
+.stx.on p { opacity: .78; transform: none; transition-delay: .18s; }
+.stx.on .zh { opacity: .5; transform: none; transition-delay: .26s; }
+.stx.on .store { opacity: 1; transform: none; transition-delay: .34s; }
+.stx:not(.on) h2 .w > span { transition-duration: .45s; transition-delay: 0s; }
+/* 開場:CatInsight / Stock 分在手機兩邊 */
+.stx.hero { inset: 0; top: 0; transform: none; width: auto; }
+.stx.hero h2 { position: absolute; top: 50%; margin: 0; transform: translateY(-62%); font-size: clamp(44px, 6.2vw, 120px); white-space: nowrap; }
+.stx.hero .hl { right: calc(50% + 19vh); text-align: right; }
+.stx.hero .hr { left: calc(50% + 19vh); color: #4be07a; }
+.stx.hero .tag { position: absolute; top: calc(50% + 3.6vw); right: calc(50% + 19vh); width: min(30vw, 420px); text-align: right; font-size: clamp(14px, 1.15vw, 18px); }
+.stx.hero .tag .zh { display: inline-block; margin-top: 8px; }
+.stx.hero .hint { position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); font-size: 11px; letter-spacing: .3em; text-transform: uppercase; opacity: 0; transition: opacity .6s .5s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.stx.hero .hint i { width: 1px; height: 34px; background: linear-gradient(#fff, transparent); animation: hintdrop 1.6s ease-in-out infinite; }
+@keyframes hintdrop { 0% { transform: scaleY(0); transform-origin: top; } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+.stx.hero.on .tag { opacity: .78; transform: none; transition-delay: .3s; }
+.stx.hero.on .hint { opacity: .6; }
+
+/* 右邊:每段一根小 K 棒 */
+.story-prog { position: fixed; right: 26px; top: 50%; transform: translateY(-50%); z-index: 4; display: flex; flex-direction: column; gap: 12px; opacity: 0; transition: opacity .5s; pointer-events: none; }
+body.story-on .story-prog { opacity: 1; pointer-events: auto; }
+.story-prog i { position: relative; width: 12px; height: 20px; cursor: pointer; }
+.story-prog i::before { content: ''; position: absolute; left: 5.5px; top: -3px; bottom: -3px; width: 1px; background: rgba(255,255,255,.28); }
+.story-prog i::after { content: ''; position: absolute; left: 2px; right: 2px; top: 4px; bottom: 4px; border-radius: 2px; background: rgba(255,255,255,.22); transition: all .35s cubic-bezier(.2,.8,.2,1); }
+.story-prog i.done::after { background: rgba(75,224,122,.6); }
+.story-prog i.on::after { top: -1px; bottom: -1px; left: 0; right: 0; background: var(--c); box-shadow: 0 0 14px var(--c); }
+body.story-on .cta a.ghost { opacity: 0; pointer-events: none; }
+
+/* 直式(手機):手機在下面,字在上面 */
+@media (max-aspect-ratio: 9/10) {
+  .stx, .stx.side-l, .stx.side-r { left: 7vw; right: 7vw; top: 10vh; transform: none; width: auto; text-align: center; }
+  .stx .num { display: none; }
+  .stx .eb { margin-bottom: 10px; }
+  .stx h2 { font-size: clamp(30px, 8.5vw, 46px); margin-bottom: 10px; }
+  .stx p { font-size: 14px; margin: 0 auto; }
+  .stx .zh { display: none; }
+  .stx .store { margin-top: 12px; padding: 12px 22px; font-size: 15px; }
+  .stx.hero { left: 0; right: 0; top: 0; }
+  .stx.hero h2 { position: static; transform: none; text-align: center; font-size: clamp(40px, 12vw, 64px); }
+  .stx.hero .hl { margin-top: 9vh; }
+  .stx.hero .tag { position: static; width: auto; text-align: center; padding: 10px 8vw 0; }
+  .stx.hero .hint { display: none; }
+  .story-prog { right: 10px; gap: 8px; }
+  .story-prog i { width: 8px; height: 14px; }
+  .story-prog i::before { left: 3.5px; }
+}
