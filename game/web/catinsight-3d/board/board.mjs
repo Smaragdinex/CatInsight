@@ -68,12 +68,14 @@ function fitCardFace(f) {
   while (f.scrollHeight > f.clientHeight + 1 && k > 0.62) { k -= 0.04; f.style.setProperty('--fit', k.toFixed(2)); }
 }
 function fitCards(ov) { ov.querySelectorAll('.dfront').forEach((f) => { fitCardFace(f); if (cardFitRO) cardFitRO.observe(f); }); }
-// 抽牌選定之後(市場事件、命運、禮物共用,電腦和手機同一套):選中的牌先滑到上面正中間放大,另外兩張縮小排到下面一排,
-// 移到定位(PICK_MOVE 秒)之後才翻開。位置用 FLIP 做:先量原本的位置,換成結果版面,再從原位置動畫到新位置
+// 抽牌選定之後(市場事件、命運、禮物共用):選中的牌先滑到正中間,另外兩張留在左右兩邊(依原本的順序),移到定位(PICK_MOVE 秒)才翻開。
+// 電腦版三張一樣大;手機版中間那張放大、兩邊縮小(見 style.css 的 .dcards.result)。位置用 FLIP 做:先量原本的位置,換版面,再從原位置動畫到新位置
 const PICK_MOVE = 0.45;
 function pickToCenter(ov, cards, i) {
   const first = cards.map((c) => c.getBoundingClientRect());
+  const sides = cards.filter((c, j) => j !== i);
   cards.forEach((c, j) => { c.style.animation = 'none'; c.classList.add(j === i ? 'picked' : 'lost'); });
+  sides[0].classList.add('side-l'); sides[1].classList.add('side-r');
   ov.querySelector('.dcards').classList.add('result'); fitCards(ov);
   flipCards(ov, first);
 }
