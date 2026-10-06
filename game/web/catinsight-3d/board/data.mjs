@@ -334,7 +334,7 @@ const PATH_FIXED = { jail: { 2: 'chance' }, ipo: { 2: 'chance' } };      // 固�
 const MARKET_DRIFT = 0.01;
 const DIV_STEP = 0.01, DIV_MAX = 0.08, DIV_MIN = 0.005, DIV_UP_PRICE = 1.04, DIV_CUT_PRICE = 0.92;   // 調高股利:每次 +1 個百分點、最多 8%、股價 +4%
 const LOT = 10, START_CASH = 10000, SALARY = 1000, FEE = 200, MAX_ROLLS = 20;
-const DIV_ROUND = 0.25;   // 股利每一回合配一次(每回合配年率的 1/4),不用等繞回起點;命運牌「特別股利」另外多配一次全額
+const DIV_ROUND = 0.25;   // 股利每一回合配一次(每回合配年率的 1/4),不用等繞回起點;命運牌「股利大放送」另外多配一次全額
 const REMOTE_PRICE = 300, CARD_PRICE = 500, ATK_PRICE = 600, ATK_DROP = 0.82, SPY_PRICE = 400, SPY_ROUNDS = 3, DICE3_PRICE = 350;
 const SALE_EVENTS = [0, 1, 2, 4, 6, 7, 8, 11, 12, 14, 16, 17, 20, 21, 61, 64, 65, 68, 69, 75, 104, 108, 112];    // 商店 / 禮物會出的事件卡(EVENTS 的編號,只有好消息類)
 const ITEM_IDS = ['remote', 'atk', 'spy', 'dice3'];                       // 道具;商店每次必有其中一樣
@@ -352,7 +352,7 @@ const FATE = [
   { id: 'jail', good: false, t: L('Insider trading probe', '涉嫌內線交易'), w: L(`Trading on information the public does not have is illegal. Rest ${JAIL_WAIT} rounds at the police station, or pay $${fmt(BAIL)} bail.`, `用還沒公開的消息買賣股票是違法的。到警察局休息 ${JAIL_WAIT} 回合,或付 $${fmt(BAIL)} 保釋金。`), fx: L('Go to the police station', '前往警察局') },
   { id: 'remote', good: true, t: L('Found a remote dice', '撿到遙控骰子'), w: L('A dice you can set. It is in your backpack.', '可以指定點數的骰子,放進背包了。'), fx: L('+1 Remote dice', '+1 遙控骰子') },
   { id: 'atk', good: true, t: L('A rumor to spread', '聽到一個八卦'), w: L('A bad-news card for your backpack. Use it on a rival.', '一張利空消息卡進背包,拿去打對手。'), fx: L('+1 Bad news card', '+1 利空消息卡') },
-  { id: 'divi', good: true, t: L('Special dividend', '特別股利'), w: L('All your holdings pay out once, right now.', '你所有持股立刻配息一次。'), fx: L('Dividends now', '立刻領一次股利') },
+  { id: 'divi', good: true, t: L('Dividend bonanza', '股利大放送'), w: L('All your holdings pay out once, right now.', '你所有持股立刻配息一次。'), fx: L('Dividends now', '立刻領一次股利') },
   { id: 'phone', good: false, t: L('Dropped your phone', '手機掉進水裡'), w: L('Life happens. Emergency fund matters.', '生活總有意外,所以要有緊急預備金。'), fx: L('−$300', '−$300') },
   { id: 'richest', good: true, t: L('The leader treats', '第一名請客'), w: L('The richest other player buys you dinner.', '最有錢的對手請你吃飯。'), fx: L('+$500 from the leader', '第一名給你 +$500') },
   { id: 'fine', good: false, t: L('Parking ticket', '違規停車罰單'), w: L('Small, annoying, unavoidable.', '小錢,但很煩。'), fx: L('−$500', '−$500') },

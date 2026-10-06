@@ -117,7 +117,7 @@ export function makeEngine(D, opts = {}) {
   }
 
   /* ───────── 配息、薪水、利息 ───────── */
-  // 殖利率是每局動態的(st.div,股利事件會改)。dividends:這位玩家持股的「全額」股利(命運牌「特別股利」)
+  // 殖利率是每局動態的(st.div,股利事件會改)。dividends:這位玩家持股的「全額」股利(命運牌「股利大放送」)
   const dividendsOf = (st, p) => KEYS.reduce((a, k) => a + p.hold[k].n * st.price[k] * st.div[k], 0);
   // 每回合配息:每位玩家領年率的 DIV_ROUND(四分之一),四捨五入。回傳有領到錢的 [{ p, div }](畫面拿去跳提示)
   function roundDividends(st) {
@@ -131,13 +131,13 @@ export function makeEngine(D, opts = {}) {
     return paid;
   }
   // 經過起點(atStart):領薪水(升職加薪時加倍,用掉就恢復),付融資利息和銀行貸款利息;
-  // 命運牌「特別股利」(!atStart):領全額股利。回傳各項金額給畫面顯示
+  // 命運牌「股利大放送」(!atStart):領全額股利。回傳各項金額給畫面顯示
   function payday(st, p, atStart) {
     const salary = atStart ? SALARY * (p.salary2 ? 2 : 1) : 0; if (atStart) p.salary2 = false;
     const div = atStart ? 0 : dividendsOf(st, p);
     const interest = atStart ? KEYS.reduce((a, k) => a + p.hold[k].loan * MARGIN_FEE, 0) : 0, bank = atStart ? p.debt * BANK_RATE : 0;
     p.cash += salary + div - (interest + bank);
-    if (!atStart) { p.lastDividend = div; p.divTotal = (p.divTotal || 0) + div; }   // 特別股利也算進成就(領到股利、股息大戶)
+    if (!atStart) { p.lastDividend = div; p.divTotal = (p.divTotal || 0) + div; }   // 股利大放送也算進成就(領到股利、股息大戶)
     return { salary, div, interest, bank };
   }
 

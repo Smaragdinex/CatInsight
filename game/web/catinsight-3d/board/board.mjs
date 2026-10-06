@@ -19,9 +19,9 @@ const ZH = (new URLSearchParams(location.search).get('lang') || savedLang || nav
 const L = (en, zh) => (ZH ? zh : en);
 
 /* ───────────── 資料 ───────────── */
-import { gameData } from './data.mjs?v=20';
-import { makeSim } from './sim.mjs?v=25';
-import { makeEngine } from './engine.mjs?v=13';
+import { gameData } from './data.mjs?v=21';
+import { makeSim } from './sim.mjs?v=26';
+import { makeEngine } from './engine.mjs?v=14';
 import { makeAiPlan } from './aiplan.mjs?v=2';
 const GD = gameData(L, fmt);      // 遊戲資料:畫面、遊戲引擎、電腦模擬都用同一份
 const { LANES, PATH_POOL, PATH_FIXED, MARKET_DRIFT, DIV_STEP, DIV_MAX, DIV_MIN, DIV_UP_PRICE, DIV_CUT_PRICE, SECTORS, KEYS, N, TILES, TILE_COLOR, NON_EQUITY, EV, EVENTS, ONES, BAIL, JAIL_WAIT, LANE_LEN, IPO_OFF, IPO_LOCK, IPO_FREE, BANK_MAX, BANK_RATE, LOT, START_CASH, SALARY, FEE, MAX_ROLLS, DIV_ROUND, FATE, MARGIN_LOAN, MAINT, MARGIN_FEE, SQUEEZE, buyF, sellF, shortF, SHORT_F, REMOTE_PRICE, CARD_PRICE, ATK_PRICE, ATK_DROP, SPY_PRICE, SPY_ROUNDS, DICE3_PRICE } = GD;
@@ -89,7 +89,7 @@ const aiAlg = () => AI_ALG[S.aiLevel] || 'ev';
 const SIM = makeSim(GD,
   { mc: { n: 120, depth: 3 } });
 // 模擬跑在 Web Worker(開不起來就在主執行緒算)。回傳 Promise,aiTurn / aiLand 用 await 等
-const AIW = (() => { try { const w = new Worker('./ai-worker.mjs?v=30', { type: 'module' }); w.onerror = () => { AIW_BAD = true; }; return w; } catch (e) { return null; } })();
+const AIW = (() => { try { const w = new Worker('./ai-worker.mjs?v=31', { type: 'module' }); w.onerror = () => { AIW_BAD = true; }; return w; } catch (e) { return null; } })();
 let AIW_BAD = false, aiwId = 0; const aiwWait = {};
 if (AIW) AIW.onmessage = (ev) => { const r = aiwWait[ev.data.id]; if (r) { delete aiwWait[ev.data.id]; r(ev.data.act); } };
 function simDecide(kind, st, i, k) {
@@ -1706,7 +1706,7 @@ function showDividends(paid) {
   if (S.players.some((p) => p.human && KEYS.some((k) => p.hold[k].n > 0))) sfx('coin');
   hud();
 }
-// 起點:薪水(升職加薪時加倍)、付融資和貸款利息;命運牌「特別股利」:全額股利。金額由引擎算,這裡負責音效和提示
+// 起點:薪水(升職加薪時加倍)、付融資和貸款利息;命運牌「股利大放送」:全額股利。金額由引擎算,這裡負責音效和提示
 function payday(atStart = true) { paydayUI(ENG.payday(S, S.players[S.hi], atStart), atStart); }
 // 發薪 / 股利的提示(金額已經由引擎算好、入帳)
 function paydayUI({ salary, div, interest, bank }, atStart) {
@@ -2101,7 +2101,7 @@ async function aiDiceChoice() {
 }
 // 小熊的回合。策略很單純,但都是看得懂的規則:
 //   賺超過 15% 就賣;價格比開盤低 5% 以上且現金夠就多買;否則留 $1,500 現金後買 10 股
-// 電腦經過起點 / 抽到特別股利:薪水(升職加薪時加倍)、股利、融資與貸款利息
+// 電腦經過起點 / 抽到股利大放送:薪水(升職加薪時加倍)、股利、融資與貸款利息
 function aiPayday(A, atStart) { ENG.payday(S, A, atStart); hud(); }
 async function aiTurn() {
   const A = S.ai, who = CHARS[S.foe].name;
