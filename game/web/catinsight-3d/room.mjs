@@ -361,7 +361,7 @@ function loadGLB(name, url, onLoad) {
   box(IN, 0.9, 0.09, DARK, { ...P, y: 1.82, z: 0.97, rx: -0.35, r: 0.03 });
   // 招牌(橘 + 發亮的燈箱):往前凸出到和側板上緣齊。底面要高過 y=2.24,鏡頭正對螢幕時才不會擋到螢幕最上面一排
   box(IN, 0.25, 1.3, C.arcadeTop, { ...P, y: ARCADE_H - 0.125, z: 0.65, r: 0.03 });
-  for (const sx of [-1, 1]) { const l = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.15, 0.03, 2, 0.012), new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: 0xffd76a, emissiveIntensity: 0.75, roughness: 0.6 }));
+  for (const sx of [-1, 1]) { const l = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.15, 0.03, 2, 0.012), new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: 0xffd76a, emissiveIntensity: 0.6, roughness: 0.6 }));   // 0.75 → 0.6:加了光暈之後太亮,調暗 20%
     l.position.set(sx * 0.28, ARCADE_H - 0.125, 1.305); m.add(l); }
 
   // 街機上方的漂浮標記:白色「▶ PLAY」牌子 + 橘色倒三角,會上下漂浮並永遠面向鏡頭;點它等於點街機
