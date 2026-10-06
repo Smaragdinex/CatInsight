@@ -2286,8 +2286,11 @@ const bestOf = () => { const l = loadRecords(); return { games: l.length, best: 
 // 全球排行榜:Cloudflare Worker + D1(程式在 repo 的 worker/)。本機測試(localhost)預設不送,網址加 ?lb=1 才送
 const LB_API = `${location.origin}/api/board`;   // 排行榜 Worker 掛在網頁同一個網域的 /api/board 底下
 const LB_ON = !/^(localhost|127\.|\[::1\])/.test(location.hostname) || new URLSearchParams(location.search).get('lb') === '1';
-let lbState = { status: 'idle', rank: null, top: null };      // status: idle | sending | ok | error
+let lbState = { status: 'idle', rank: null, top: null };      // status: idle | sending | ok | error | off | unranked
+// 全球榜只收 4 人局、困難難度(和 worker 的 RANKED 一致);其他局只存本機排行榜
+const lbEligible = (rec) => rec.n === 4 && S.aiLevel === 'hard';
 async function submitGlobal(rec) {
+  if (!lbEligible(rec)) { lbState = { ...lbState, status: 'unranked' }; return fetchGlobal(); }
   if (!LB_ON) { lbState = { ...lbState, status: 'off' }; return; }
   lbState = { ...lbState, status: 'sending', rank: null, top: null };
   try {
@@ -2299,20 +2302,20 @@ async function submitGlobal(rec) {
   const box = document.getElementById('lbGlobal'); if (box) { box.innerHTML = globalBox(); paintPortraits(box); }
 }
 async function fetchGlobal() {
-  try { const r = await fetch(`${LB_API}/top?limit=20`); const d = await r.json(); lbState.top = d.top; if (lbState.status !== 'ok' && lbState.status !== 'off') lbState.status = 'ok'; } catch (e) { lbState.status = 'error'; }
+  try { const r = await fetch(`${LB_API}/top?limit=20`); const d = await r.json(); lbState.top = d.top; if (!['ok', 'off', 'unranked'].includes(lbState.status)) lbState.status = 'ok'; } catch (e) { if (lbState.status !== 'unranked') lbState.status = 'error'; }
   const box = document.getElementById('lbGlobal'); if (box) { box.innerHTML = globalBox(); paintPortraits(box); }
 }
 function globalBox() {
   const st = lbState, when = (t) => new Date(t * 1000).toISOString().slice(5, 10);
   const head = `<h4><img class="emo" src="ico-globe.webp?v=1" alt=""> ${L('Global leaderboard', '全球排行榜')}</h4>`;
-  if (st.status === 'sending' || ((st.status === 'idle' || st.status === 'off') && !st.top)) return `${head}<p>${L('Loading…', '載入中…')}</p>`;
+  if (st.status === 'sending' || ((st.status === 'idle' || st.status === 'off' || st.status === 'unranked') && !st.top)) return `${head}<p>${L('Loading…', '載入中…')}</p>`;
   if (st.status === 'error' && !st.top) return `${head}<p>${L('Could not reach the leaderboard. Check your connection.', '連不上排行榜,請檢查網路。')}</p>`;
   const rows = (st.top || []).map((r, i) => `<div class="rrow ${st.rank === i + 1 && st.mine && r.assets === st.mine.assets && r.name === st.mine.name ? 'me' : ''}">
       <span class="rk">${rankMark(i)}</span><span class="ic mini" data-char="${r.char}"></span>
-      <div class="c"><b>${r.name} · $${fmt(r.assets)}</b><small>${r.rounds}${L(' rd', ' 回合')} · ${r.players}${L('p', ' 人')} · ${{ easy: L('easy', '簡單'), normal: L('normal', '一般'), hard: L('hard', '兇狠') }[r.ai] || r.ai} · ${when(r.created_at)}</small></div></div>`).join('');
-  return `${head}<p>${st.rank ? L(`This game ranks #${st.rank} worldwide`, `這一局在全球排第 ${st.rank} 名`) : st.status === 'off' ? L('Local test: score not sent.', '本機測試,成績不上傳。') : L('Top 20 players worldwide', '全球前 20 名')}</p>
+      <div class="c"><b>${r.name} · $${fmt(r.assets)}</b><small>${r.rounds}${L(' rd', ' 回合')} · ${when(r.created_at)}</small></div></div>`).join('');
+  return `${head}<p>${st.rank ? L(`This game ranks #${st.rank} worldwide`, `這一局在全球排第 ${st.rank} 名`) : st.status === 'unranked' ? L('Only 4-player games on Hard make the global board, so this game was not sent.', '全球排行榜只收 4 人局、兇狠難度(最難)的成績,這一局不上傳。') : st.status === 'off' ? L('Local test: score not sent.', '本機測試,成績不上傳。') : L('Top 20 players worldwide', '全球前 20 名')}</p>
     ${rows || `<p>${L('No scores yet. Be the first!', '還沒有人上榜,來當第一個!')}</p>`}
-    <small class="note2">${L('Top 20 by total assets across all players.', '所有玩家依總資產排前 20 名。')}</small>`;
+    <small class="note2">${L('4-player games on Hard only, top 20 by total assets.', '只收 4 人局、兇狠難度,依總資產排前 20 名。')}</small>`;
 }
 // 排行榜面板:本機 / 全球 兩個分頁
 function leaderboardPanel(myRec) {

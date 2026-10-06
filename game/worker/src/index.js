@@ -1,11 +1,13 @@
 // 貓咪股市大富翁 全球排行榜
 //   GET  /api/board/top?limit=10        前 N 名
 //   POST /api/board/submit  {name,char,assets,rounds,players,ai,lang}   回傳 {rank, top}
+// 全球榜只收「4 人局 + 困難難度」:其他局送來會回 403;舊資料庫裡其他局的紀錄保留,但排名和列表都不算
 // 遊戲規則都在前端,所以分數是可以偽造的;這裡只做合理性檢查 + 每個 IP 的頻率限制,擋掉亂送的。
 const CHARS = new Set(['cat', 'bunny', 'bear', 'dog', 'penguin', 'guinea', 'fox', 'pony']);
 const AI = new Set(['easy', 'normal', 'hard']);
 const MAX_ASSETS = 300000;        // 20~40 回合、起始 $10,000,正常玩不可能超過這個數
 const MAX_PER_HOUR = 12;          // 同一個 IP 一小時最多送幾筆
+const RANKED = 'players = 4 AND ai = \'hard\'';   // 上榜條件(SQL);改這裡和前端 board.mjs 的 lbEligible
 
 // 正式站是同網域不需要 CORS;開放 localhost 是為了本機測試(網址加 ?lb=1)
 const corsHeaders = (req) => { const o = req.headers.get('origin') || ''; return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o) || o === `https://${new URL(req.url).host}` ? { 'access-control-allow-origin': o, 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'vary': 'origin' } : {}; };
@@ -18,7 +20,7 @@ async function sha256(s) {
 const clean = (s, max) => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
 
 async function top(env, limit) {
-  const { results } = await env.DB.prepare('SELECT name, char, assets, rounds, players, ai, created_at FROM records ORDER BY assets DESC, created_at ASC LIMIT ?').bind(limit).all();
+  const { results } = await env.DB.prepare(`SELECT name, char, assets, rounds, players, ai, created_at FROM records WHERE ${RANKED} ORDER BY assets DESC, created_at ASC LIMIT ?`).bind(limit).all();
   return results;
 }
 
@@ -79,12 +81,13 @@ export default {
       if (!CHARS.has(char) || !AI.has(ai)) return json({ error: 'char/ai' }, 400, cors);
       if (!Number.isFinite(assets) || assets < 0 || assets > MAX_ASSETS) return json({ error: 'assets' }, 400, cors);
       if (![20, 25, 30, 35, 40].includes(rounds) || players < 2 || players > 4) return json({ error: 'rounds/players' }, 400, cors);
+      if (players !== 4 || ai !== 'hard') return json({ error: 'not ranked: only 4-player hard games' }, 403, cors);
       const ip = req.headers.get('cf-connecting-ip') || '0', ipHash = await sha256(ip + (env.SALT || 'catstreet')), now = Math.floor(Date.now() / 1000);
       const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM records WHERE ip_hash = ? AND created_at > ?').bind(ipHash, now - 3600).first('n');
       if (recent >= MAX_PER_HOUR) return json({ error: 'too many' }, 429, cors);
       await env.DB.prepare('INSERT INTO records (name, char, assets, rounds, players, ai, lang, ip_hash, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
         .bind(name, char, assets, rounds, players, ai, lang, ipHash, now).run();
-      const rank = 1 + (await env.DB.prepare('SELECT COUNT(*) AS n FROM records WHERE assets > ?').bind(assets).first('n'));
+      const rank = 1 + (await env.DB.prepare(`SELECT COUNT(*) AS n FROM records WHERE ${RANKED} AND assets > ?`).bind(assets).first('n'));
       return json({ rank, top: await top(env, 20) }, 200, cors);
     }
     return json({ error: 'not found' }, 404);
