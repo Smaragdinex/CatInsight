@@ -1,0 +1,84 @@
+{
+  "evaluatedAt": "2026-10-06T14:10:22",
+  "model": "action_classifier_xgb.joblib",
+  "label": "Buy = 隔日報酬 >= 1.5%(和訓練相同)",
+  "trainEnd": "2024-06-07",
+  "testStart": "2024-07-10",
+  "modelFileDate": "2026-06-09",
+  "storedAtTraining": {
+    "accuracy": 0.821175,
+    "buyRecall": 0.0335998499378649,
+    "buyPrecision": 0.399721059972106,
+    "testRows": 242517
+  },
+  "results": [
+    {
+      "period": "A_original_test",
+      "from": "2024-07-10",
+      "to": "2026-06-08",
+      "rows": 288211,
+      "symbols": 602,
+      "buyRate": 0.1905,
+      "accuracy": 0.8048,
+      "allNotBuyAccuracy": 0.8095,
+      "buyRecall": 0.0392,
+      "buyPrecision": 0.3808,
+      "buyPrecisionLift": 2.0,
+      "predictedBuyShare": 0.0196,
+      "auc": 0.6371,
+      "top10pctBuyRate": 0.3252,
+      "top10pctLift": 1.71,
+      "confusionMatrix": {
+        "labels": [
+          "Buy",
+          "NotBuy"
+        ],
+        "rowsAreActual": true,
+        "matrix": [
+          [
+            2150,
+            52760
+          ],
+          [
+            3496,
+            229805
+          ]
+        ]
+      }
+    },
+    {
+      "period": "B_after_model_built",
+      "from": "2026-06-09",
+      "to": "2026-10-01",
+      "rows": 47598,
+      "symbols": 597,
+      "buyRate": 0.2138,
+      "accuracy": 0.7862,
+      "allNotBuyAccuracy": 0.7862,
+      "buyRecall": 0.0,
+      "buyPrecision": 0.0,
+      "buyPrecisionLift": 0.0,
+      "predictedBuyShare": 0.0,
+      "auc": 0.6512,
+      "top10pctBuyRate": 0.3629,
+      "top10pctLift": 1.7,
+      "confusionMatrix": {
+        "labels": [
+          "Buy",
+          "NotBuy"
+        ],
+        "rowsAreActual": true,
+        "matrix": [
+          [
+            0,
+            10176
+          ],
+          [
+            0,
+            37422
+          ]
+        ]
+      }
+    }
+  ]
+}
