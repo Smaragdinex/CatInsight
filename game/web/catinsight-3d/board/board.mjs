@@ -988,40 +988,10 @@ function loadModel(url, height) {
     const wrap = new THREE.Group(); wrap.add(m); wrap.userData.walk = gltf.animations.find((a) => a.name === 'Walk') || null; res(wrap);
   }, undefined, rej)));
 }
-// 有骨架、有走路動畫的角色(Kitty骨架/rig8.py 做的):每一份各自一個 mixer。
-// 不改移動的程式:每格看棋子在地上(水平)有沒有在動,有就走路,停下來時把這一步走完、停在站好的姿勢
-// (走路動畫的第 0 格和半格都是兩腳併攏站好、手放下;靜止姿勢本身是 T 字,所以不能直接停掉動畫)
-const walkers = [];
-function standingCopy(tpl) {      // 不會動的一份(頭像用):擺成走路第 0 格的站姿
+// 有骨架的角色(Kitty骨架/rig8.py 做的):靜止姿勢是 T 字,所以擺成走路動畫第 0 格的站姿(兩腳併攏、手放下),不播動畫
+function standingCopy(tpl) {
   if (!tpl.userData.walk) return tpl.clone(true);
   const inst = SkeletonUtils.clone(tpl), mx = new THREE.AnimationMixer(inst); mx.clipAction(tpl.userData.walk).play(); mx.update(0); return inst;
-}
-function makeInstance(tpl) {
-  if (!tpl.userData.walk) return tpl.clone(true);
-  const inst = SkeletonUtils.clone(tpl), mixer = new THREE.AnimationMixer(inst), action = mixer.clipAction(tpl.userData.walk);
-  action.play(); action.paused = true; action.time = 0; mixer.update(0);
-  walkers.push({ inst, mixer, action, last: null, moving: 0 });
-  return inst;
-}
-const _wp = new THREE.Vector3();
-function walkStep(dt) {
-  for (let i = walkers.length - 1; i >= 0; i--) {
-    const w = walkers[i];
-    let o = w.inst; while (o.parent) o = o.parent;
-    if (o !== scene) { if (!w.inst.parent) walkers.splice(i, 1); continue; }   // 被換掉的就丟掉;暫時沒掛在場景上的先跳過
-    w.inst.getWorldPosition(_wp);
-    const v = w.last && dt > 0 ? Math.hypot(_wp.x - w.last.x, _wp.z - w.last.z) / dt : 0; (w.last ||= new THREE.Vector3()).copy(_wp);
-    w.moving = v > 0.4 ? 0.15 : Math.max(0, w.moving - dt);               // 停下來 0.15 秒內還算在走(格子之間的停頓不要一頓一頓)
-    const dur = w.action.getClip().duration, half = dur / 2;
-    if (w.moving > 0) { w.action.paused = false; w.action.timeScale = 1.8; }
-    else if (!w.action.paused) {                                                 // 把這一步走完:跨過第 0 格或半格就停
-      const t0 = w.action.time; w.mixer.update(dt);
-      const t1 = w.action.time, crossed = (a, b, x) => (a <= x && b >= x) || (b < a && (a <= x || b >= x));
-      if (crossed(t0, t1, half) || crossed(t0, t1, dur) || t1 < t0) { w.action.time = crossed(t0, t1, half) && t1 >= t0 ? half : 0; w.action.paused = true; w.mixer.update(0); }
-      continue;
-    }
-    w.mixer.update(dt);
-  }
 }
 // 先放幾何佔位,模型到了再換
 function loadPiece(url, height, placeholder, target = body) {
@@ -1029,7 +999,7 @@ function loadPiece(url, height, placeholder, target = body) {
   const token = (target.userData.token = (target.userData.token || 0) + 1);   // 之後又換角色的話,舊的載入結果就丟掉
   loadModel(url, height).then((tpl) => {
     if (target.userData.token !== token) return;
-    target.remove(target.getObjectByName('ph')); target.add(makeInstance(tpl));
+    target.remove(target.getObjectByName('ph')); target.add(standingCopy(tpl));
   }).catch((e) => console.warn(`[board] ${url} 載入失敗,維持幾何佔位`, e));
 }
 body.rotation.y = Math.PI / 4;
@@ -1396,7 +1366,7 @@ const wait = (dur) => tween(dur, () => {});
 const ease = (k) => 1 - Math.pow(1 - k, 3);
 let skipRender = false;
 function step(dt) {
-  T += dt; walkStep(dt);
+  T += dt;
   windStep(); rippleStep(dt);
   for (let i = tweens.length - 1; i >= 0; i--) {
     const a = tweens[i], k = Math.min(1, (T - a.t0) / a.dur);
@@ -2729,4 +2699,4 @@ function clientInit() {
 
 resize(); if (CLIENT) clientInit(); else start();
 requestAnimationFrame(loop);
-window.__game = { get S() { return S; }, walkers, SIM, AP, aiTurn, aiLand, instantiate, toast, achvPop, badNews, flushNotices, aiCtx, nameOf, simSnapshot, playEvent, laneTiles, drawLanes, roundDividends, payday, aiPayday, drawEventCards, drawFateCards, drawGiftCards, shopPanel, buyPanel, marginCheck, acctRatio, finish, checkMissions, fitStage, stageMetrics, cam, stage, slots, THREE, get stageFit() { return { stageLift, stageZoom, half: view.half, on: stageOn }; }, NET, netUiFlush, netHud, AU, EVENTS, FATE, applyEvent, applyFate, instantiate, turn, enterLane, tiles, dice, piece, bearPiece, PIECES, bagPanel, aiAssets, assetsOf, get CFG() { return CFG; }, view, TILES, slots, stageSelect };
+window.__game = { get S() { return S; }, SIM, AP, aiTurn, aiLand, instantiate, toast, achvPop, badNews, flushNotices, aiCtx, nameOf, simSnapshot, playEvent, laneTiles, drawLanes, roundDividends, payday, aiPayday, drawEventCards, drawFateCards, drawGiftCards, shopPanel, buyPanel, marginCheck, acctRatio, finish, checkMissions, fitStage, stageMetrics, cam, stage, slots, THREE, get stageFit() { return { stageLift, stageZoom, half: view.half, on: stageOn }; }, NET, netUiFlush, netHud, AU, EVENTS, FATE, applyEvent, applyFate, instantiate, turn, enterLane, tiles, dice, piece, bearPiece, PIECES, bagPanel, aiAssets, assetsOf, get CFG() { return CFG; }, view, TILES, slots, stageSelect };
