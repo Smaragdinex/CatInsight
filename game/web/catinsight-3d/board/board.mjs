@@ -1031,7 +1031,7 @@ const stage = new THREE.Group(); stage.position.copy(STAGE); stage.visible = fal
   const petals = new THREE.InstancedMesh(new THREE.SphereGeometry(0.045, 8, 6), noLine(mat(0xffffff)), pts.length), leaves = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 8, 6), noLine(mat(0x86c96f)), pts.length), m4 = new THREE.Matrix4();
   pts.forEach(([x, z], i) => { petals.setMatrixAt(i, m4.makeTranslation(x, 0.07, z)); petals.setColorAt(i, cols[i % cols.length]); leaves.setMatrixAt(i, m4.makeScale(1, 0.5, 1).setPosition(x + 0.05, 0.05, z + 0.03)); });
   petals.instanceColor.needsUpdate = true; stage.add(petals, leaves);
-  [[-2.6, -1.4, 1.1], [-1.2, -2.8, 0.9], [2.4, -2.9, 1.0], [-3.2, 0.6, 0.8]].forEach(([x, z, sc]) => tree(x, z, sc, stage)); }
+  [[2.4, -2.9, 1.0], [-3.2, 0.6, 0.8]].forEach(([x, z, sc]) => tree(x, z, sc, stage)); }   // 只留畫面兩側的;起點格左右那兩棵會擋到棋盤,拿掉
 const FRONT = Math.PI / 4;          // 從舞台中心看向鏡頭的方向(世界座標的 +x+z)
 const slots = STAGE_KEYS.map((key, i) => {
   const top = 0.14;
