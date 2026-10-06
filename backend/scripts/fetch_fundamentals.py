@@ -103,6 +103,14 @@ def main() -> None:
         print(f"  {sym}...", end=" ", flush=True)
         records = fetch_symbol(sym)
         out = FUNDAMENTALS_DIR / f"{sym}.json"
+        if not records:   # 抓失敗(限流、下市)不要用空資料蓋掉舊檔
+            print("no data → kept existing file")
+            continue
+        # yfinance 只給最近 4~5 年 → 和舊檔合併,同一年度以新抓的為準
+        old = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
+        merged = {r["fy_end"]: r for r in old}
+        merged.update({r["fy_end"]: r for r in records})
+        records = [merged[k] for k in sorted(merged)]
         out.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"saved {len(records)} records → {out.name}")
 

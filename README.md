@@ -61,6 +61,7 @@ python3 scripts/train_ranker_xgb.py       # 訓練 AI 精選排名模型
 uvicorn main:app --port 8003
 ```
 
+- 排程:`scripts/daily_ranking.sh` 每天美股收盤後更新股價、重算排名;`scripts/weekly_fundamentals.sh` 每週更新財報、季報、年報和分析師評等
 - 股價歷史、財報快取、訓練好的模型檔都沒有放進 repo,用 `scripts/` 裡的腳本重新產生;`models/*.meta.json` 保留了每個模型的訓練設定和評估指標。
 - 大型語言模型用本機的 Ollama(預設 `gemma4:31b`),語音合成服務是 `tts_server.py`。
 

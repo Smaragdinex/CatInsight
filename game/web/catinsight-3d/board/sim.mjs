@@ -1,19 +1,21 @@
-import { makeEngine } from './engine.mjs?v=10';
+import { makeEngine } from './engine.mjs?v=11';
+import { makeAiPlan } from './aiplan.mjs?v=1';
 import { makePolicy, makeValue } from './nn.mjs?v=2';
 // 遊戲模擬器(純邏輯,不碰畫面)。兩個用途:
 //   1. board.mjs 裡的電腦對手用它做「蒙地卡羅模擬」:每個決策把後面幾回合隨機跑很多次,挑平均最好的那個動作
 //   2. Node 可以直接 import,讓三種電腦(規則 / 期望值 / 蒙地卡羅)互打幾百局,算勝率(tournament.mjs)
 // 規則照 board.mjs 搬過來:骰子、走格、起點薪水、每回合配息、融資維持率 130% 斷頭、放空軋空、事件卡、命運牌、
-// 警察局 / IPO 小路、商店、銀行。畫面才有的東西(動畫、任務成就、聊天)不在這裡;道具只保留利空卡(其他對模擬結果影響很小)。
+// 警察局 / IPO 小路、商店、銀行、道具。畫面才有的東西(動畫、任務成就、聊天)不在這裡。
+// 買賣以外的電腦決定(主攻股、商店、銀行、禮物、擲骰前用道具)和遊戲共用 aiplan.mjs。
 //
 // 三種電腦策略(policy):
-//   rule  規則式:固定規則(漲 15% 賣、便宜就買、永遠擲兩顆)
+//   rule  規則式:固定規則(漲 15% 賣、便宜就買;擲骰比較前方格子的分數)
 //   ev    期望值:擲骰用「前方每格的分數 × 機率」算期望值;買賣用「事件卡的平均漲跌 + 配息 − 風險」算每檔的期望報酬
 //   mc    蒙地卡羅:每個決策(擲幾顆、買賣多少)對每個候選動作模擬後面 D 回合 × N 次,取平均資產領先幅度最高的
 export function makeSim(D, opts = {}) {
   const opts_ = opts;   // mcTrade 裡的 opts 是候選動作清單,外層設定用這個名字
   const { MARKET_DRIFT = 0, DIV_STEP = 0.01, DIV_MAX = 0.08, DIV_MIN = 0.005, DIV_UP_PRICE = 1.04, DIV_CUT_PRICE = 0.92, SECTORS, KEYS, TILES, NON_EQUITY, EVENTS, ONES, FATE, LOT, START_CASH, SALARY, FEE, DIV_ROUND, BAIL, JAIL_WAIT, LANE_LEN, IPO_OFF,
-    BANK_MAX, BANK_RATE, MARGIN_LOAN, MAINT, MARGIN_FEE, SQUEEZE, buyF, sellF, shortF, ATK_DROP, ATK_PRICE } = D;
+    BANK_MAX, BANK_RATE, MARGIN_LOAN, MAINT, MARGIN_FEE, SQUEEZE, buyF, sellF, shortF, SPY_ROUNDS } = D;
   const EQ = KEYS.filter((k) => !NON_EQUITY.has(k));
   const DRIFT = opts.drift ?? MARKET_DRIFT, DRIFTS = (k) => k === 'etf' || !NON_EQUITY.has(k);
   // 自己的亂數(mulberry32):可以重設種子 → 蒙地卡羅比較不同動作時用「同一組未來」(common random numbers),雜訊小很多
@@ -22,7 +24,8 @@ export function makeSim(D, opts = {}) {
   const getSeed = () => seed, setSeed = (x) => { seed = x | 0; };
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
 
-  // 難度參數(和 board.mjs 的 AI_LEVELS 一樣):reserve 現金底線、lots 一次最多買幾手、greedy 融資機率、shortP 放空機率…
+  // 難度參數(遊戲也用這一份,board.mjs 的 AI_LEVELS = SIM.LEVELS):reserve 現金底線、lots 主攻股一次最多買幾手、greedy 融資機率、
+  // shortP 符合條件時放空的機率、atkP 買 / 用利空卡的機率、buyP 想買 / 想逛商店時真的動手的機率、memory 記得公開帳本幾回合
   const LEVELS = {
     easy:   { shortP: 0.15, atkP: 0.3, greedy: 0.1, reserve: 2500, shortAny: false, lots: 2, buyP: 0.6, memory: 2 },
     normal: { shortP: 0.35, atkP: 0.8, greedy: 0.3, reserve: 1500, shortAny: false, lots: 3, buyP: 1, memory: 5 },
@@ -33,7 +36,7 @@ export function makeSim(D, opts = {}) {
   const MC = Object.assign({ n: 120, depth: 3, score: 'lead', z: 1.5 }, opts.mc || {});
 
   /* ───────── 狀態 ───────── */
-  const mkPlayer = (i, alg = 'ev', level = 'normal') => ({ i, alg, lv: LEVELS[level] || LEVELS.normal, cash: START_CASH, debt: 0, pos: 0, lane: null, bag: [], salary2: false, plan: null,
+  const mkPlayer = (i, alg = 'ev', level = 'normal') => ({ i, alg, level: LEVELS[level] ? level : 'normal', lv: LEVELS[level] || LEVELS.normal, cash: START_CASH, debt: 0, pos: 0, lane: null, bag: [], salary2: false, plan: null, spy: null,
     hold: Object.fromEntries(KEYS.map((k) => [k, { n: 0, cost: 0, loan: 0, locked: 0, lockUntil: 0 }])), short: Object.fromEntries(KEYS.map((k) => [k, { n: 0, entry: 0 }])) });
   const newGame = (algs, maxRounds = 20, levels = []) => ({
     price: Object.fromEntries(KEYS.map((k) => [k, SECTORS[k].open])), trend: MARKET_DRIFT, div: Object.fromEntries(KEYS.map((k) => [k, SECTORS[k].div])), rolls: 0, maxRounds, turn: 0, after: null, over: false, lanePath: {}, pub: {},
@@ -50,6 +53,8 @@ export function makeSim(D, opts = {}) {
     hooks: { onLiquidate: (st, who, x) => note(st, who, x.k, true), onSqueeze: (st, who, x) => note(st, who, x.k, true) } });
   const { shortValue, assetsOf, acctRatio, marginCheck, impact, coverBack } = ENG;
   const fill = ENG.fill;
+  const AP = makeAiPlan(D, ENG);
+  const ctxOf = (st, p) => ({ lv: p.lv, level: p.level, rand, view: (q, k) => view(st, p, q, k) });   // 給 aiplan:這位電腦的難度、亂數、眼中的對手部位
   const others = (st, p) => st.players.filter((q) => q !== p);
   const leader = (st, p) => others(st, p).sort((a, b) => assetsOf(st, b) - assetsOf(st, a))[0];   // 名次畫面上看得到
 
@@ -65,6 +70,7 @@ export function makeSim(D, opts = {}) {
     book[k] = { n, sh, tn, tsh, at: st.rolls };
   }
   function view(st, A, q, k) {
+    if (A.spy && st.rolls < A.spy.until && A.spy.target === q.i) return { n: q.hold[k].n, sh: q.short[k].n };   // 偵查中:看真的
     if (!st.pub) return { n: q.hold[k].n, sh: q.short[k].n };
     const e = st.pub[q.i] && st.pub[q.i][k]; if (!e || st.rolls - e.at > (A.lv.memory ?? 99)) return { n: 0, sh: 0 };
     return { n: e.n, sh: e.sh };
@@ -127,7 +133,7 @@ export function makeSim(D, opts = {}) {
       if (!p.lane.at) return;                                   // 還在攤位 / 警察局裡
       const k = ENG.tileType(st, p, rand);
       if (k === '_chance') chance(st, p); else if (k === 'fate') applyFate(st, p, pick(FATE));
-      else if (k === '_gift') gift(p); else ENG.pathEffect(st, p, k);
+      else if (k === '_gift') gift(st, p); else ENG.pathEffect(st, p, k);
       return;
     }
     const t = TILES[p.pos];
@@ -136,34 +142,35 @@ export function makeSim(D, opts = {}) {
     else if (t === 'fate') applyFate(st, p, pick(FATE));
     else if (t === 'ipo') enterLane(st, p, 'ipo');
     else if (t === 'fee') ENG.payFee(st, p);
-    else if (t === 'gift') gift(p);
-    else if (t === 'shop') { if (p.cash >= ATK_PRICE + p.lv.reserve && rand() < p.lv.atkP * 0.5) ENG.buyItem(st, p, 'atk', ATK_PRICE); }
-    else if (t === 'bank') {
-      if (p.debt > 0 && p.cash >= p.debt + 4000) ENG.bank(st, p, -p.debt);
-      else if (p.cash < 1500 && p.debt + 2000 <= BANK_MAX) ENG.bank(st, p, Math.min(3000, BANK_MAX - p.debt));
-    }
+    else if (t === 'gift') gift(st, p);
+    else if (t === 'shop') { const id = AP.shopPick(st, p, AP.shopStock(rand), ctxOf(st, p)); if (id) ENG.buyItem(st, p, id, AP.itemPrice(id)); }
+    else if (t === 'bank') { const d = AP.bankMove(st, p, ctxOf(st, p)); if (d) ENG.bank(st, p, d); }
     marginCheck(st);
   }
-  const gift = (p) => { if (rand() < 0.25) p.bag.push('atk'); };
-  function useAtk(st, p) {
-    const T = leader(st, p); if (!T) return;
-    const vn = (x) => view(st, p, T, x).n, k = KEYS.filter((x) => vn(x) > 0).sort((x, y) => vn(y) * st.price[y] - vn(x) * st.price[x])[0];
-    if (!k) return;
-    p.bag.splice(p.bag.indexOf('atk'), 1); st.price[k] *= ATK_DROP; marginCheck(st);
+  const gift = (st, p) => { p.bag.push(AP.giftPick(AP.giftPicks(rand), ctxOf(st, p))); };
+  // 擲骰前用道具(和遊戲裡的電腦同一套決定,aiplan.mjs)。回傳這回合怎麼走:{ steps } 遙控骰子指定步數 / { nd: 3 } 三顆骰子 / {}
+  function useItems(st, p) {
+    const c = ctxOf(st, p);
+    const k = AP.atkTarget(st, p, c); if (k) { AP.take(p, 'atk'); ENG.badNews(st, p, k); }
+    const T = AP.spyTarget(st, p, c); if (T) { AP.take(p, 'spy'); p.spy = { target: T.i, until: st.rolls + SPY_ROUNDS }; }
+    const id = AP.cardToPlay(st, p); if (id) { AP.take(p, id); ENG.playCard(st, p, AP.evEvent(id), rand); }
+    if (AP.useDice3(st, p, c)) { AP.take(p, 'dice3'); return { nd: 3 }; }
+    const steps = AP.remoteSteps(st, p, c); if (steps) { AP.take(p, 'remote'); return { steps }; }
+    return {};
   }
 
   /* ───────── 一個人的回合 ───────── */
   // forced:蒙地卡羅指定這回合擲幾顆 { dice: 1|2 }(只對第一步有效,之後都交給 policy)
   function playTurn(st, p, forced = null) {
+    const use = forced ? {} : useItems(st, p);      // forced:蒙地卡羅已經在外面決定好這一步(道具也用過了)
     if (p.lane) {
       if (p.lane.type === 'jail' && p.lane.wait > 0) {
         if (p.cash >= BAIL + 2500) { ENG.bail(st, p); leaveLane(st, p); }   // 電腦:現金夠多就付保釋金
         else { ENG.rest(st, p); afterMove(st, p); return; }
       } else leaveLane(st, p);
     } else {
-      if (p.bag.includes('atk') && rand() < p.lv.atkP) useAtk(st, p);
-      const nd = forced && forced.dice ? forced.dice : decideDice(st, p);
-      walk(st, p, ENG.dice(nd === 1 ? 1 : 2, 0, rand).reduce((a, b) => a + b, 0));
+      const nd = use.nd || (forced && forced.dice ? forced.dice : use.steps ? 0 : decideDice(st, p));
+      walk(st, p, use.steps || ENG.dice(nd === 1 ? 1 : nd === 3 ? 3 : 2, 0, rand).reduce((a, b) => a + b, 0));
     }
     afterMove(st, p);
     land(st, p);
@@ -190,13 +197,7 @@ export function makeSim(D, opts = {}) {
   const playGame = (st) => run(st, Infinity);
 
   /* ───────── 策略:規則式 ───────── */
-  function focus(st, p) {
-    if (p.plan && (p.hold[p.plan.k].n > 0 || st.rolls - p.plan.since < 6)) return p.plan.k;
-    const score = (k) => { const sec = SECTORS[k], pr = st.price[k]; let v = (sec.open / pr - 1) * 10 + st.div[k] * 40;
-      if (p.hold[k].n) v += 2 + Math.min(3, p.hold[k].n / 10); if (NON_EQUITY.has(k)) v -= 1.5;
-      if (others(st, p).some((q) => view(st, p, q, k).sh > 0)) v += 1; return v + rand(); };
-    const k = KEYS.slice().sort((a, b) => score(b) - score(a))[0]; p.plan = { k, since: st.rolls }; return k;
-  }
+  const focus = (st, p) => AP.focus(st, p, ctxOf(st, p));        // 主攻股:和遊戲同一份(aiplan.mjs)
   function ruleTrade(st, p, k) {
     const h = p.hold[k], sh = p.short[k], price = st.price[k], sec = SECTORS[k], lv = p.lv, F = focus(st, p);
     const mine = Math.max(0, ...others(st, p).map((q) => view(st, p, q, k).n));
@@ -452,7 +453,7 @@ export function makeSim(D, opts = {}) {
     if (p.alg === 'nn' && NN) { const b = asSeen(st, p); return nnDice(b, b.players[p.i]); }
     if (p.alg === '_tree') return treePick(st, p, 'dice');
     if (p.alg === 'az' || p.alg === 'azb') { const b = asSeen(st, p); return azDice(b, b.players[p.i], p.alg); }
-    if (p.alg === 'mc') { const b = asSeen(st, p); return mcDice(b, b.players[p.i]); } return p.alg === 'ev' ? evDice(st, p) : 2; }
+    if (p.alg === 'mc') { const b = asSeen(st, p); return mcDice(b, b.players[p.i]); } return p.alg === 'ev' ? evDice(st, p) : AP.ruleDice(st, p, ctxOf(st, p)); }
   // opts.policies:實驗用的自訂策略 { 名字: (st, p, k, api) => 動作 },玩家的 alg 設成那個名字就會用它(tools/ 的分析腳本用)
   const POL = opts.policies || {};
   function decideTrade(st, p, k) { if (POL[p.alg]) return POL[p.alg](st, p, k, api);

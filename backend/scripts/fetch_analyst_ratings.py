@@ -112,6 +112,9 @@ def main(symbols: list[str]) -> None:
         print(f"[{i+1}/{len(symbols)}] {symbol} ...", end=" ", flush=True)
         rows = fetch_symbol(symbol)
         consensus = fetch_consensus(symbol)
+        if not rows and not consensus:   # 抓失敗(限流、下市)不要用空資料蓋掉舊檔
+            print("no data → kept existing file")
+            continue
 
         out = {
             "symbol": symbol,
@@ -139,7 +142,7 @@ if __name__ == "__main__":
         syms = sorted(
             p.stem.upper()
             for p in HISTORY_10Y_DIR.glob("*.json")
-            if p.stem.upper() not in SKIP_SYMBOLS
+            if p.stem.upper() not in SKIP_SYMBOLS and not p.stem.startswith("_")
         )
     print(f"Fetching analyst ratings for {len(syms)} symbols...")
     main(syms)

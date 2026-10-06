@@ -7,7 +7,7 @@
 //        info = { k, n, back, lost }。模擬器不用傳。
 export function makeEngine(D, opts = {}) {
   const { KEYS, SECTORS, buyF, sellF, shortF, MARGIN_LOAN, MAINT, SQUEEZE, SALARY, MARGIN_FEE, BANK_RATE, DIV_ROUND,
-    TILES, LANES, PATH_POOL, PATH_FIXED = {}, LANE_LEN, JAIL_WAIT, BAIL, FEE, IPO_OFF, IPO_LOCK, IPO_FREE, LOT, FATE,
+    TILES, LANES, PATH_POOL, PATH_FIXED = {}, LANE_LEN, JAIL_WAIT, BAIL, FEE, IPO_OFF, IPO_LOCK, IPO_FREE, LOT, FATE, ATK_DROP,
     NON_EQUITY, MARKET_DRIFT = 0, DIV_STEP = 0.01, DIV_MAX = 0.08, DIV_MIN = 0.005, DIV_UP_PRICE = 1.04, DIV_CUT_PRICE = 0.92 } = D;
   const EQ = KEYS.filter((k) => !NON_EQUITY.has(k));                                   // 股票類股(大盤 ETF = 它們的平均)
   const ONES = Object.fromEntries(KEYS.map((k) => [k, 1]));
@@ -146,6 +146,7 @@ export function makeEngine(D, opts = {}) {
   //   divUp:隨機挑 n 家有配息、但不是目前配最多的公司,殖利率 +1 個百分點、股價 +4%
   //   divCut:'top' 配最多的那家(同分隨機)/ 'any' 隨機一家,殖利率 −1 個百分點(最低 0.5%)、股價 −8%
   //   meme:場上被放空最多的那檔(沒人放空就隨機一檔股票)暴漲 50%,所有空單強迫回補
+  //   pick:{ pool, f } 從 pool(沒寫就是所有股票類股)隨機挑一家公司 ×f(併購、會計造假、庫藏股…);m 裡其他資產的漲跌照常
   // 回傳新的事件物件;divTo 記好「從幾 % 到幾 %」,牌面顯示和生效用同一組數字。標題由畫面自己加
   function instantiate(st, e, rand) {
     if (e.divUp || e.divCut) {
@@ -155,6 +156,11 @@ export function makeEngine(D, opts = {}) {
       const up = !!e.divUp, m = { ...ONES }; keys.forEach((k) => { m[k] = up ? DIV_UP_PRICE : DIV_CUT_PRICE; }); m.etf = EQ.reduce((a, x) => a + m[x], 0) / EQ.length;
       const divTo = Object.fromEntries(keys.map((k) => [k, [st.div[k], up ? Math.min(DIV_MAX, st.div[k] + DIV_STEP) : Math.max(DIV_MIN, st.div[k] - DIV_STEP)]]));
       return { ...e, m, divKeys: keys, divTo };
+    }
+    if (e.pick) {
+      const pool = e.pick.pool || EQ, k = pool[Math.floor(rand() * pool.length)], m = { ...e.m, [k]: e.m[k] * e.pick.f };
+      m.etf = EQ.reduce((a, x) => a + m[x], 0) / EQ.length;
+      return { ...e, m, pickKey: k };
     }
     if (!e.meme) return e;
     const tot = (k) => st.players.reduce((a, p) => a + p.short[k].n, 0);
@@ -269,7 +275,11 @@ export function makeEngine(D, opts = {}) {
   const bank = (st, p, d) => { p.cash += d; p.debt += d; };
   // 商店:買一樣道具
   const buyItem = (st, p, id, price) => { p.cash -= price; p.bag.push(id); };
+  // 利空消息卡:指定一檔立刻 ×ATK_DROP。是出牌的人自己的動作:造成斷頭算他的
+  function badNews(st, p, k) { st.price[k] *= ATK_DROP; withActor(st, p, () => marginCheck(st)); }
+  // 從背包打出事件卡:和市場事件同樣生效,但價格變動算出牌的人的(斷頭 / 軋空成就)
+  function playCard(st, p, e, rand) { const x = instantiate(st, e, rand); withActor(st, p, () => applyEvent(st, x)); return x; }
 
-  return { trendOf, dice, genLanePath, enterLane, advance, tileType, pathEffect, payFee, rest, bail, fate, ipoPick, ipoGrant, ipoBuy, lockedN, bank, buyItem,
+  return { trendOf, dice, genLanePath, enterLane, advance, tileType, pathEffect, payFee, rest, bail, fate, ipoPick, ipoGrant, ipoBuy, lockedN, bank, buyItem, badNews, playCard,
     withActor, instantiate, applyEvent, newRound, roundDividends, payday, dividendsOf, fill, shortValue, coverBack, assetsOf, acctRatio, ratioOf, marginCheck, impact, squeeze, buy, sell, short, cover, trade, SLIP };
 }

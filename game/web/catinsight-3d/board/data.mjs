@@ -180,6 +180,66 @@ const EVENTS = [
     {robot: 1.32, chip: 1.05, soft: 1.03, mat: 1.02 }),
   EV(L('Robot safety accident', '機器人工安意外'), L('A factory robot injures workers. Regulators order inspections and buyers pause orders.', '工廠機器人造成工安意外,政府要求全面檢查,客戶暫停下單。'),
     {robot: 0.78, chip: 0.98 }),
+  // ── 科技與產業政策 ──
+  EV(L('Big tech regulation bill passes', '大型科技監管法案通過'), L('New rules limit how platforms use data and treat sellers. Platforms, software and online shops take the hit; old-economy firms barely notice.', '新法規限制平台怎麼用個資、怎麼對待賣家。平台、軟體、電商承壓;傳統產業幾乎不受影響。'),
+    { ecom: 0.88, soft: 0.88, tech: 0.90, game: 0.95, staples: 1.02, util: 1.02 }),
+  EVT(-0.01, L('The AI bubble cools', 'AI 泡沫降溫'), L('Spending on AI stops growing as fast as the hype promised. The richest-valued growth stocks fall together: the mirror image of an AI server boom.', 'AI 投資的成長跟不上炒作的預期。估值最高的成長股一起回檔,和「AI 伺服器需求爆發」正好相反。'),
+    { chip: 0.82, robot: 0.85, soft: 0.86, space: 0.85, tech: 0.88, game: 0.95, bond: 1.03, gold: 1.02, staples: 1.02, util: 1.02 }),
+  EV(L('Data centers run short of power', '資料中心缺電'), L('AI data centers need more electricity than the grid can deliver. Chip and software growth slows; power producers of every kind gain.', 'AI 資料中心要的電比電網供得起的多。晶片和軟體的成長被卡住,各種發電業者受惠。'),
+    { chip: 0.92, tech: 0.94, soft: 0.94, util: 1.12, green: 1.10, oil: 1.08 }),
+  EV(L('Major cloud outage', '重大雲端服務中斷'), L('A cloud provider goes down for a day and thousands of apps, shops and banks stop working. Companies learn not to rely on a single provider.', '雲端業者當機一天,上千個 App、網店和銀行服務跟著停擺。企業學到不能把所有服務放在同一家。'),
+    { soft: 0.88, ecom: 0.90, fin: 0.95, game: 0.95, tech: 0.97 }),
+  EV(L('Global chip export ban', '全球晶片出口禁令'), L('Governments ban selling advanced chips abroad. Chip makers lose customers, and machines that need those chips get harder to build; defense gains a little.', '各國禁止出口先進晶片。晶片廠少了客戶,需要這些晶片的機器也更難生產;軍工小幅受惠。'),
+    { chip: 0.80, tech: 0.90, robot: 0.90, space: 0.95, def: 1.05 }),
+  EVT(0.01, L('Factories come home', '製造業回流'), L('Companies move production back home to make supply chains safer. Automation, materials and chips are needed for the new plants; long-haul shipping loses some routes.', '企業把工廠搬回國內,讓供應鏈更安全。新工廠需要自動化、原物料和晶片;長程航運少了一些航線。'),
+    { robot: 1.15, mat: 1.10, chip: 1.08, def: 1.02, trans: 0.97 }),
+  // ── 天災、能源、糧食 ──
+  EV(L('Shipping lane blocked', '海運航道封鎖'), L('A key canal or strait closes. Ships take the long way, so freight, oil and raw materials get pricier; online shops and travel pay the bill.', '重要運河或海峽被封鎖,船只能繞遠路。運費、油價和原物料變貴,電商、零售和旅遊付出代價。'),
+    { trans: 1.18, oil: 1.10, mat: 1.06, agri: 1.04, ecom: 0.92, disc: 0.92, staples: 0.97 }),
+  EV(L('Major natural disaster', '大型天然災害'), L('Insurers and banks pay for the damage and property values drop. Rebuilding later lifts building materials and utilities.', '保險和銀行要負擔損失,不動產價值下跌。之後的重建讓建材和公用事業受惠。'),
+    { fin: 0.90, reit: 0.88, disc: 0.96, mat: 1.10, util: 1.04 }),
+  EV(L('Extreme heat strains the grid', '極端高溫,電力吃緊'), L('Air conditioners run all day and power prices jump. Power producers gain; factories and chip fabs pay more for electricity.', '冷氣整天開,電價飆漲。發電業者受惠;工廠和晶片廠的電費成本上升。'),
+    { util: 1.10, green: 1.08, chip: 0.95, mat: 0.96, robot: 0.97, disc: 0.97 }),
+  EV(L('Food export ban', '糧食出口禁令'), L('A big grain exporter stops selling abroad. Farm prices jump; food makers, restaurants and shippers pay more.', '糧食出口大國禁止出口。農產品大漲,食品廠、餐飲和運輸的成本上升。'),
+    { agri: 1.25, staples: 0.93, disc: 0.94, trans: 0.97 }),
+  // ── 利率、信用、匯率 ──
+  EVT(0.01, L('Mortgage rates drop sharply', '房貸利率大降'), L('Cheaper home loans bring buyers back. Property and banks lend and sell more, and new homeowners buy furniture and appliances.', '房貸變便宜,買房的人回來了。不動產和銀行生意變好,新屋主也會買家具、家電。'),
+    { reit: 1.15, fin: 1.06, disc: 1.05, ecom: 1.04, mat: 1.04, bond: 1.03 }),
+  EV(L('Wave of layoffs', '企業裁員潮'), L('Big companies cut jobs to protect profits. People who fear for their jobs spend less; money moves to bonds and gold.', '大公司裁員保獲利。擔心丟工作的人少花錢,資金轉向債券和黃金。'),
+    { soft: 0.90, tech: 0.92, ecom: 0.92, disc: 0.93, bond: 1.04, gold: 1.04 }),
+  EV(L('A large company goes bankrupt', '大型企業倒閉'), L('A well-known company cannot pay its debts. Lenders lose money and investors start to doubt other borrowers too.', '一家知名企業還不出債務。借錢給它的人賠錢,投資人也開始懷疑其他借款人。'),
+    { fin: 0.90, bond: 0.96, gold: 1.06 }),
+  EV(L('Credit rating downgraded', '信用評等遭降級'), L('A rating agency says the government is a riskier borrower. Bond prices fall, banks holding them lose value, and gold gains.', '評等機構調降政府信用評等,代表借錢給它的風險變高。債券下跌、持有債券的銀行受傷,黃金受惠。'),
+    { bond: 0.92, fin: 0.94, gold: 1.06 }),
+  EVT(-0.01, L('A country defaults on its debt', '主權債務違約'), L('A government stops paying its bonds. Bond holders and banks take losses and money runs to gold. A government bond is only as safe as the government.', '一國政府停止償還國債。持有債券的人和銀行虧損,資金逃向黃金。國債只和發行的政府一樣安全。'),
+    { bond: 0.85, fin: 0.85, reit: 0.94, disc: 0.95, gold: 1.12 }),
+  EV(L('The dollar surges', '美元快速升值'), L('A strong dollar makes dollar-priced gold, oil and crops cost more for everyone else, so they fall; exporters earn less, but trips and imports abroad get cheaper.', '美元變強,用美元計價的黃金、石油、農產品對其他國家變貴,價格下跌;出口商少賺,但出國和進口變便宜。'),
+    { gold: 0.93, mat: 0.92, oil: 0.94, agri: 0.94, crypto: 0.92, tech: 0.96, chip: 0.96, disc: 1.03, staples: 1.03 }),
+  EV(L('The dollar slides', '美元快速貶值'), L('A weak dollar pushes up gold, raw materials and crypto priced in dollars. Imported goods cost more, so shops and food makers feel it.', '美元走弱,用美元計價的黃金、原物料、加密貨幣上漲;進口商品變貴,零售和食品業吃到成本。'),
+    { gold: 1.10, mat: 1.08, agri: 1.06, oil: 1.06, crypto: 1.12, staples: 0.97, ecom: 0.96 }),
+  EV(L('Bond yields spike', '債券殖利率暴升'), L('Bond prices fall and yields jump. Future profits are worth less today, so growth stocks and property drop; banks earn more on loans.', '債券價格大跌、殖利率暴升。未來的獲利換算成現在變得不值錢,成長股和不動產下跌;銀行放款賺得更多。'),
+    { bond: 0.88, reit: 0.88, space: 0.88, soft: 0.90, tech: 0.92, green: 0.92, util: 0.95, fin: 1.05 }),
+  EV(L('The yield curve inverts', '殖利率曲線倒掛'), L('Short-term rates rise above long-term ones, a classic recession warning. Cyclical stocks weaken; bonds and steady businesses hold up.', '短天期利率高過長天期,這是經典的衰退警訊。景氣循環股轉弱,債券和穩定的產業撐得住。'),
+    { fin: 0.92, mat: 0.94, trans: 0.94, disc: 0.95, bond: 1.05, staples: 1.03, util: 1.03, gold: 1.03, health: 1.02 }),
+  EVT(-0.02, L('Recession officially begins', '經濟正式進入衰退'), L('Two quarters of shrinking output. Spending, lending and shipping fall; gold, bonds and the things people buy anyway hold up.', '經濟連兩季萎縮。消費、放款、運輸一起下滑;黃金、債券和生活必需品相對抗跌。'),
+    { disc: 0.85, trans: 0.85, mat: 0.85, ecom: 0.88, fin: 0.88, oil: 0.88, robot: 0.90, chip: 0.90, tech: 0.92, gold: 1.08, bond: 1.06, staples: 1.03, util: 1.02, health: 1.02 }),
+  EVT(0.02, L('Recovery beats expectations', '經濟復甦超預期'), L('Growth comes back faster than anyone forecast. Almost everything tied to the business cycle rises; gold and bonds lose their appeal.', '經濟回溫的速度比所有人預測的都快。跟景氣有關的幾乎全部上漲,黃金和債券失去吸引力。'),
+    { disc: 1.12, trans: 1.12, fin: 1.10, mat: 1.10, ecom: 1.10, robot: 1.08, chip: 1.08, tech: 1.08, oil: 1.06, gold: 0.94, bond: 0.94 }),
+  // ── 單一公司事件(pick:抽到時才決定是哪一家;標題會加上公司名)──
+  Object.assign(EV(L('Big merger announced', '大型併購案宣布'), L('A rival offers to buy this company at well above its share price. Shareholders of the target win right away.', '有大公司開出比股價高很多的價格要收購這家公司,被收購公司的股東立刻賺到。'), {}),
+    { pick: { pool: ['tech', 'soft', 'chip', 'robot', 'bio', 'health', 'game', 'space'], f: 1.30 } }),
+  Object.assign(EV(L('A hit product sells out', '明星產品大賣'), L('One product sells far beyond forecasts and lifts the whole company. One hit can change a company\'s year.', '一項產品賣得遠超預期,帶動整家公司。一個爆款就能改變一家公司這一年。'), {}),
+    { pick: { pool: ['tech', 'game', 'staples', 'ecom', 'robot', 'green', 'health'], f: 1.25 } }),
+  Object.assign(EV(L('Product recall', '產品召回'), L('A defect forces a recall. Repairs, refunds and lost trust hit this company hard; its suppliers dip too.', '產品出現瑕疵必須召回。維修、退款和失去的信任讓這家公司重挫,上游供應商也小跌。'), { chip: 0.98, mat: 0.98 }),
+    { pick: { pool: ['tech', 'robot', 'green', 'staples', 'health', 'game'], f: 0.82 } }),
+  Object.assign(EV(L('Accounting fraud exposed', '會計造假被揭露'), L('The company faked its profits. Its shares crash and investors trust every other company\'s numbers a bit less. This is corporate governance risk.', '公司被發現假造獲利,股價崩跌,投資人對其他公司的財報也少了一點信任。這就是公司治理風險。'), { fin: 0.97 }),
+    { pick: { f: 0.70 } }),
+  Object.assign(EV(L('CEO resigns suddenly', 'CEO 突然辭職'), L('The boss leaves with no successor in place. Growth companies built around one leader are hit hardest.', '老闆突然離職,也沒有接班人。靠一個領導人撐起來的成長型公司最受傷。'), {}),
+    { pick: { pool: ['tech', 'soft', 'chip', 'robot', 'space', 'bio', 'green', 'game', 'ecom'], f: 0.88 } }),
+  Object.assign(EV(L('Share buyback announced', '公司宣布庫藏股'), L('The company spends its cash buying back its own shares. Fewer shares means each remaining share owns more of the profits.', '公司拿現金買回自己的股票。流通股數變少,剩下的每一股分到的獲利就變多。'), {}),
+    { pick: { pool: ['tech', 'soft', 'chip', 'fin', 'staples', 'oil', 'health', 'yield', 'def', 'ecom'], f: 1.10 } }),
+  Object.assign(EV(L('Big share issue', '公司大幅增資'), L('The company sells lots of new shares to raise money. Each existing share now owns a smaller slice: that is dilution.', '公司大量發行新股來籌錢。原本每一股分到的比例變小了,這就是股權稀釋。'), {}),
+    { pick: { f: 0.90 } }),
 ];
 // 牌組平衡:原本每檔資產在整副牌裡的漲跌不對稱(黃金平均每張 +3.5%、金融 −4.5%),玩越久越固定往一邊走,
 // 看懂牌組的人(或電腦)只要固定做多 / 放空就贏。這裡在載入時把每檔資產調成「整副牌的漲跌互相抵消」(幾何平均 = 1):
@@ -228,6 +288,8 @@ const DIV_STEP = 0.01, DIV_MAX = 0.08, DIV_MIN = 0.005, DIV_UP_PRICE = 1.04, DIV
 const LOT = 10, START_CASH = 10000, SALARY = 1000, FEE = 200, MAX_ROLLS = 20;
 const DIV_ROUND = 0.25;   // 股利每一回合配一次(每回合配年率的 1/4;股息格另外多配一次全額),不用等繞回起點
 const REMOTE_PRICE = 300, CARD_PRICE = 500, ATK_PRICE = 600, ATK_DROP = 0.82, SPY_PRICE = 400, SPY_ROUNDS = 3, DICE3_PRICE = 350;
+const SALE_EVENTS = [0, 1, 2, 4, 6, 7, 8, 11, 12, 14, 16, 17, 20, 21, 61, 64, 65, 68, 69, 75];    // 商店 / 禮物會出的事件卡(EVENTS 的編號,只有好消息類)
+const ITEM_IDS = ['remote', 'atk', 'spy', 'dice3'];                       // 道具;商店每次必有其中一樣
 const MARGIN_LOAN = 0.6, MAINT = 1.3, MARGIN_FEE = 0.02;
 const SQUEEZE = 1.3;
 const buyF = (n) => 1 + 0.004 * n, sellF = (n) => Math.max(0.85, 1 - 0.003 * n), shortF = (n) => Math.max(0.8, 1 - 0.005 * n), SHORT_F = shortF(LOT);   // 放空每股壓低 0.5%(最多 -20%)
@@ -248,5 +310,5 @@ const FATE = [
   { id: 'fine', good: false, t: L('Parking ticket', '違規停車罰單'), w: L('Small, annoying, unavoidable.', '小錢,但很煩。'), fx: L('−$500', '−$500') },
   { id: 'salary2', good: true, t: L('Promotion', '升職加薪'), w: L('Your next salary is doubled.', '下一次經過起點薪水加倍。'), fx: L('Next salary ×2', '下次薪水 ×2') },
 ];
-return { LANES, PATH_POOL, PATH_FIXED, MARKET_DRIFT, DIV_STEP, DIV_MAX, DIV_MIN, DIV_UP_PRICE, DIV_CUT_PRICE, SECTORS, KEYS, N, TILES, TILE_COLOR, NON_EQUITY, EV, EVENTS, ONES, BAIL, JAIL_WAIT, LANE_LEN, IPO_OFF, IPO_LOCK, IPO_FREE, BANK_MAX, BANK_RATE, LOT, START_CASH, SALARY, FEE, MAX_ROLLS, DIV_ROUND, FATE, MARGIN_LOAN, MAINT, MARGIN_FEE, SQUEEZE, buyF, sellF, shortF, SHORT_F, REMOTE_PRICE, CARD_PRICE, ATK_PRICE, ATK_DROP, SPY_PRICE, SPY_ROUNDS, DICE3_PRICE };
+return { LANES, PATH_POOL, PATH_FIXED, MARKET_DRIFT, DIV_STEP, DIV_MAX, DIV_MIN, DIV_UP_PRICE, DIV_CUT_PRICE, SECTORS, KEYS, N, TILES, TILE_COLOR, NON_EQUITY, EV, EVENTS, ONES, BAIL, JAIL_WAIT, LANE_LEN, IPO_OFF, IPO_LOCK, IPO_FREE, BANK_MAX, BANK_RATE, LOT, START_CASH, SALARY, FEE, MAX_ROLLS, DIV_ROUND, FATE, MARGIN_LOAN, MAINT, MARGIN_FEE, SQUEEZE, buyF, sellF, shortF, SHORT_F, REMOTE_PRICE, CARD_PRICE, ATK_PRICE, ATK_DROP, SPY_PRICE, SPY_ROUNDS, DICE3_PRICE, SALE_EVENTS, ITEM_IDS };
 }
