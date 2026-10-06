@@ -429,6 +429,7 @@ function resize() {
   applyFrustum();
 }
 addEventListener('resize', resize);
+addEventListener('resize', () => { if (lobbyPhase) lobbySeatsPaint(); });   // 螢幕比例改變(手機轉向、視窗縮放)時,等待房間的座位在一排 / 兩排之間切換
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0xffe9c9, 1.15));
 const sun = new THREE.DirectionalLight(0xfff2dd, 1.7);
@@ -488,8 +489,9 @@ function windStep() {
     w.crown.rotation.z = Math.sin(t) * a + Math.sin(t * 2.3 + 1) * a * 0.35;
     w.crown.rotation.x = Math.cos(t * 0.8 + 2) * a * 0.6; }
 }
+const STAGE_XZ = 11.6;      // 選角舞台 / 多人等待房間的中心(起點外側的空地,x = z = 11.6)
 function house(x, z, wall, roof, ry = 0) {
-  if (nearBldg(x, z, 2.2)) return;
+  if (nearBldg(x, z, 2.2) || Math.hypot(x - STAGE_XZ, z - STAGE_XZ) < 5) return;   // 舞台兩側不放房子,會擋到等待房間的座位
   const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
   box(1.5, 0.95, 1.2, wall, 0, 0.48, 0, 0.05, g);
   const r = new THREE.Mesh(new THREE.ConeGeometry(1.18, 0.62, 4), mat(roof)); r.position.y = 1.26; r.rotation.y = Math.PI / 4; r.scale.set(1, 1, 0.82); r.castShadow = true; g.add(r);
@@ -1018,7 +1020,7 @@ function setChar(target, key) {
 }
 // 選角舞台:在起點外側的空地。選到的角色站在正中間、最大;左右各露出一個「上一個 / 下一個」,比較小、退後一點;
 // 其他的收起來看不到。按左右(或直接點旁邊那個)時整排滑過去,像翻唱片封面。被選到的會跳一下、慢慢自轉
-const STAGE = new THREE.Vector3(11.6, 0, 11.6), STAGE_KEYS = Object.keys(CHARS);
+const STAGE = new THREE.Vector3(STAGE_XZ, 0, STAGE_XZ), STAGE_KEYS = Object.keys(CHARS);
 flowers(260, true);      // 外圈草地也撒花
 const stage = new THREE.Group(); stage.position.copy(STAGE); stage.visible = false; scene.add(stage);
 // 舞台周圍的花草和樹(掛在 stage 底下,選角結束一起隱藏)
@@ -1044,7 +1046,7 @@ let stageSel = 0, stageOn = false, stageCur = 0;
 // 線上同樂:手機玩家一加入,他選的角色就從轉盤拿掉、跳到轉盤前面一排(像大亂鬥),不用文字
 const joinedRow = new THREE.Group(); stage.add(joinedRow);
 // 第二步「人數格」:2~4 個位子排一排。位子 0 是主機自己,其餘等手機加入;空位是灰圈的底座
-let lobbyPhase = false;
+let lobbyPhase = false, lobbyHalfW = 3.6;   // lobbyHalfW:座位左右最外緣離中心多遠(世界單位),鏡頭拉近時左右要塞得下
 const lobbySeats = [0, 1, 2, 3].map(() => { const g = new THREE.Group(); g.visible = false; stage.add(g);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.68, 0.14, 40), mat(0xfff8ec)); base.position.y = 0.07; base.receiveShadow = true; base.castShadow = true; g.add(base);
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.76, 0.06, 40), mat(0xd9cbb6)); ring.position.y = 0.03; g.add(ring);
@@ -1057,7 +1059,13 @@ function seatSet(i, char) {
 }
 function lobbySeatsPaint() {
   const gs = NET.guests.filter((g) => g.online), n = Math.min(4, Math.max(CFG.n, 1 + gs.length)), R = Math.SQRT1_2;
-  lobbySeats.forEach((st, i) => { st.g.visible = lobbyPhase && i < n; const o = (i - (n - 1) / 2) * 1.9, fwd = 1.2; st.g.position.set(o * R + fwd * R, 0, -o * R + fwd * R); });
+  // 寬螢幕排一排;手機直向、iPad(4:3)這種不夠寬的排不下 4 個,3、4 人時改成兩排(2 × 2,3 人是上 2 下 1),主機在左上
+  const grid = innerWidth / innerHeight < 1.45 && n > 2;
+  lobbySeats.forEach((st, i) => { st.g.visible = lobbyPhase && i < n;
+    let o = (i - (n - 1) / 2) * 1.9, fwd = 1.2;
+    if (grid) { const row = i < 2 ? 0 : 1, inRow = row ? n - 2 : 2, col = row ? i - 2 : i; o = (col - (inRow - 1) / 2) * 1.6; fwd = row ? 2.3 : 0.2; }
+    st.g.position.set(o * R + fwd * R, 0, -o * R + fwd * R); });
+  lobbyHalfW = (grid ? (n === 4 || n === 3 ? 0.8 : 0) : (n - 1) / 2 * 1.9) + 1.2;   // 最外側座位的中心 + 底座半徑 + 一點邊距
   if (!lobbyPhase) return;
   seatSet(0, slots[stageSel].key);
   for (let i = 1; i < 4; i++) seatSet(i, gs[i - 1] ? gs[i - 1].char : null);
@@ -1104,12 +1112,17 @@ function stageMetrics() {
   const px = (y) => { _fv.y = y; const q = _fv.clone().project(cam); return (1 - q.y) / 2 * innerHeight; };
   let foot = px(y0 - 0.15);
   if (joined.length) { joined[0].g.getWorldPosition(_fv); foot = Math.max(foot, px(_fv.y - 0.1)); sl.g.getWorldPosition(_fv); }
+  if (lobbyPhase) { for (const s of lobbySeats) if (s.g.visible) { s.g.getWorldPosition(_fv); foot = Math.max(foot, px(_fv.y - 0.15)); } sl.g.getWorldPosition(_fv); }   // 手機兩排:最前排的底座不能被下面的按鈕擋到
   const head = px(y0 + sl.top + 1.45 * sl.holder.scale.y), unit = px(y0) - px(y0 + 1);   // 世界往上 1 單位 = 畫面往上幾 px
   return { head, foot, unit, cardBottom: card.bottom, barTop: bar.top };
 }
 function fitStage(dt) {
   const { head, foot, unit, cardBottom, barTop } = stageMetrics();
   if (!(unit > 0)) return;
+  // 等待房間的鏡頭以「左右剛好塞得下所有座位」為準:手機兩排時可以拉得比預設更近(座位才不會太小),一排太寬時自動拉遠;
+  // 換螢幕比例時,超過的部分馬上退回
+  const zMin = lobbyPhase ? lobbyHalfW / view.aspect - view.stageHalf : 0;
+  if (stageZoom < zMin) stageZoom = zMin;
   const needDown = (cardBottom + 12) - head, room = (barTop - 10) - foot, k = Math.min(1, dt * 5);
   if (needDown > 0) {
     const lift = Math.min(needDown, Math.max(0, room));          // 先把能用的空間用掉(整體往下移)
@@ -1121,7 +1134,7 @@ function fitStage(dt) {
     }
   } else if (needDown < -16) {   // 空間很多:設定卡放回原大小、鏡頭拉回來、場景移回去
     if (cardZoom < 1) { cardZoom = Math.min(1, cardZoom + 0.25 * k); document.documentElement.style.setProperty('--cardZoom', cardZoom.toFixed(3)); }
-    else if (stageZoom > 0) stageZoom = Math.max(0, stageZoom - 0.15 * k); else stageLift = Math.max(0, stageLift + needDown / unit * k * 0.5);
+    else if (stageZoom > zMin) stageZoom = Math.max(zMin, stageZoom - 0.15 * k); else stageLift = Math.max(0, stageLift + needDown / unit * k * 0.5);
   }
 }                 // stageCur:目前滑到第幾個(小數),慢慢追上 stageSel
 let pickWho = 0;                                              // 現在是第幾位真人在選(0 或 1)
