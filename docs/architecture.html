@@ -256,7 +256,7 @@ td.r, th.r { text-align: right; }
         <dt>3D 房間</dt><dd>Three.js 0.174:等軸測風格的房間(透視相機)、模板緩衝區做窗外 2.5D 夜景、RectAreaLight、會眨眼的 canvas 動態海報</dd>
         <dt>大富翁</dt><dd>Three.js 卡通渲染(三階 Toon 材質 + 描邊)、Draco 壓縮的 glTF 角色、Web Audio 即時合成音效,背景音樂和環境音用音檔</dd>
         <dt>電腦對手</dt><dd>普通和困難的決策在 Web Worker 裡跑,畫面不卡(超過 6 秒改由主執行緒計算);簡單電腦的規則很輕,直接在主執行緒跑</dd>
-        <dt>排行榜</dt><dd>Cloudflare Workers + D1(SQLite),同一 IP 每小時最多送出 12 次</dd>
+        <dt>排行榜</dt><dd>Cloudflare Workers + D1(SQLite),只收 4 人局、困難難度的成績(伺服器端也會檢查),同一 IP 每小時最多送出 12 次</dd>
         <dt>線上同樂</dt><dd>每個房間一個 Durable Object,用 WebSocket 同步主機和手機,手機掃 QR Code 加入</dd>
       </dl>
       <p class="note">3D 房間和遊戲都是原生 JavaScript 模組,不經過前端框架,瀏覽器直接載入執行,也方便把遊戲規則拿到 Node.js 裡做大量模擬。</p>
@@ -516,7 +516,7 @@ td.r, th.r { text-align: right; }
         <li>外鍵關係由程式維護,SQLite 沒有宣告 FOREIGN KEY;刪除裝置時由程式一起清掉警示</li>
         <li>沒有帳號系統,所以用推播 token 當使用者的識別</li>
         <li>排行榜的 <code>ip_hash</code> 只存雜湊過的 IP,用來限制每小時最多送出 12 次,不保存真實 IP</li>
-        <li>排行榜依資產排序,另外建了索引(assets、ip_hash)</li>
+        <li>排行榜依資產排序,另外建了索引(assets、ip_hash);查詢只取 players = 4 且 ai = 'hard' 的紀錄</li>
       </ul>
     </article>
   </div>
