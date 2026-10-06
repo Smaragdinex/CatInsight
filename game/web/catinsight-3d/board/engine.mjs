@@ -147,6 +147,8 @@ export function makeEngine(D, opts = {}) {
   //   divCut:'top' 配最多的那家(同分隨機)/ 'any' 隨機一家,殖利率 −1 個百分點(最低 0.5%)、股價 −8%
   //   meme:場上被放空最多的那檔(沒人放空就隨機一檔股票)暴漲 50%,所有空單強迫回補
   //   pick:{ pool, f } 從 pool(沒寫就是所有股票類股)隨機挑一家公司 ×f(併購、會計造假、庫藏股…);m 裡其他資產的漲跌照常
+  //        payout:特別股利,持有的人每股領 股價 × payout 的現金(股價同時 ×f 除息)
+  //        rebound + reboundP:有 reboundP 的機率下一回合漲回 rebound 比例(空頭報告查無實據),抽到時就決定好
   // 回傳新的事件物件;divTo 記好「從幾 % 到幾 %」,牌面顯示和生效用同一組數字。標題由畫面自己加
   function instantiate(st, e, rand) {
     if (e.divUp || e.divCut) {
@@ -158,9 +160,12 @@ export function makeEngine(D, opts = {}) {
       return { ...e, m, divKeys: keys, divTo };
     }
     if (e.pick) {
-      const pool = e.pick.pool || EQ, k = pool[Math.floor(rand() * pool.length)], m = { ...e.m, [k]: e.m[k] * e.pick.f };
+      const P = e.pick, pool = P.pool || EQ, k = pool[Math.floor(rand() * pool.length)], m = { ...e.m, [k]: e.m[k] * P.f };
       m.etf = EQ.reduce((a, x) => a + m[x], 0) / EQ.length;
-      return { ...e, m, pickKey: k };
+      const x = { ...e, m, pickKey: k };
+      if (P.payout) x.payPerShare = Math.round(st.price[k] * P.payout * 100) / 100;
+      if (P.rebound) x.rebound = rand() < (P.reboundP ?? 1) ? P.rebound : 0;
+      return x;
     }
     if (!e.meme) return e;
     const tot = (k) => st.players.reduce((a, p) => a + p.short[k].n, 0);
@@ -169,6 +174,7 @@ export function makeEngine(D, opts = {}) {
   }
   // 事件生效:改股價、發錢、改殖利率、記下崩盤後的反彈(st.after,下一回合開始時套用),再檢查斷頭 / 軋空
   function applyEvent(st, e) {
+    if (e.payPerShare) for (const p of st.players) { const d = Math.round(p.hold[e.pickKey].n * e.payPerShare); if (d > 0) { p.cash += d; p.divTotal = (p.divTotal || 0) + d; } }   // 特別股利:先按除息前的持股發現金
     const bad = (e.m.etf || 1) < 0.97, worth = (p) => KEYS.reduce((a, k) => a + p.hold[k].n * st.price[k], 0), before = bad ? st.players.map(worth) : null;
     KEYS.forEach((k) => { st.price[k] *= e.m[k]; });
     if (bad) st.players.forEach((p, i) => { if (before[i] > 0 && worth(p) > before[i]) flag(p, 'dodge'); });   // 壞消息裡持股反而漲:躲過黑天鵝

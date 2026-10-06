@@ -240,6 +240,55 @@ const EVENTS = [
     { pick: { pool: ['tech', 'soft', 'chip', 'fin', 'staples', 'oil', 'health', 'yield', 'def', 'ecom'], f: 1.10 } }),
   Object.assign(EV(L('Big share issue', '公司大幅增資'), L('The company sells lots of new shares to raise money. Each existing share now owns a smaller slice: that is dilution.', '公司大量發行新股來籌錢。原本每一股分到的比例變小了,這就是股權稀釋。'), {}),
     { pick: { f: 0.90 } }),
+  // ── 資金流向、指數 ──
+  EV(L('Big money flows into ETFs', 'ETF 大幅資金流入'), L('Investors pour money into index funds. The funds must buy every stock they hold, so the whole market rises together.', '大量資金湧進指數基金。基金必須照比例買進每一檔成分股,整個大盤一起上漲。'),
+    { tech: 1.03, soft: 1.03, chip: 1.03, robot: 1.03, yield: 1.03, oil: 1.03, health: 1.03, reit: 1.03, fin: 1.03, trans: 1.03, bio: 1.03, staples: 1.03, disc: 1.03, ecom: 1.03, util: 1.03, mat: 1.03, green: 1.03, def: 1.03, space: 1.03, game: 1.03 }),
+  EV(L('Money pours out of ETFs', 'ETF 大幅資金流出'), L('Investors pull money from index funds. The funds must sell every stock they hold, good or bad; money parks in bonds and gold.', '資金大舉撤出指數基金。基金不管好壞都要照比例賣出成分股,資金暫時停在債券和黃金。'),
+    { tech: 0.97, soft: 0.97, chip: 0.97, robot: 0.97, yield: 0.97, oil: 0.97, health: 0.97, reit: 0.97, fin: 0.97, trans: 0.97, bio: 0.97, staples: 0.97, disc: 0.97, ecom: 0.97, util: 0.97, mat: 0.97, green: 0.97, def: 0.97, space: 0.97, game: 0.97, bond: 1.02, gold: 1.02 }),
+  Object.assign(EV(L('Added to a major index', '被納入大型指數'), L('Index funds that track it now have to buy this stock, whatever they think of the company.', '追蹤這個指數的被動基金都得買進這檔,不管基金經理怎麼看這家公司。'), {}), { pick: { f: 1.10 } }),
+  Object.assign(EV(L('Dropped from a major index', '被剔除大型指數'), L('Index funds that track it must sell this stock. The company did not change; the buyers did.', '追蹤這個指數的被動基金都得賣出這檔。公司本身沒變,變的是買家。'), {}), { pick: { f: 0.90 } }),
+  // ── 公司財務 ──
+  Object.assign(EV(L('Convertible bonds issued', '公司發行可轉換公司債'), L('The company borrows by selling bonds that can later turn into shares. It gets money cheaply, but shareholders may be diluted later.', '公司發行之後可以換成股票的債券來借錢。籌錢成本低,但將來轉換成股票時,原本股東可能被稀釋。'), {}),
+    { pick: { pool: ['tech', 'soft', 'chip', 'robot', 'space', 'bio', 'green', 'game', 'ecom'], f: 0.95 } }),
+  EV(L('Debt refinancing succeeds', '債務再融資成功'), L('Heavily indebted companies swap expensive old loans for cheaper new ones. Default risk falls, and property and lenders breathe easier.', '負債高的公司把利息貴的舊債換成便宜的新債,違約風險下降,不動產和放款的銀行都鬆一口氣。'),
+    { reit: 1.10, fin: 1.04, util: 1.03, yield: 1.03 }),
+  Object.assign(EV(L('Corporate bond default', '公司債爆雷'), L('The company misses a bond payment. Its shares crash, bond holders take losses and lenders start to worry about other borrowers.', '這家公司付不出公司債利息,股價重挫、債權人虧損,放款的銀行也開始擔心其他借款人。'), { fin: 0.94, bond: 0.96, gold: 1.03 }),
+    { pick: { pool: ['reit', 'trans', 'oil', 'mat', 'disc', 'ecom', 'green', 'space'], f: 0.80 } }),
+  Object.assign(EV(L('Stock split', '大型股拆股'), L('One share becomes several cheaper ones. The company is worth exactly the same; more small investors trade it, so the price gets a short-lived lift.', '一股拆成好幾股,每股變便宜。公司價值完全沒變,只是更多小資族來交易,股價短暫小漲。拆股不會讓公司憑空變值錢。'), {}),
+    { pick: { pool: ['tech', 'soft', 'chip', 'fin', 'staples', 'health', 'ecom', 'game'], f: 1.05 } }),
+  Object.assign(EV(L('Special dividend', '特別股利'), L('The company pays out a one-time cash bonus. Holders get the cash, but the share price drops by the same amount: the money just moves from the company to your pocket.', '公司一次發一大筆現金股利。股東拿到現金,但股價會扣掉同樣的金額(除息):錢只是從公司搬到你的口袋。'), {}),
+    { pick: { pool: ['tech', 'chip', 'yield', 'oil', 'health', 'reit', 'fin', 'staples', 'util', 'mat', 'def'], f: 0.94, payout: 0.06 } }),
+  Object.assign(EV(L('Insiders buy shares', '內部人買進自家股票'), L('Executives buy their own company\'s shares with their own money. The market reads it as confidence.', '公司高層自掏腰包買自家股票,市場解讀成經營層有信心。'), {}), { pick: { f: 1.05 } }),
+  Object.assign(EV(L('Insiders dump shares', '內部人大量賣股'), L('Executives sell a big block of their shares. They may just need cash, but the market worries they know something.', '公司高層大量賣出持股。也許只是需要用錢,但市場擔心他們看壞公司。'), {}), { pick: { f: 0.95 } }),
+  Object.assign(EV(L('Short-seller report published', '空頭報告發布'), L('A short seller publishes a report accusing the company of problems, and the stock plunges. Whether the report is right only shows next round: if the claims fall apart, most of the drop comes back.', '放空機構發布報告指控這家公司有問題,股價重挫。報告說得對不對,下一回合才知道:如果查無實據,跌掉的會漲回一大半。'), {}),
+    { pick: { f: 0.78, rebound: 0.7, reboundP: 0.5 }, afterW: L('The short report\'s claims did not hold up, so most of the drop came back.', '空頭報告的指控查無實據,跌掉的漲回一大半。') }),
+  // ── 監管、專利、訴訟 ──
+  Object.assign(EV(L('Regulators open an investigation', '監管調查啟動'), L('Regulators start investigating the company. Nothing is proven yet, but uncertainty alone pushes the price down.', '主管機關對這家公司展開調查。還沒定罪,但光是不確定性就讓股價下跌。'), {}),
+    { pick: { pool: ['tech', 'soft', 'fin', 'bio', 'ecom', 'health', 'game'], f: 0.88 } }),
+  Object.assign(EV(L('Patent lawsuit won', '專利訴訟勝訴'), L('A court rules the company\'s patent was infringed. Rivals must pay royalties or stop selling.', '法院判決這家公司的專利被侵權,對手得付權利金或停止銷售。'), {}), { pick: { pool: ['tech', 'chip', 'bio', 'soft', 'robot'], f: 1.15 } }),
+  Object.assign(EV(L('Patent lawsuit lost', '專利訴訟敗訴'), L('A court rules the company infringed someone else\'s patent. It must pay damages and may have to stop selling a product.', '法院判決這家公司侵犯別人的專利,要賠錢,產品還可能被迫下架。'), {}), { pick: { pool: ['tech', 'chip', 'bio', 'soft', 'robot'], f: 0.85 } }),
+  Object.assign(EV(L('Key patent expires', '關鍵專利到期'), L('Protection on a best-selling product ends and cheaper copies flood in. Profits that looked permanent were only rented.', '暢銷產品的專利保護到期,便宜的仿製品湧進市場。看似穩定的獲利,其實只是租來的。'), {}), { pick: { pool: ['bio', 'health', 'tech', 'chip'], f: 0.85 } }),
+  EV(L('Data privacy law tightens', '資料隱私法收緊'), L('New rules limit how companies collect and use personal data. Businesses built on ads and user data earn less.', '新法限制企業蒐集和使用個資,靠廣告和用戶資料賺錢的生意變難做。'),
+    { ecom: 0.90, soft: 0.92, tech: 0.94, game: 0.96 }),
+  EV(L('AI rules relaxed', 'AI 法規放寬'), L('Governments ease the rules on building and selling AI. Robots, software and chips can ship faster: the mirror image of a big tech crackdown.', '政府放寬 AI 開發和上市的規定,機器人、軟體、晶片都能更快推出,和「大型科技監管法案」正好相反。'),
+    { robot: 1.12, soft: 1.12, chip: 1.10, tech: 1.06 }),
+  // ── 營運中斷、供應鏈、能源 ──
+  Object.assign(EV(L('Ransomware attack', '大型駭客勒索事件'), L('Hackers lock the company\'s systems and demand a ransom, so its factories and services stop. Unlike a data leak, the business itself grinds to a halt.', '駭客鎖住這家公司的系統勒索贖金,工廠和服務全部停擺。和個資外洩不同,這是營運直接中斷。'), { fin: 0.97, soft: 0.97 }),
+    { pick: { f: 0.85 } }),
+  EV(L('Supplier factory fire', '供應商工廠大火停產'), L('A fire shuts a key parts factory. The few parts left get pricier, and everyone who builds with them pays more or waits.', '關鍵零件廠失火停產。剩下的零件變搶手、變貴,用這些零件的下游不是多付錢就是等貨。'),
+    { chip: 1.08, tech: 0.95, robot: 0.95, green: 0.95, game: 0.97, space: 0.97 }),
+  EV(L('Raw material prices crash', '原料價格暴跌'), L('Steel, copper and other materials fall fast. Miners and mills lose, while manufacturers and shops pay less for what they build and sell.', '鋼鐵、銅等原料價格快速下跌。礦業和鋼廠受傷,製造業和零售的成本則降低。'),
+    { mat: 0.80, oil: 0.95, robot: 1.04, tech: 1.03, staples: 1.04, ecom: 1.03, trans: 1.03 }),
+  EV(L('OPEC boosts output', 'OPEC 大幅增產'), L('Oil producers pump much more. Cheap fuel helps airlines, shippers and shoppers; energy companies and electric cars lose some appeal.', '產油國大幅增產,油價下跌。便宜的燃料幫了航空、航運和消費者;能源股受傷,電動車的吸引力也降低。'),
+    { oil: 0.80, trans: 1.10, disc: 1.06, ecom: 1.03, staples: 1.02, green: 0.95 }),
+  EV(L('Natural gas prices soar', '天然氣價格暴漲'), L('Gas for power plants and factories gets expensive. Energy producers gain; utilities, chemical makers and farms (fertilizer) pay more.', '發電廠和工廠用的天然氣變貴。能源業受惠;電力公司、化工和農業(肥料)的成本上升。'),
+    { oil: 1.12, util: 0.92, mat: 0.94, staples: 0.97, agri: 0.97 }),
+  EV(L('Massive grid blackout', '電網大停電'), L('A huge blackout stops data centers, fabs and factories. Investment in grids, batteries and green power suddenly looks urgent.', '大範圍停電讓資料中心、晶圓廠、工廠停擺,強化電網、儲能和綠電的投資突然變得急迫。'),
+    { chip: 0.92, tech: 0.94, robot: 0.94, mat: 0.95, green: 1.10, util: 1.05 }),
+  EV(L('Satellite collision', '衛星碰撞事故'), L('Two satellites collide and scatter debris across busy orbits. Space firms face higher insurance and stricter rules, a different risk from a failed launch.', '兩顆衛星相撞,碎片散布在繁忙的軌道上。太空公司的保險費和監管都變嚴,和火箭發射失敗是不同的風險。'),
+    { space: 0.80, fin: 0.98 }),
+  EV(L('Defense budget jumps', '政府國防預算大增'), L('Governments raise military spending. Defense contractors, space firms and chip makers win orders; more borrowing weighs a little on bonds.', '各國提高國防支出,軍工、太空和晶片廠拿到訂單;政府多借錢,債券小跌。'),
+    { def: 1.20, space: 1.12, chip: 1.04, bond: 0.98 }),
 ];
 // 牌組平衡:原本每檔資產在整副牌裡的漲跌不對稱(黃金平均每張 +3.5%、金融 −4.5%),玩越久越固定往一邊走,
 // 看懂牌組的人(或電腦)只要固定做多 / 放空就贏。這裡在載入時把每檔資產調成「整副牌的漲跌互相抵消」(幾何平均 = 1):
@@ -288,7 +337,7 @@ const DIV_STEP = 0.01, DIV_MAX = 0.08, DIV_MIN = 0.005, DIV_UP_PRICE = 1.04, DIV
 const LOT = 10, START_CASH = 10000, SALARY = 1000, FEE = 200, MAX_ROLLS = 20;
 const DIV_ROUND = 0.25;   // 股利每一回合配一次(每回合配年率的 1/4;股息格另外多配一次全額),不用等繞回起點
 const REMOTE_PRICE = 300, CARD_PRICE = 500, ATK_PRICE = 600, ATK_DROP = 0.82, SPY_PRICE = 400, SPY_ROUNDS = 3, DICE3_PRICE = 350;
-const SALE_EVENTS = [0, 1, 2, 4, 6, 7, 8, 11, 12, 14, 16, 17, 20, 21, 61, 64, 65, 68, 69, 75];    // 商店 / 禮物會出的事件卡(EVENTS 的編號,只有好消息類)
+const SALE_EVENTS = [0, 1, 2, 4, 6, 7, 8, 11, 12, 14, 16, 17, 20, 21, 61, 64, 65, 68, 69, 75, 104, 108, 112];    // 商店 / 禮物會出的事件卡(EVENTS 的編號,只有好消息類)
 const ITEM_IDS = ['remote', 'atk', 'spy', 'dice3'];                       // 道具;商店每次必有其中一樣
 const MARGIN_LOAN = 0.6, MAINT = 1.3, MARGIN_FEE = 0.02;
 const SQUEEZE = 1.3;

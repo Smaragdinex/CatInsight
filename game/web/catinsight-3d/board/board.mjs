@@ -19,9 +19,9 @@ const ZH = (new URLSearchParams(location.search).get('lang') || savedLang || nav
 const L = (en, zh) => (ZH ? zh : en);
 
 /* ───────────── 資料 ───────────── */
-import { gameData } from './data.mjs?v=18';
-import { makeSim } from './sim.mjs?v=23';
-import { makeEngine } from './engine.mjs?v=11';
+import { gameData } from './data.mjs?v=19';
+import { makeSim } from './sim.mjs?v=24';
+import { makeEngine } from './engine.mjs?v=12';
 import { makeAiPlan } from './aiplan.mjs?v=1';
 const GD = gameData(L, fmt);      // 遊戲資料:畫面、遊戲引擎、電腦模擬都用同一份
 const { LANES, PATH_POOL, PATH_FIXED, MARKET_DRIFT, DIV_STEP, DIV_MAX, DIV_MIN, DIV_UP_PRICE, DIV_CUT_PRICE, SECTORS, KEYS, N, TILES, TILE_COLOR, NON_EQUITY, EV, EVENTS, ONES, BAIL, JAIL_WAIT, LANE_LEN, IPO_OFF, IPO_LOCK, IPO_FREE, BANK_MAX, BANK_RATE, LOT, START_CASH, SALARY, FEE, MAX_ROLLS, DIV_ROUND, FATE, MARGIN_LOAN, MAINT, MARGIN_FEE, SQUEEZE, buyF, sellF, shortF, SHORT_F, REMOTE_PRICE, CARD_PRICE, ATK_PRICE, ATK_DROP, SPY_PRICE, SPY_ROUNDS, DICE3_PRICE } = GD;
@@ -38,7 +38,7 @@ const PATH_INFO = {
 function applyEvent(e) {
   ENG.applyEvent(S, e);
   if (e.cash) sfx('coin');
-  if (e.rebound && S.after) Object.assign(S.after, { t: L(`Rebound after: ${e.t}`, `${e.t}後的反彈`), w: L('Part of a panic drop comes back once the panic passes. Selling at the bottom locks in the loss.', '恐慌過去後,跌掉的會漲回來一部分。在最低點賣掉,就是把虧損鎖死。') });   // 下一回合開始時套用(見 turn)
+  if (e.rebound && S.after) Object.assign(S.after, { t: L(`Rebound after: ${e.t}`, `${e.t}後的反彈`), w: e.afterW || L('Part of a panic drop comes back once the panic passes. Selling at the bottom locks in the loss.', '恐慌過去後,跌掉的會漲回來一部分。在最低點賣掉,就是把虧損鎖死。') });   // 下一回合開始時套用(見 turn)
   noteEvent(e);
 }
 const noteEvent = (e) => { S.lastEvent = e; if ($('evtBox').classList.contains('fold')) $('evtBadge').classList.remove('hide'); };      // 新事件:右邊的事件鈕亮「!」
@@ -69,6 +69,7 @@ function fitCardFace(f) {
 }
 function fitCards(ov) { ov.querySelectorAll('.dfront').forEach((f) => { fitCardFace(f); if (cardFitRO) cardFitRO.observe(f); }); }
 const cashChip = (e) => trendChip(e) + (e.cash ? `<span class="mv up">${L(`Everyone +$${fmt(e.cash)}`, `每人 +$${fmt(e.cash)}`)}</span>` : '') +
+  (e.payPerShare ? `<span class="mv up">${L(`${SECTORS[e.pickKey].name} holders get $${e.payPerShare} per share`, `${SECTORS[e.pickKey].name}股東每股領 $${e.payPerShare}`)}</span>` : '') +
   (e.divTo ? e.divKeys.map((k) => `<span class="mv ${e.divTo[k][1] >= e.divTo[k][0] ? 'up' : 'dn'}">${SECTORS[k].code} ${pct(e.m[k])} · ${L('yield', '殖利率')} ${divPct(e.divTo[k][0])}→${divPct(e.divTo[k][1])}</span>`).join('') : '');   // 股利事件:漲跌和殖利率合成一顆,不重複列
 // 玩法:走滿選定的回合數(選角畫面可以選 20 / 25 / 30 / 35 / 40),總資產最高的人獲勝
 const ROUND_OPTS = [20, 25, 30, 35, 40];
@@ -88,7 +89,7 @@ const aiAlg = () => AI_ALG[S.aiLevel] || 'ev';
 const SIM = makeSim(GD,
   { mc: { n: 120, depth: 3 } });
 // 模擬跑在 Web Worker(開不起來就在主執行緒算)。回傳 Promise,aiTurn / aiLand 用 await 等
-const AIW = (() => { try { const w = new Worker('./ai-worker.mjs?v=28', { type: 'module' }); w.onerror = () => { AIW_BAD = true; }; return w; } catch (e) { return null; } })();
+const AIW = (() => { try { const w = new Worker('./ai-worker.mjs?v=29', { type: 'module' }); w.onerror = () => { AIW_BAD = true; }; return w; } catch (e) { return null; } })();
 let AIW_BAD = false, aiwId = 0; const aiwWait = {};
 if (AIW) AIW.onmessage = (ev) => { const r = aiwWait[ev.data.id]; if (r) { delete aiwWait[ev.data.id]; r(ev.data.act); } };
 function simDecide(kind, st, i, k) {

@@ -1,4 +1,4 @@
-import { makeEngine } from './engine.mjs?v=11';
+import { makeEngine } from './engine.mjs?v=12';
 import { makeAiPlan } from './aiplan.mjs?v=1';
 import { makePolicy, makeValue } from './nn.mjs?v=2';
 // 遊戲模擬器(純邏輯,不碰畫面)。兩個用途:
