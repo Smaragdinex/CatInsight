@@ -1611,7 +1611,9 @@ function showAchv(p, title) {
   if (p !== meP()) { toast(L(`${nameOf(p)}: ${title} +$${REWARD}`, `${nameOf(p)}達成「${title}」+$${REWARD}`)); return; }
   achvPop(title);
 }
-function achvPop(title) { const el = $('achv'); el.innerHTML = `<b><img class="emo" src="ico-trophy.webp?v=1" alt=""> ${L('Achievement unlocked', '成就達成')}</b><span>${title} · +$${REWARD}</span>`; el.classList.add('on'); clearTimeout(achvTimer); achvTimer = setTimeout(() => el.classList.remove('on'), 2600); }
+function achvPop(title) { const el = $('achv'); el.innerHTML = `<b><img class="emo" src="ico-trophy.webp?v=1" alt=""> ${L('Achievement unlocked', '成就達成')}</b><span>${title} · +$${REWARD}</span>`; el.classList.add('on'); toastBelowAchv(); clearTimeout(achvTimer); achvTimer = setTimeout(() => { el.classList.remove('on'); toastBelowAchv(); }, 2600); }
+// 公告(toast)和成就卡都在畫面上方:成就卡在的時候,公告往下排到成就卡下面;收起後回到原位
+function toastBelowAchv() { const a = $('achv'), on = a.classList.contains('on'); document.documentElement.style.setProperty('--toastY', on ? `${Math.max(140, a.offsetTop + a.offsetHeight + 10)}px` : '140px'); }
 function toast(msg) { netSend({ t: 'toast', msg }); const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1900); }
 function showCtl(on) { $('ctl').classList.toggle('hide', !on); $('tipbar').classList.toggle('hide', !on); $('stepCtl').classList.add('hide'); }   // 提示泡泡跟擲骰鈕一起出現 / 隱藏,抽卡時才不會擋到
 function panel(html) { const p = $('panel'); p.innerHTML = html; p.classList.remove('hide'); p.classList.toggle('over', !!(S && S.over)); return p; }
@@ -2668,4 +2670,4 @@ function clientInit() {
 
 resize(); if (CLIENT) clientInit(); else start();
 requestAnimationFrame(loop);
-window.__game = { get S() { return S; }, SIM, AP, aiTurn, aiLand, instantiate, simSnapshot, playEvent, laneTiles, drawLanes, roundDividends, payday, aiPayday, drawEventCards, drawFateCards, drawGiftCards, shopPanel, buyPanel, marginCheck, acctRatio, finish, checkMissions, fitStage, stageMetrics, cam, stage, slots, THREE, get stageFit() { return { stageLift, stageZoom, half: view.half, on: stageOn }; }, NET, netUiFlush, netHud, AU, EVENTS, FATE, applyEvent, applyFate, instantiate, turn, enterLane, tiles, dice, piece, bearPiece, PIECES, bagPanel, aiAssets, assetsOf, get CFG() { return CFG; }, view, TILES, slots, stageSelect };
+window.__game = { get S() { return S; }, SIM, AP, aiTurn, aiLand, instantiate, toast, achvPop, simSnapshot, playEvent, laneTiles, drawLanes, roundDividends, payday, aiPayday, drawEventCards, drawFateCards, drawGiftCards, shopPanel, buyPanel, marginCheck, acctRatio, finish, checkMissions, fitStage, stageMetrics, cam, stage, slots, THREE, get stageFit() { return { stageLift, stageZoom, half: view.half, on: stageOn }; }, NET, netUiFlush, netHud, AU, EVENTS, FATE, applyEvent, applyFate, instantiate, turn, enterLane, tiles, dice, piece, bearPiece, PIECES, bagPanel, aiAssets, assetsOf, get CFG() { return CFG; }, view, TILES, slots, stageSelect };
