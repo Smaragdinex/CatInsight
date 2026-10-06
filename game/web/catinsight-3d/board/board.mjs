@@ -1158,11 +1158,11 @@ function fitStage(dt) {
 function snapStage() {
   camT.x = STAGE.x; camT.z = STAGE.z;
   for (let i = 0; i < 80; i++) {
-    const z0 = stageZoom, l0 = stageLift;
+    const z0 = stageZoom, l0 = stageLift, c0 = cardZoom;
     view.half = view.stageHalf + stageZoom; applyFrustum();
     camT.y = 0.2 + stageLift; cam.position.copy(camT).add(CAM_OFF); cam.updateMatrixWorld();
     fitStage(0.2);
-    if (i > 2 && Math.abs(stageZoom - z0) < 1e-4 && Math.abs(stageLift - l0) < 1e-4) break;
+    if (i > 2 && Math.abs(stageZoom - z0) < 1e-4 && Math.abs(stageLift - l0) < 1e-4 && cardZoom === c0) break;   // 設定卡縮放也要停了才算
   }
   view.half = view.stageHalf + stageZoom; applyFrustum(); camT.y = 0.2 + stageLift; cam.position.copy(camT).add(CAM_OFF);
 }
@@ -1256,7 +1256,8 @@ function pickStage() {
       try { localStorage.setItem('css.players', JSON.stringify(CFG)); } catch (e) {}
       paintStage();
     }; });
-    $('pcOnline').onclick = () => { if (NET.on) netClose(); else netOpen(); };
+    // 按「多人連線」:房間開好就直接進等待房間(座位那頁),主機用現在選的角色;要換角色按左下返回
+    $('pcOnline').onclick = () => { if (NET.on) { netClose(); paintStage(); snapStage(); } else netOpen().then(() => { if (NET.on && stageOn && !lobbyPhase) enterLobby(true); }); };
     // 再玩一次:房間留著,手機回到大廳(可以換角色),離線的位子清掉
     if (NET.on) { NET.started = false; NET.guests = NET.guests.filter((g) => g.online); netSend({ t: 'reset' }); }
     document.body.classList.remove('remote'); $('remoteBanner').classList.add('hide'); lobbyPaint(); netLobby();
@@ -1264,7 +1265,7 @@ function pickStage() {
       lobbyPhase = on; $('lobbyUI').classList.toggle('hide', !on); document.querySelector('.ptop').classList.toggle('hide', on); document.querySelector('.pbar').classList.toggle('hide', on);
       slots.forEach((sl) => { sl.g.visible = !on && !sl.taken; }); joinedRow.visible = !on;
       lobbySeats.forEach((st) => { st.g.visible = on; }); lobbyPaint(); netLobby(); if (!on) stageSelect(stageSel);
-      if (on) { stage.updateMatrixWorld(true); snapStage(); }   // 進等待房間:鏡頭直接到座位那邊,不要慢慢拉近
+      if (stageOn) { stage.updateMatrixWorld(true); snapStage(); }   // 進出等待房間:鏡頭直接到定位,不要慢慢拉近 / 拉遠
     };
     $('lobbyBack').onclick = () => enterLobby(false);
     $('lobbyGo').onclick = () => {
@@ -2421,10 +2422,10 @@ const netSend = (msg, to) => { if (NET.on && NET.ws && NET.ws.readyState === 1) 
 const joinUrl = (code) => { const u = new URL('join/', location.href); u.search = `?r=${code}`; return u.href; };
 async function netOpen() {
   try {
-    $('pcOnline').disabled = true;
+    $('pcOnline').disabled = true; $('pcOnS').textContent = L('Opening a room…', '開房間中…');
     const r = await fetch(`${LB_API}/room/new`, { method: 'POST' }); const d = await r.json();
     NET.code = d.code; NET.on = true; NET.guests = []; NET.started = false; netConnect(); lobbyPaint(); paintStage();
-  } catch (e) { toast(L('Could not create a room', '開房間失敗,請檢查網路')); }
+  } catch (e) { toast(L('Could not create a room', '開房間失敗,請檢查網路')); lobbyPaint(); }
   $('pcOnline').disabled = false;
 }
 function netClose() { NET.on = false; if (lobbyPhase) { lobbyPhase = false; $('lobbyUI').classList.add('hide'); document.querySelector('.ptop').classList.remove('hide'); document.querySelector('.pbar').classList.remove('hide'); lobbySeats.forEach((st) => { st.g.visible = false; }); } clearTimeout(NET.retry); if (NET.ws) { try { NET.ws.close(); } catch (e) {} } NET.ws = null; NET.guests = []; NET.started = false; NET.code = null; lobbyPaint(); }
