@@ -484,6 +484,7 @@ body.watch #panel[data-watch=""]::after{display:none}
 .m .cnt{margin-left:auto;flex:none;background:#8a6f60;color:#fff;border-radius:999px;padding:1px 7px;font-size:calc(11px * var(--fs));font-weight:900}
 
 /* 任務框分頁:進行中 / 已完成 */
+.mnote{padding:8px 10px 0;text-align:center;font-weight:800;font-size:calc(11.5px * var(--fs));color:#b57c00}
 .mtabs{display:flex;gap:6px;padding:8px 8px 0}
 .mtabs button{flex:1;border:2px solid #e6d9c4;background:#fff;border-radius:999px;padding:5px 0;font:inherit;font-weight:900;font-size:calc(12px * var(--fs));color:#9a8676;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
 .mtabs button i{font-style:normal;background:#e8d9c2;color:#6b594e;border-radius:999px;padding:0 6px;font-size:calc(10.5px * var(--fs))}

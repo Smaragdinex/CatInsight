@@ -1544,7 +1544,7 @@ const missHtml = (p) => {
   const done = rows.map((t) => `<div class="m done old"><span class="ck">✓</span><span>${t}</span></div>`).join('') || `<div class="sub">${L('Nothing completed yet', '還沒有完成的成就')}</div>`;
   const pendOrAll = pend || `<div class="sub">${L('All achievements done!', '所有成就都完成了!')}</div>`;
   // 上面兩個分頁:進行中 / 已完成(哪一頁開著記在 #missBox 的 data-tab,重畫不會跳掉)
-  return `<div class="mtabs"><button data-mt="pend">${L('Active', '進行中')}</button><button data-mt="done">${L('Done', '已完成')} ${(p.doneList || []).length ? `<i>${(p.doneList || []).length}</i>` : ''}</button></div><div class="mpend">${pendOrAll}</div><div class="mdone">${done}</div>`;
+  return `<div class="mnote">${L(`Each one completed pays $${REWARD}`, `每完成一個給 $${REWARD}`)}</div><div class="mtabs"><button data-mt="pend">${L('Active', '進行中')}</button><button data-mt="done">${L('Done', '已完成')} ${(p.doneList || []).length ? `<i>${(p.doneList || []).length}</i>` : ''}</button></div><div class="mpend">${pendOrAll}</div><div class="mdone">${done}</div>`;
 };
 const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][n % 10 > 3 ? 0 : n % 10] || 'th');      // 1st 2nd 3rd 4th
 const rankOf = (p) => { const a = assetsOf(p); return 1 + S.players.filter((q) => assetsOf(q) > a + 0.5).length; };
@@ -1603,15 +1603,15 @@ function staticText() {
   $('note').textContent = '';      // 畫面底下不再放字(省空間);聲明、音樂出處和版本改放在結算畫面
 }
 let toastTimer;
-// 成就達成:畫面上方跳出一張卡(自己的在自己這台;手機玩家的送到他手機上),2.6 秒後收起
+// 成就達成:畫面上方跳出一張卡(自己的在自己這台;手機玩家的送到他手機上),2.6 秒後收起。獎金照給,但卡片和公告不寫金額(寫在任務面板最上面)
 let achvTimer = 0;
 function showAchv(p, title) {
   const msg = L('Achievement unlocked', '成就達成');
   if (p.remote) { const g = NET.guests.find((x) => x.gid === p.remote); if (g && g.conn) netSend({ t: 'achv', title }, g.conn); return; }
-  if (p !== meP()) { toast(L(`${nameOf(p)}: ${title} +$${REWARD}`, `${nameOf(p)}達成「${title}」+$${REWARD}`)); return; }
+  if (p !== meP()) { toast(L(`${nameOf(p)}: ${title}`, `${nameOf(p)}達成「${title}」`)); return; }
   achvPop(title);
 }
-function achvPop(title) { const el = $('achv'); el.innerHTML = `<b><img class="emo" src="ico-trophy.webp?v=1" alt=""> ${L('Achievement unlocked', '成就達成')}</b><span>${title} · +$${REWARD}</span>`; el.classList.add('on'); toastBelowAchv(); clearTimeout(achvTimer); achvTimer = setTimeout(() => { el.classList.remove('on'); toastBelowAchv(); }, 2600); }
+function achvPop(title) { const el = $('achv'); el.innerHTML = `<b><img class="emo" src="ico-trophy.webp?v=1" alt=""> ${L('Achievement unlocked', '成就達成')}</b><span>${title}</span>`; el.classList.add('on'); toastBelowAchv(); clearTimeout(achvTimer); achvTimer = setTimeout(() => { el.classList.remove('on'); toastBelowAchv(); }, 2600); }
 // 公告(toast)和成就卡都在畫面上方:成就卡在的時候,公告往下排到成就卡下面;收起後回到原位
 function toastBelowAchv() { const a = $('achv'), on = a.classList.contains('on'); document.documentElement.style.setProperty('--toastY', on ? `${Math.max(140, a.offsetTop + a.offsetHeight + 10)}px` : '140px'); }
 function toast(msg) { netSend({ t: 'toast', msg }); const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1900); }
@@ -1742,7 +1742,7 @@ function checkBotMissions(only) {
   for (const p of S.players) { if (p.human || (only && p !== only)) continue;
     S.hi = p.i; let got; try { got = evalMissions(); } finally { S.hi = keep; }
     if (got.length === 1) showAchv(p, got[0]);
-    else if (got.length > 1) toast(L(`${nameOf(p)} unlocked ${got.length} achievements +$${fmt(REWARD * got.length)}`, `${nameOf(p)}達成 ${got.length} 個成就 +$${fmt(REWARD * got.length)}`));
+    else if (got.length > 1) toast(L(`${nameOf(p)} unlocked ${got.length} achievements`, `${nameOf(p)}達成 ${got.length} 個成就`));
     total += got.length; }
   hud(); return total;
 }
