@@ -31,7 +31,6 @@ final class DashboardViewModel: ObservableObject {
 
     private let watchlistCacheKey = "watchlist.quotes.cache"
     @Published var aiAnalysis: AIAnalysisResponse?
-    @Published var health: HealthResponse?
 
     private let apiService: StockAPIService
     private var aiRefreshTask: Task<Void, Never>?
@@ -123,7 +122,6 @@ final class DashboardViewModel: ObservableObject {
         newsDigest = nil
         newsDigestLoading = false
         aiAnalysis = nil
-        health = nil
         if chartInfo?.stock.uppercased() != targetSymbol { chartInfo = nil }
 
         aiRefreshTask?.cancel()
@@ -153,8 +151,7 @@ final class DashboardViewModel: ObservableObject {
                 async let valuationTask: Void = fetchValuation(using: targetSymbol)
                 async let earningsTask: Void = fetchEarnings(using: targetSymbol)
                 async let newsTask: Void = fetchNews(using: targetSymbol)
-                async let healthTask: Void = fetchHealth(using: targetSymbol)
-                _ = await (ratingsTask, valuationTask, earningsTask, newsTask, healthTask)
+                _ = await (ratingsTask, valuationTask, earningsTask, newsTask)
             }
 
             aiRefreshTask = Task { [weak self] in
@@ -176,19 +173,6 @@ final class DashboardViewModel: ObservableObject {
         if let decoded = try? await apiService.fetchChart(symbol: cleanSymbol, period: period),
            period == selectedPeriod {
             chartInfo = decoded
-        }
-    }
-
-    func fetchHealth(using rawSymbol: String? = nil) async {
-        let cleanSymbol = normalizedSymbolInput(rawSymbol ?? symbol)
-        guard !cleanSymbol.isEmpty else {
-            health = nil
-            return
-        }
-        do {
-            health = try await apiService.fetchHealth(symbol: cleanSymbol)
-        } catch {
-            health = nil
         }
     }
 

@@ -78,7 +78,6 @@ class StockApiService(private val baseUrl: String = "https://api.example.com") {
 
     suspend fun fetchRanking(top: Int = 20): RankingResponse = get("/ranking?top=$top")
 
-    suspend fun fetchHealth(symbol: String): HealthResponse = get("/health/${enc(symbol)}")
 
     suspend fun fetchTopGainers(top: Int = 20, window: String = "1y", live: Boolean = true): TopGainersResponse =
         get("/top-gainers?top=$top&window=$window&live=${if (live) 1 else 0}")

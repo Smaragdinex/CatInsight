@@ -64,23 +64,6 @@ nonisolated struct RankingItem: Codable, Identifiable, Sendable {
     var id: String { symbol }
 }
 
-// 個股量化體檢:總分百分位 + 6 因子百分位(雷達圖用)
-nonisolated struct HealthResponse: Codable, Sendable {
-    let symbol: String
-    let available: Bool
-    let asOf: String?
-    let overall: Int?
-    let factors: [HealthFactor]?
-}
-
-nonisolated struct HealthFactor: Codable, Sendable, Identifiable {
-    let key: String
-    let labelEn: String
-    let labelZh: String
-    let value: Int
-    var id: String { key }
-}
-
 // 漲幅排行榜(window: 1y 近一年 / ytd 今年)
 nonisolated struct TopGainersResponse: Codable, Sendable {
     let asOf: String?

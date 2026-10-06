@@ -22,11 +22,10 @@ iOS 版(`ios/`,SwiftUI)一比一移植到 Kotlin + Jetpack Compose。
 | `ui/screens/SearchScreen.kt` | 搜尋列、AI 精選排名、漲幅榜(1Y/YTD)、市場指標 |
 | `ui/screens/WatchlistScreen.kt` | 自選清單(滑動刪除、長按排序、分析) |
 | `ui/screens/DetailScreen.kt` + `detail/` | 個股頁:摘要、K線/折線(Canvas)、指標、歷史、新聞、評等、財報 |
-| `ui/components/` | HealthRadarCard、AIAssistantCard、ValuationCard、MiniSparkline、PulseDot |
+| `ui/components/` | AIAssistantCard、ValuationCard、MiniSparkline、PulseDot |
 | `ui/screens/ConversationsScreen.kt` | AI 對話 + 歷史側欄 |
 | `ui/sheets/` | 價格提醒面板、設定面板 |
 
 ## 尚未做的事
 - 正式簽章(release keystore)與 Google Play 上架設定
 - App icon 目前是暫用向量圖,要換成跟 iOS 一樣的圖
-- 量化體檢雷達卡:後端 `HEALTH_CARD_ENABLED = False`,打開後 App 自動顯示

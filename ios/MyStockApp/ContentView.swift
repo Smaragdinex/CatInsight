@@ -1165,9 +1165,6 @@ struct ContentView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         summaryCard(info: info)
-                        if let health = viewModel.health, health.available, !(health.factors ?? []).isEmpty {
-                            HealthRadarCard(health: health, theme: selectedTheme, isZh: selectedLanguage == .zh)
-                        }
                         AIAssistantCard(symbol: viewModel.normalizedSymbolInput(viewModel.symbol),
                                         theme: selectedTheme,
                                         isZh: selectedLanguage == .zh,

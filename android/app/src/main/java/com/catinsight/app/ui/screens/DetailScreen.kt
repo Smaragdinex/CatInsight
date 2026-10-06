@@ -30,7 +30,6 @@ import com.catinsight.app.data.PendingNewChat
 import com.catinsight.app.data.StockResponse
 import com.catinsight.app.ui.LocalAppSettings
 import com.catinsight.app.ui.components.AIAssistantCard
-import com.catinsight.app.ui.components.HealthRadarCard
 import com.catinsight.app.ui.components.ValuationCard
 import com.catinsight.app.ui.screens.detail.ChartSection
 import com.catinsight.app.ui.screens.detail.DetailContext
@@ -103,8 +102,6 @@ private fun DetailContent(ctx: DetailContext, info: StockResponse, onAskAI: (Pen
     var isNewsExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 先在 composition 內讀取,確保 LazyColumn 內容隨狀態重組
-    val health = vm.health
-    val showHealth = health != null && health.available && !health.factors.isNullOrEmpty()
     val newsItems = vm.newsItems
     val newsLoading = vm.newsLoading
     val currentSymbol = vm.normalizedSymbolInput(vm.symbol)
@@ -122,29 +119,24 @@ private fun DetailContent(ctx: DetailContext, info: StockResponse, onAskAI: (Pen
             // 1. 摘要卡(第一個區塊,上方不留間距)
             item(key = "summary") { SummaryCardHost(ctx, info) }
 
-            // 2. 體檢雷達卡(同事提供)
-            if (showHealth && health != null) {
-                section("health") { HealthRadarCard(health = health) }
-            }
-
-            // 3. AI 助理卡(同事提供)
+            // 2. AI 助理卡(同事提供)
             section("ai-assistant") {
                 AIAssistantCard(symbol = currentSymbol, onAsk = { sym -> onAskAI(PendingNewChat(sym, "")) })
             }
 
-            // 4. 圖表區
+            // 3. 圖表區
             section("chart") { ChartSection(ctx, info) }
 
-            // 5. 指標卡列
+            // 4. 指標卡列
             section("metrics") { MetricsSection(ctx) }
 
-            // 6. RSI / MFI / 判斷
+            // 5. RSI / MFI / 判斷
             section("indicator") { IndicatorCard(ctx, info) }
 
-            // 7. 歷史明細(可展開)
+            // 6. 歷史明細(可展開)
             historyListCard(ctx, info, expanded = isHistoryExpanded, onToggle = { isHistoryExpanded = !isHistoryExpanded })
 
-            // 8. 新聞
+            // 7. 新聞
             section("news") {
                 NewsCard(
                     title = s.text.newsTitle,
@@ -160,13 +152,13 @@ private fun DetailContent(ctx: DetailContext, info: StockResponse, onAskAI: (Pen
                 )
             }
 
-            // 9. 分析師評等
+            // 8. 分析師評等
             section("ratings") { RatingsCard(ctx) }
 
-            // 10. 估值卡(同事提供)
+            // 9. 估值卡(同事提供)
             section("valuation") { ValuationCard(vm = vm, currentPrice = valuationPrice) }
 
-            // 11. 財報
+            // 10. 財報
             section("earnings") { EarningsCard(ctx) }
         }
     }

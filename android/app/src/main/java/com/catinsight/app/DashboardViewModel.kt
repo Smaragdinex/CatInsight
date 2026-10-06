@@ -55,7 +55,6 @@ class DashboardViewModel(private val api: StockApiService = StockApiService.defa
     var selectedValuationScenario by mutableStateOf("base")
     var watchlistQuotes by mutableStateOf<Map<String, WatchlistQuote>>(emptyMap())
     var aiAnalysis by mutableStateOf<AIAnalysisResponse?>(null)
-    var health by mutableStateOf<HealthResponse?>(null)
 
     // ---- 原本在 iOS ContentView 的首頁狀態 ----
     var marketIndexQuotes by mutableStateOf<Map<String, WatchlistQuote>>(emptyMap())
@@ -131,7 +130,7 @@ class DashboardViewModel(private val api: StockApiService = StockApiService.defa
         ratings = null; valuation = null
         earningsItems = emptyList(); nextEarningsDateText = null; nextEarningsTiming = null
         newsItems = emptyList(); newsLoading = false
-        aiAnalysis = null; health = null
+        aiAnalysis = null
         if (chartInfo?.stock?.uppercase() != target) chartInfo = null
         aiRefreshJob?.cancel()
 
@@ -159,8 +158,7 @@ class DashboardViewModel(private val api: StockApiService = StockApiService.defa
                 val b = async { fetchValuation(target) }
                 val c = async { fetchEarnings(target) }
                 val d = async { fetchNews(target) }
-                val e = async { fetchHealth(target) }
-                a.await(); b.await(); c.await(); d.await(); e.await()
+                a.await(); b.await(); c.await(); d.await()
             }
 
             aiRefreshJob = launch {
@@ -179,12 +177,6 @@ class DashboardViewModel(private val api: StockApiService = StockApiService.defa
         if (clean.isEmpty()) { chartInfo = null; return }
         val period = selectedPeriod
         runCatching { api.fetchChart(clean, period) }.getOrNull()?.let { if (period == selectedPeriod) chartInfo = it }
-    }
-
-    suspend fun fetchHealth(rawSymbol: String? = null) {
-        val clean = normalizedSymbolInput(rawSymbol ?: symbol)
-        if (clean.isEmpty()) { health = null; return }
-        health = runCatching { api.fetchHealth(clean) }.getOrNull()
     }
 
     suspend fun fetchRatings(rawSymbol: String? = null) {

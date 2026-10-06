@@ -74,22 +74,6 @@ import java.util.UUID
     val isNewStock: Boolean? = null,
 )
 
-// 個股量化體檢:總分百分位 + 6 因子百分位(雷達圖用)
-@Serializable data class HealthResponse(
-    val symbol: String,
-    val available: Boolean = false,
-    val asOf: String? = null,
-    val overall: Int? = null,
-    val factors: List<HealthFactor>? = null,
-)
-
-@Serializable data class HealthFactor(
-    val key: String,
-    val labelEn: String = "",
-    val labelZh: String = "",
-    val value: Int = 0,
-)
-
 // 漲幅排行榜(window: 1y 近一年 / ytd 今年)
 @Serializable data class TopGainersResponse(
     val asOf: String? = null,

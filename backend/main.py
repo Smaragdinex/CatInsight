@@ -62,7 +62,6 @@ def health():
 
 
 RANKING_PATH = BASE_DIR / "ranking_latest.json"
-HEALTH_PATH = BASE_DIR / "health_latest.json"
 TOP_GAINERS_PATH = BASE_DIR / "top_gainers_latest.json"
 
 
@@ -81,55 +80,6 @@ def ranking(top: int = Query(20, ge=1, le=50)):
         "model": data.get("model"),
         "count": len(items),
         "items": items,
-    }
-
-
-# 因子英文/中文標籤(供 App 雷達圖雙語顯示),順序固定
-_HEALTH_FACTOR_LABELS = {
-    "momentum":  {"en": "Momentum", "zh": "動能"},
-    "quality":   {"en": "Quality",  "zh": "品質"},
-    "growth":    {"en": "Growth",   "zh": "成長"},
-    "analyst":   {"en": "Analyst",  "zh": "分析師"},
-    "value":     {"en": "Value",    "zh": "估值"},
-    "stability": {"en": "Stability","zh": "穩定"},
-}
-
-
-# 先隱藏 App 個股「量化體檢卡」:設 False → 端點固定回 available=false(App 會自動不顯示)。改回 True 即恢復。
-HEALTH_CARD_ENABLED = False
-
-@app.get("/health/{symbol}")
-def stock_health(symbol: str):
-    """個股量化體檢:回傳該股在全美股的總分百分位 + 6 因子百分位(由 rank_today_fast 預先算好)。
-    若該股不在排名宇宙(無足夠資料),回傳 available=false 讓 App 隱藏體檢卡。"""
-    sym = (symbol or "").strip().upper()
-    if not HEALTH_CARD_ENABLED:
-        return {"symbol": sym, "available": False}
-    if not HEALTH_PATH.exists():
-        return {"symbol": sym, "available": False}
-    try:
-        data = json.loads(HEALTH_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {"symbol": sym, "available": False}
-    entry = (data.get("items") or {}).get(sym)
-    if not entry:
-        return {"symbol": sym, "available": False}
-    factors = entry.get("factors", {})
-    return {
-        "symbol": sym,
-        "available": True,
-        "asOf": data.get("asOf"),
-        "overall": entry.get("overall"),
-        "factors": [
-            {
-                "key": k,
-                "labelEn": _HEALTH_FACTOR_LABELS.get(k, {}).get("en", k),
-                "labelZh": _HEALTH_FACTOR_LABELS.get(k, {}).get("zh", k),
-                "value": factors.get(k, 0),
-            }
-            for k in _HEALTH_FACTOR_LABELS
-            if k in factors
-        ],
     }
 
 

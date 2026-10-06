@@ -106,12 +106,6 @@ struct StockAPIService {
         return try await fetch(url)
     }
 
-    func fetchHealth(symbol: String) async throws -> HealthResponse {
-        let encodedSymbol = try encodePath(symbol)
-        let url = try makeURL("/health/\(encodedSymbol)")
-        return try await fetch(url)
-    }
-
     func fetchTopGainers(top: Int = 20, window: String = "1y", live: Bool = true) async throws -> TopGainersResponse {
         let url = try makeURL("/top-gainers?top=\(top)&window=\(window)&live=\(live ? 1 : 0)")
         return try await fetch(url)

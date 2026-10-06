@@ -460,48 +460,6 @@ def _build_today_features(
     return feat
 
 
-# 「個股量化體檢」6 大因子 → 對映模型特徵欄(direction: +1 越高越好, -1 越低越好)。
-# 每個因子取成分特徵在全市場的百分位平均,翻譯成 0~100 的健康分數。
-HEALTH_FACTORS = {
-    "momentum":  [("momentum_20", 1), ("mean_return_20", 1), ("relative_strength_spy", 1)],
-    "quality":   [("profit_margin", 1), ("gross_margin", 1)],
-    "growth":    [("revenue_growth", 1), ("eps_yoy", 1)],
-    "analyst":   [("analyst_upside_30d", 1), ("analyst_raises_ratio_30d", 1)],
-    "value":     [("price_to_fair_value", -1), ("pe_ratio_log", -1)],
-    "stability": [("beta_60d", -1), ("volatility_20", -1)],
-}
-
-
-def _compute_health(df: pd.DataFrame, latest_date) -> None:
-    """把全市場每支股票的因子值換算成百分位,寫出 health_latest.json(供 API /health/{symbol})。"""
-    work = df.copy()
-    factor_pct: dict[str, pd.Series] = {}
-    for fac, comps in HEALTH_FACTORS.items():
-        parts = []
-        for col, direction in comps:
-            if col not in work.columns:
-                continue
-            pct = pd.to_numeric(work[col], errors="coerce").rank(pct=True)
-            if direction < 0:
-                pct = 1.0 - pct
-            parts.append(pct.fillna(0.5))
-        factor_pct[fac] = (sum(parts) / len(parts)) if parts else pd.Series(0.5, index=work.index)
-    # 總分=6 因子綜合分數的全市場百分位 → 與雷達一致(雷達越大,總分越高,擊敗X%語意成立)
-    composite = sum(factor_pct.values()) / len(factor_pct)
-    overall = composite.rank(pct=True).fillna(0.5)
-
-    items: dict[str, dict] = {}
-    for i, sym in enumerate(work["symbol"]):
-        items[str(sym).upper()] = {
-            "overall": int(round(float(overall.iloc[i]) * 100)),
-            "factors": {f: int(round(float(factor_pct[f].iloc[i]) * 100)) for f in HEALTH_FACTORS},
-        }
-    payload = {"asOf": str(latest_date), "factors": list(HEALTH_FACTORS.keys()), "items": items}
-    out = BASE_DIR / "health_latest.json"
-    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[health] 體檢百分位已寫出 → {out}  ({len(items)} 支)", flush=True)
-
-
 def _gainer_entry(sym: str, base: dict, last: dict) -> dict | None:
     try:
         b = float(base.get("close") or 0.0)
@@ -852,8 +810,6 @@ def main() -> int:
         out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[out] 排名已寫出 → {out_path}  ({len(items)} 支, asOf={latest_date})", flush=True)
 
-    # 個股量化體檢百分位(全市場),供 API /health/{symbol}
-    _compute_health(df_ranked, latest_date)
     # 漲幅排行榜已改由獨立的「廣宇宙」builder 產生(scripts/build_gainers.py),
     # 與模型宇宙(history_10y,聚焦半導體)解耦 → 這裡不再寫窄榜。
     # _compute_top_gainers(all_sym_rows, latest_date)  # 已停用(見 build_gainers.py)
