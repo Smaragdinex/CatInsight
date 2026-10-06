@@ -1,0 +1,35 @@
+.DS_Store
+__pycache__/
+scripts/__pycache__/
+reports/
+models/*.joblib
+*.pyc
+Icon
+.env
+.env.local
+
+.cache/
+.venv/
+
+# 美股10年歷史資料(天天變動,本機保留即可,不進 git)
+data/history_10y/
+
+# 台股原始資料(太大,本機保留即可,不進 git)
+data/history_tw/
+data/tw_institutional/
+data/tw_margin/
+data/tw_financials/
+data/tw_revenue/
+
+# SQLite 暫存 / 日誌
+predictions.db
+predictions.db-wal
+predictions.db-shm
+logs/*.log
+
+# 自動產生的排程輸出(每次跑就變動,本機保留即可)
+ranking_latest.json
+push.db
+push.db-*
+*.p8
+tts_assets/

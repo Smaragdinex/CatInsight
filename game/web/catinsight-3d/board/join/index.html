@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<link rel="manifest" href="/catinsight-3d/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CatInsight">
+<meta name="theme-color" content="#c9e8b8">
+<link rel="apple-touch-icon" href="/catinsight-3d/icon-192.png">
+<title>貓咪股市大富翁 · 加入房間</title>
+<link rel="stylesheet" href="../style.css?v=71">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.174.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/"
+} }
+</script>
+<style>
+  /* 手機加入頁:房號、3D 角色轉盤、名字;開始後跳到棋盤頁 */
+  html,body{height:100%}
+  body{background:#c9e8b8;overflow:auto;-webkit-overflow-scrolling:touch}
+  .jwrap{min-height:100%;display:flex;flex-direction:column;gap:14px;padding:14px 14px 40px;max-width:520px;margin:0 auto;box-sizing:border-box}
+  /* 加入卡:和主機設定卡同一個插畫外框(九宮格拉伸 + 貓耳肉球) */
+  .jcard{position:relative;margin-top:34px;padding:2px 2px 6px;border:30px solid transparent;border-image:url(../frame-card.webp?v=1) 60 fill / 30px stretch;border-radius:0;background:none;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}
+  .jcard::before{content:'';position:absolute;left:50%;top:-30px;margin-top:-31px;transform:translateX(-50%);width:130px;height:47px;background:url(../frame-ears.webp?v=1) center/contain no-repeat;pointer-events:none}
+  .jcard h1{padding-top:4px;display:flex;align-items:center;gap:8px}
+  .jcard h1 .h1ico{height:40px;width:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.15))}
+  .jcard h1{margin:0 0 6px;font-size:22px;color:var(--ink)}
+  .jcard p{margin:0 0 10px;font-size:14px;color:#6b594e;font-weight:700;line-height:1.5}
+  .jcard label{display:block;font-size:13px;font-weight:900;color:#8a786c;margin:10px 0 4px}
+  .jcard input{width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:18px;font-weight:800;background:#fff;color:var(--ink)}
+  .jcard input.code{text-transform:uppercase;letter-spacing:6px;font-family:"SF Mono",Menlo,monospace;text-align:center}
+  .jstage{position:relative;width:100%;height:230px;border-radius:18px;overflow:hidden;background:#c9e8b8;border:2px solid var(--line)}
+  .jstage canvas{width:100%;height:100%;display:block}
+  .jhint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#6b594e;text-align:center;padding:0 20px;pointer-events:none}
+  .jhint.hide{display:none}
+  .jnav{justify-content:center;margin-top:10px;gap:8px}
+  .jnav .pname2{min-width:0;flex:1;padding-left:12px}
+  .jnav .pname2 b{font-size:19px}
+  .jnav button{width:44px;height:44px}
+  .jgo{width:100%;margin-top:14px;border:0;border-radius:999px;padding:14px;background:#ff7a59;color:#fff;font:inherit;font-weight:900;font-size:18px;box-shadow:0 4px 0 #d4553a}
+  .jgo:disabled{background:#c9bcae;box-shadow:0 4px 0 #a99b90}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="jwrap">
+  <div class="jcard" id="jform">
+    <h1><img class="h1ico" src="../ic-phone.webp?v=1" alt="">加入房間</h1>
+    <p>在主機畫面的「線上同樂」看房號,輸入後選一個角色就能一起玩。</p>
+    <label>房號</label><input class="code" id="jcode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD">
+    <label>角色</label>
+    <!-- 3D 角色轉盤:和主機一樣,左右切換、中間那隻是你的 -->
+    <div class="jstage"><canvas id="jgl"></canvas><div class="jhint" id="jhint">連上房間後會顯示可以選的角色</div></div>
+    <div class="pnav jnav"><button id="jprev" aria-label="previous">‹</button><span class="pname2"><b id="jcharName">—</b><input class="pnameIn" id="jname" type="text" maxlength="12" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="你的名字"></span><button id="jnext" aria-label="next">›</button></div>
+    <button class="jgo" id="jgo">加入</button>
+    <p id="jmsg" style="margin:10px 0 0;color:#c4472f"></p>
+  </div>
+</div>
+<script type="module" src="../join.mjs?v=15"></script>
+</body>
+</html>

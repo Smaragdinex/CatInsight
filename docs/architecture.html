@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CatInsight 系統架構</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column (~70ch) with full-width UML panels; sections keyed to the three products by a colored tag */
+:root {
+  --bg: #f5f6f9;
+  --paper: #ffffff;
+  --ink: #18202f;
+  --muted: #5b6577;
+  --line: #dde1ea;
+  --accent: #e0702a;      /* 貓咪橘:CatInsight 的主色 */
+  --app: #2f6fd6;         /* App */
+  --api: #7a4fd0;         /* 後端 */
+  --web: #1f8a6e;         /* 網頁版 / 遊戲 */
+  --code-bg: #eef0f5;
+  /* UML 圖 */
+  --diagram: #fbfcfe;
+  --d-box: #ffffff;
+  --d-stroke: #9aa3b5;
+  --d-line: #5f6879;
+  --d-node: #f1f3f8;
+  --d-node2: #e4e8f0;
+  --d-node3: #d6dbe6;
+  --app-t: #e6eefc;
+  --api-t: #efe8fb;
+  --web-t: #e2f3ed;
+  --ml-t: #fcebdd;
+  --ext-t: #f0f1f4;
+  --note: #fbf5df;
+  --display: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151d; --paper: #182030; --ink: #e8ebf2; --muted: #9aa4b6; --line: #2a3446;
+    --accent: #f08a45; --app: #6c9cf0; --api: #a98af0; --web: #4cc0a0; --code-bg: #212a3b;
+    --diagram: #141a25; --d-box: #1b2332; --d-stroke: #4d5970; --d-line: #9aa6bb;
+    --d-node: #18202d; --d-node2: #222b3b; --d-node3: #2a3445;
+    --app-t: #1c2a45; --api-t: #272143; --web-t: #15342c; --ml-t: #3a281b; --ext-t: #222937; --note: #2d2a1d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151d; --paper: #182030; --ink: #e8ebf2; --muted: #9aa4b6; --line: #2a3446;
+  --accent: #f08a45; --app: #6c9cf0; --api: #a98af0; --web: #4cc0a0; --code-bg: #212a3b;
+  --diagram: #141a25; --d-box: #1b2332; --d-stroke: #4d5970; --d-line: #9aa6bb;
+  --d-node: #18202d; --d-node2: #222b3b; --d-node3: #2a3445;
+  --app-t: #1c2a45; --api-t: #272143; --web-t: #15342c; --ml-t: #3a281b; --ext-t: #222937; --note: #2d2a1d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.75; }
+.wrap { max-width: 1060px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; display: grid; gap: 56px; }
+.read { max-width: 72ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: 0.01em; }
+h2 { font-size: clamp(22px, 3.2vw, 30px); font-weight: 900; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; }
+a { color: inherit; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.stack { display: grid; gap: 16px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.lede { font-size: 18px; color: var(--muted); }
+.meta { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: var(--paper); }
+.tag.app { background: var(--app); } .tag.api { background: var(--api); } .tag.web { background: var(--web); } .tag.ml { background: var(--accent); }
+section > header { display: grid; gap: 6px; }
+section { scroll-margin-top: 16px; }
+
+/* 摘要 */
+.abstract { max-width: 72ch; display: grid; gap: 10px; padding-left: 18px; border-left: 3px solid var(--accent); }
+.abstract h2 { font-size: 20px; }
+.abstract p { font-size: 15.5px; }
+.abstract .kw { font-size: 14px; color: var(--muted); }
+.abstract .kw b { color: var(--ink); margin-right: 10px; }
+
+/* 圖目錄 */
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); overflow: hidden; }
+.figs a { display: grid; gap: 0; padding: 12px 16px; text-decoration: none; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); margin: 0 -1px -1px 0; }
+.figs a:hover { background: var(--code-bg); }
+.figs b { font-size: 15px; }
+.figs span { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* UML 圖 */
+figure { margin: 0; display: grid; gap: 10px; }
+.diagram { background: var(--diagram); border: 1px solid var(--line); border-radius: 14px; padding: 18px; overflow-x: auto; }
+figcaption { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 14px; color: var(--muted); }
+figcaption b { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.uml { display: block; width: 100%; height: auto; min-width: 720px; margin-inline: auto; }
+.uml text { font-family: var(--body); fill: var(--ink); }
+.uml .t { font-size: 14px; font-weight: 700; }
+.uml .s { font-size: 12px; fill: var(--muted); }
+.uml .st { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.uml .nt { font-size: 14px; font-weight: 900; }
+.uml .m { font-family: var(--mono); font-size: 12.5px; }
+.uml .sg { font-size: 12px; font-weight: 700; fill: var(--muted); }
+.uml .gd { paint-order: stroke; stroke: var(--diagram); stroke-width: 5px; stroke-linejoin: round; }
+.uml .fo { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.uml .el { font-size: 12px; paint-order: stroke; stroke: var(--diagram); stroke-width: 5px; stroke-linejoin: round; }
+.uml .bx { fill: var(--d-box); stroke: var(--d-stroke); stroke-width: 1.2; }
+.uml .bx.k-app { fill: var(--app-t); } .uml .bx.k-api { fill: var(--api-t); } .uml .bx.k-web { fill: var(--web-t); } .uml .bx.k-ml { fill: var(--ml-t); } .uml .bx.k-ext { fill: var(--ext-t); }
+.uml .bxl { fill: none; stroke: var(--d-stroke); stroke-width: 1.2; }
+.uml .ic { fill: var(--d-box); stroke: var(--d-stroke); stroke-width: 1; }
+.uml .nd { fill: var(--d-node); stroke: var(--d-stroke); stroke-width: 1.2; }
+.uml .nd2 { fill: var(--d-node2); stroke: var(--d-stroke); stroke-width: 1.2; }
+.uml .nd3 { fill: var(--d-node3); stroke: var(--d-stroke); stroke-width: 1.2; }
+.uml .div { stroke: var(--d-stroke); stroke-width: 1.2; }
+.uml .ed { fill: none; stroke: var(--d-line); stroke-width: 1.4; }
+.uml .dash { stroke-dasharray: 6 4; }
+.uml .mk-open { fill: none; stroke: var(--d-line); stroke-width: 1.4; }
+.uml .mk-fill { fill: var(--d-line); }
+.uml .mk-hollow { fill: var(--d-box); stroke: var(--d-line); stroke-width: 1.2; }
+.uml .ll { stroke: var(--d-stroke); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.uml .act { fill: var(--d-box); stroke: var(--d-line); stroke-width: 1.2; }
+.uml .frag { fill: none; stroke: var(--d-line); stroke-width: 1.2; }
+.uml .fragh { fill: var(--d-node2); stroke: var(--d-line); stroke-width: 1.2; }
+.uml .solid { fill: var(--ink); }
+.uml .ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.uml .note { fill: var(--note); stroke: var(--d-stroke); stroke-width: 1.2; }
+.uml .grp { fill: none; stroke: var(--d-stroke); stroke-width: 1.2; stroke-dasharray: 6 5; }
+.uml .pk { font-family: var(--mono); font-size: 10.5px; font-weight: 700; fill: var(--accent); }
+.uml .mc { font-family: var(--mono); font-size: 11.5px; } .uml .mc.b { font-weight: 700; }
+.uml .ty { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.uml .ringd { fill: var(--d-box); stroke: var(--d-line); stroke-width: 1.4; }
+.uml .actor { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+
+/* 圖例 */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend svg { width: 56px; height: 14px; flex: none; }
+.legend .ed { fill: none; stroke: var(--d-line); stroke-width: 1.4; }
+.legend .dash { stroke-dasharray: 6 4; }
+.legend .mk-open { fill: none; stroke: var(--d-line); stroke-width: 1.4; }
+.legend .mk-fill { fill: var(--d-line); }
+.legend .mk-hollow { fill: var(--paper); stroke: var(--d-line); stroke-width: 1.2; }
+
+.cap { font-size: 14px; color: var(--muted); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px; }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel h3 { display: flex; align-items: center; gap: 10px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.dot.app { background: var(--app); } .dot.api { background: var(--api); } .dot.web { background: var(--web); } .dot.ml { background: var(--accent); }
+dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 15px; }
+dt { color: var(--muted); font-weight: 500; }
+dd { margin: 0; min-width: 0; }
+ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+code, .num { font-family: var(--mono); font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px; overflow-wrap: anywhere; }
+.tablebox { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 0.04em; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+.best { color: var(--accent); font-weight: 700; }
+.note { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; color: var(--muted); font-size: 15px; }
+.steps { counter-reset: s; display: grid; gap: 10px; padding: 0; list-style: none; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
+.steps li::before { content: counter(s); font-family: var(--mono); font-weight: 600; font-size: 13px; color: var(--paper); background: var(--api); border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; margin-top: 2px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.kpi { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 2px; }
+.kpi b { font-family: var(--mono); font-size: 24px; font-weight: 600; }
+.kpi span { font-size: 13px; color: var(--muted); }
+@media (max-width: 520px) { dl { grid-template-columns: 1fr; } dt { margin-top: 6px; } .diagram { padding: 12px; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+<header class="stack">
+  <div class="stack read">
+    <span class="eyebrow">專題 · 2026 年 10 月</span>
+    <h1>CatInsight Stock 系統架構</h1>
+    <p class="lede">CatInsight Stock(AI 智慧股票分析與互動系統)由三個部分組成:手機 App(iOS / Android)、提供資料與 AI 的後端,以及網頁版的 3D 房間和「貓咪股市大富翁」遊戲。這份文件用 7 張 UML 圖和 1 張 ER 圖說明它們怎麼串在一起、各自用了什麼技術,以及用了哪些演算法和機器學習。</p>
+    <div class="tags"><span class="tag app">App</span><span class="tag api">後端 API</span><span class="tag ml">機器學習</span><span class="tag web">網頁版 / 遊戲</span></div>
+  </div>
+  <div class="abstract">
+    <h2>摘要</h2>
+    <p>CatInsight Stock 是一套 AI 智慧股票分析與互動系統,結合機器學習與生成式 AI,包含 iOS / Android App、Python 後端,以及網頁版的 3D 房間和「貓咪股市大富翁」教育遊戲。</p>
+    <p>App 的「AI 精選」把每天約 570 檔美股的排名當成排序學習問題,用 XGBoost LambdaMART 和 124 個技術面、基本面、財報與分析師特徵訓練,在 145 萬筆資料上以時間序列交叉驗證得到 NDCG@10 0.539。AI 對話和新聞摘要由本機執行的大型語言模型(gemma4)產生,語音回覆用 Kokoro 和 CosyVoice2 合成,資料不離開主機。</p>
+    <p>大富翁遊戲讓玩家在 59 張改編自真實歷史的事件卡中練習買賣、融資、放空與分散風險。遊戲規則抽成單一引擎,同時給遊戲畫面和模擬器使用;三種難度的電腦對手分別採用規則式、期望值與蒙地卡羅模擬,在上千局對戰中勝率依序遞增(三方同桌 20% / 31% / 50%)。</p>
+    <p class="kw"><b>關鍵字</b>排序學習 · XGBoost · LambdaMART · 大型語言模型 · 語音合成 · 蒙地卡羅模擬 · 期望值 · 不完全資訊賽局 · UML</p>
+  </div>
+  <nav class="figs" aria-label="圖目錄">
+    <a href="#fig1"><span>圖 1 · 部署圖</span><b>整體架構</b></a>
+    <a href="#fig2"><span>圖 2 · 活動圖</span><b>每天的 AI 精選</b></a>
+    <a href="#fig3"><span>圖 3 · 循序圖</span><b>AI 語音對話</b></a>
+    <a href="#fig4"><span>圖 4 · 元件圖</span><b>遊戲執行時</b></a>
+    <a href="#fig5"><span>圖 5 · 類別圖</span><b>單一遊戲引擎</b></a>
+    <a href="#fig6"><span>圖 6 · 狀態圖</span><b>一回合的流程</b></a>
+    <a href="#fig7"><span>圖 7 · 循序圖</span><b>困難電腦怎麼想</b></a>
+    <a href="#fig8"><span>圖 8 · ER 圖</span><b>資料庫設計</b></a>
+  </nav>
+  <div class="legend" aria-label="圖例">
+    <span><svg viewBox="0 0 56 14" aria-hidden="true"><path d="M2 7 L50 7" class="ed" marker-end="url(#d1-a)"/></svg>呼叫、傳送資料</span>
+    <span><svg viewBox="0 0 56 14" aria-hidden="true"><path d="M2 7 L50 7" class="ed dash" marker-end="url(#d1-a)"/></svg>相依(«use»)或回傳</span>
+    <span><svg viewBox="0 0 56 14" aria-hidden="true"><path d="M2 7 L50 7" class="ed" marker-end="url(#d1-f)"/></svg>循序圖的同步呼叫</span>
+    <span><svg viewBox="0 0 56 14" aria-hidden="true"><path d="M2 7 L52 7" class="ed dash" marker-end="url(#d1-t)"/></svg>實作介面</span>
+    <span><svg viewBox="0 0 56 14" aria-hidden="true"><path d="M4 7 L54 7" class="ed" marker-start="url(#d1-d)"/></svg>組成(整體擁有部分)</span>
+  </div>
+</header>
+
+<!-- 1. 總覽 -->
+<section class="stack" id="fig1">
+  <header><span class="eyebrow">1 · 總覽</span><h2>整體架構</h2></header>
+  <figure>
+    <div class="diagram"><svg class="uml" viewBox="0 0 1000 640" role="img" aria-label="UML 部署圖:使用者裝置、Cloudflare、後端主機、外部資料來源與 Apple 推播之間的連線"><defs>
+<marker id="d1-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d1-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d1-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d1-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><path d="M20 20 L30 10 L250 10 L240 20 Z" class="nd2"/><path d="M240 20 L250 10 L250 590 L240 600 Z" class="nd3"/><rect x="20" y="20" width="220" height="580" rx="1" class="nd"/><text x="32" y="38" class="st" text-anchor="start">«device»</text><text x="32" y="57" class="nt" text-anchor="start">使用者裝置</text><path d="M290 20 L300 10 L730 10 L720 20 Z" class="nd2"/><path d="M720 20 L730 10 L730 230 L720 240 Z" class="nd3"/><rect x="290" y="20" width="430" height="220" rx="1" class="nd"/><text x="302" y="38" class="st" text-anchor="start">«cloud»</text><text x="302" y="57" class="nt" text-anchor="start">Cloudflare</text><path d="M290 280 L300 270 L730 270 L720 280 Z" class="nd2"/><path d="M720 280 L730 270 L730 590 L720 600 Z" class="nd3"/><rect x="290" y="280" width="430" height="320" rx="1" class="nd"/><text x="302" y="298" class="st" text-anchor="start">«server»</text><text x="302" y="317" class="nt" text-anchor="start">後端主機</text><path d="M770 20 L780 10 L990 10 L980 20 Z" class="nd2"/><path d="M980 20 L990 10 L990 310 L980 320 Z" class="nd3"/><rect x="770" y="20" width="210" height="300" rx="1" class="nd"/><text x="782" y="38" class="st" text-anchor="start">«external»</text><text x="782" y="57" class="nt" text-anchor="start">外部資料來源</text><path d="M770 380 L780 370 L990 370 L980 380 Z" class="nd2"/><path d="M980 380 L990 370 L990 480 L980 490 Z" class="nd3"/><rect x="770" y="380" width="210" height="110" rx="1" class="nd"/><text x="782" y="398" class="st" text-anchor="start">«service»</text><text x="782" y="417" class="nt" text-anchor="start">Apple</text><rect x="40" y="80" width="180" height="64" rx="6" class="bx k-web"/><rect x="202" y="87" width="11" height="13" rx="1" class="ic"/><rect x="199" y="90" width="6" height="3" class="ic"/><rect x="199" y="95" width="6" height="3" class="ic"/><text x="130" y="109" class="t" text-anchor="middle">瀏覽器</text><text x="130" y="127" class="s" text-anchor="middle">CatInsight 網頁版</text><rect x="40" y="330" width="180" height="64" rx="6" class="bx k-app"/><rect x="202" y="337" width="11" height="13" rx="1" class="ic"/><rect x="199" y="340" width="6" height="3" class="ic"/><rect x="199" y="345" width="6" height="3" class="ic"/><text x="130" y="359" class="t" text-anchor="middle">iOS App</text><text x="130" y="377" class="s" text-anchor="middle">Swift · SwiftUI</text><rect x="40" y="430" width="180" height="64" rx="6" class="bx k-app"/><rect x="202" y="437" width="11" height="13" rx="1" class="ic"/><rect x="199" y="440" width="6" height="3" class="ic"/><rect x="199" y="445" width="6" height="3" class="ic"/><text x="130" y="459" class="t" text-anchor="middle">Android App</text><text x="130" y="477" class="s" text-anchor="middle">Kotlin · Compose</text><rect x="310" y="70" width="180" height="60" rx="6" class="bx k-web"/><rect x="472" y="77" width="11" height="13" rx="1" class="ic"/><rect x="469" y="80" width="6" height="3" class="ic"/><rect x="469" y="85" width="6" height="3" class="ic"/><text x="400" y="97" class="t" text-anchor="middle">網頁靜態檔</text><text x="400" y="115" class="s" text-anchor="middle">GitHub Pages</text><rect x="310" y="150" width="180" height="60" rx="6" class="bx k-web"/><rect x="472" y="157" width="11" height="13" rx="1" class="ic"/><rect x="469" y="160" width="6" height="3" class="ic"/><rect x="469" y="165" width="6" height="3" class="ic"/><text x="400" y="177" class="t" text-anchor="middle">Workers API</text><text x="400" y="195" class="s" text-anchor="middle">/api/board</text><path d="M540 71 A80 7 0 0 1 700 71 L700 123 A80 7 0 0 1 540 123 Z" class="bx k-web"/><path d="M540 71 A80 7 0 0 0 700 71" class="bxl"/><text x="620" y="99" class="t" text-anchor="middle">D1 資料庫</text><text x="620" y="117" class="s" text-anchor="middle">全球排行榜</text><rect x="540" y="150" width="160" height="60" rx="6" class="bx k-web"/><rect x="682" y="157" width="11" height="13" rx="1" class="ic"/><rect x="679" y="160" width="6" height="3" class="ic"/><rect x="679" y="165" width="6" height="3" class="ic"/><text x="620" y="177" class="t" text-anchor="middle">Durable Objects</text><text x="620" y="195" class="s" text-anchor="middle">房間 · WebSocket</text><rect x="310" y="330" width="180" height="64" rx="6" class="bx k-api"/><rect x="472" y="337" width="11" height="13" rx="1" class="ic"/><rect x="469" y="340" width="6" height="3" class="ic"/><rect x="469" y="345" width="6" height="3" class="ic"/><text x="400" y="359" class="t" text-anchor="middle">FastAPI 主服務</text><text x="400" y="377" class="s" text-anchor="middle">Python · uvicorn</text><rect x="540" y="320" width="160" height="56" rx="6" class="bx k-api"/><rect x="682" y="327" width="11" height="13" rx="1" class="ic"/><rect x="679" y="330" width="6" height="3" class="ic"/><rect x="679" y="335" width="6" height="3" class="ic"/><text x="620" y="345" class="t" text-anchor="middle">Ollama</text><text x="620" y="363" class="s" text-anchor="middle">gemma4:31b</text><rect x="540" y="392" width="160" height="56" rx="6" class="bx k-api"/><rect x="682" y="399" width="11" height="13" rx="1" class="ic"/><rect x="679" y="402" width="6" height="3" class="ic"/><rect x="679" y="407" width="6" height="3" class="ic"/><text x="620" y="417" class="t" text-anchor="middle">語音服務</text><text x="620" y="435" class="s" text-anchor="middle">Kokoro · CosyVoice2</text><path d="M540 473 A80 7 0 0 1 700 473 L700 525 A80 7 0 0 1 540 525 Z" class="bx k-api"/><path d="M540 473 A80 7 0 0 0 700 473" class="bxl"/><text x="620" y="501" class="t" text-anchor="middle">SQLite + JSON</text><text x="620" y="519" class="s" text-anchor="middle">分析結果 · 快取</text><rect x="310" y="440" width="180" height="56" rx="6" class="bx k-ml"/><rect x="472" y="447" width="11" height="13" rx="1" class="ic"/><rect x="469" y="450" width="6" height="3" class="ic"/><rect x="469" y="455" width="6" height="3" class="ic"/><text x="400" y="465" class="t" text-anchor="middle">每日排程</text><text x="400" y="483" class="s" text-anchor="middle">launchd 06:00</text><rect x="310" y="524" width="180" height="56" rx="6" class="bx k-ml"/><rect x="472" y="531" width="11" height="13" rx="1" class="ic"/><rect x="469" y="534" width="6" height="3" class="ic"/><rect x="469" y="539" width="6" height="3" class="ic"/><text x="400" y="549" class="t" text-anchor="middle">排名模型</text><text x="400" y="567" class="s" text-anchor="middle">XGBoost LambdaMART</text><rect x="790" y="70" width="170" height="56" rx="6" class="bx k-ext"/><rect x="942" y="77" width="11" height="13" rx="1" class="ic"/><rect x="939" y="80" width="6" height="3" class="ic"/><rect x="939" y="85" width="6" height="3" class="ic"/><text x="875" y="95" class="t" text-anchor="middle">Yahoo Finance</text><text x="875" y="113" class="s" text-anchor="middle">yfinance · 日線</text><rect x="790" y="146" width="170" height="56" rx="6" class="bx k-ext"/><rect x="942" y="153" width="11" height="13" rx="1" class="ic"/><rect x="939" y="156" width="6" height="3" class="ic"/><rect x="939" y="161" width="6" height="3" class="ic"/><text x="875" y="171" class="t" text-anchor="middle">Alpaca</text><text x="875" y="189" class="s" text-anchor="middle">美股即時成交價 · IEX</text><rect x="790" y="222" width="170" height="64" rx="6" class="bx k-ext"/><rect x="942" y="229" width="11" height="13" rx="1" class="ic"/><rect x="939" y="232" width="6" height="3" class="ic"/><rect x="939" y="237" width="6" height="3" class="ic"/><text x="875" y="251" class="t" text-anchor="middle">財報與台股</text><text x="875" y="269" class="s" text-anchor="middle">FMP · FinMind · 證交所</text><rect x="790" y="432" width="170" height="46" rx="6" class="bx k-ext"/><rect x="942" y="439" width="11" height="13" rx="1" class="ic"/><rect x="939" y="442" width="6" height="3" class="ic"/><rect x="939" y="447" width="6" height="3" class="ic"/><text x="875" y="460" class="t" text-anchor="middle">APNs 推播</text><path d="M220 100 L310 100" class="ed" marker-end="url(#d1-a)"/><path d="M220 128 L265 128 L265 180 L310 180" class="ed" marker-end="url(#d1-a)"/><path d="M490 165 L515 165 L515 97 L540 97" class="ed" marker-end="url(#d1-a)"/><path d="M490 190 L540 190" class="ed" marker-end="url(#d1-a)"/><path d="M220 362 L310 362" class="ed" marker-end="url(#d1-a)"/><path d="M220 462 L260 462 L260 382 L310 382" class="ed" marker-end="url(#d1-a)"/><path d="M490 348 L540 348" class="ed" marker-end="url(#d1-a)"/><path d="M490 372 L512 372 L512 420 L540 420" class="ed" marker-end="url(#d1-a)"/><path d="M490 388 L524 388 L524 499 L540 499" class="ed" marker-end="url(#d1-a)"/><path d="M400 496 L400 524" class="ed" marker-end="url(#d1-a)"/><path d="M490 552 L620 552 L620 532" class="ed" marker-end="url(#d1-a)"/><path d="M480 330 L480 262 L745 262 L745 170 L770 170" class="ed" marker-end="url(#d1-a)"/><path d="M720 440 L770 440" class="ed" marker-end="url(#d1-a)"/><path d="M875 490 L875 622 L130 622 L130 600" class="ed" marker-end="url(#d1-a)"/><text x="265" y="92" class="el" text-anchor="middle">HTTPS</text><text x="258" y="165" class="el" text-anchor="end">排行榜 · 房間</text><text x="265" y="354" class="el" text-anchor="middle">HTTPS · JSON</text><text x="612" y="256" class="el" text-anchor="middle">抓行情 · 財報</text><text x="745" y="432" class="el" text-anchor="middle">推播</text><text x="500" y="616" class="el" text-anchor="middle">通知送到 iPhone</text></svg></div>
+    <figcaption><b>圖 1 · UML 部署圖</b>立體方塊是實際執行的機器或服務(節點),裡面是部署在上面的元件。</figcaption>
+  </figure>
+  <p class="cap read">App 只和自家後端溝通,不直接呼叫任何第三方 API。網頁版的 3D 房間和遊戲是靜態檔案,只有排行榜和多人連線用到 Cloudflare 的無伺服器服務。每日排程也會直接向 Yahoo Finance 抓日線。</p>
+</section>
+
+<!-- 2. 三個部分 -->
+<section class="stack">
+  <header><span class="eyebrow">2 · 技術選型</span><h2>三個部分各用了什麼</h2></header>
+  <div class="cols">
+    <article class="panel">
+      <h3><span class="dot app"></span>手機 App</h3>
+      <dl>
+        <dt>iOS</dt><dd>Swift 5 · SwiftUI,iOS 18.6 以上,iPhone 與 iPad,版本 1.9</dd>
+        <dt>Android</dt><dd>Kotlin · Jetpack Compose · Material 3,Android 8.0(API 26)以上,版本 1.7,依 iOS 版逐項功能移植</dd>
+        <dt>圖表</dt><dd>iOS 用 Swift Charts 畫折線和 K 線;Android 用 Compose Canvas 自己畫</dd>
+        <dt>語音</dt><dd>語音辨識用系統 API(iOS SFSpeechRecognizer、Android SpeechRecognizer)。iOS 的回覆用後端的高品質語音串流,失敗時退回系統語音;Android 直接用系統 TextToSpeech</dd>
+        <dt>通知</dt><dd>iOS 用 APNs 遠端推播加本機通知;Android 目前只有本機通知</dd>
+        <dt>儲存</dt><dd>自選股、對話、警示存在裝置上(UserDefaults / SharedPreferences),沒有帳號系統;iOS 會把警示和自選股代號連同推播 token 同步到後端,用來推播</dd>
+        <dt>第三方套件</dt><dd>iOS 零套件,全部用 Apple 內建框架;Android 除了 AndroidX 之外只用 OkHttp 和 kotlinx.serialization</dd>
+      </dl>
+      <p class="cap">主要畫面:搜尋、市場指數、AI 精選排行、漲幅榜、自選股、個股詳情(圖表、技術指標、歷史資料、估值、財報、新聞、分析師評等)、AI 對話與語音助理、價格與技術指標警示(RSI、均線、VWAP、MACD、資金流出)。</p>
+    </article>
+    <article class="panel">
+      <h3><span class="dot api"></span>後端 API</h3>
+      <dl>
+        <dt>框架</dt><dd>Python · FastAPI,uvicorn 執行;主機只聽本機,經 Cloudflare Tunnel 對外提供 HTTPS</dd>
+                <dt>主要 API</dt><dd><code>/ranking</code> AI 精選、<code>/top-gainers</code> 漲幅榜、<code>/health/{symbol}</code> 財務健康、<code>/search</code> 搜尋、<code>/stock</code> <code>/chart</code> <code>/quote</code> <code>/signals</code> 行情與指標、<code>/news</code> <code>/earnings</code> <code>/valuation</code> <code>/ratings</code>、<code>/api/ai/*</code> AI 對話與分析、<code>/tts/stream</code> 語音、<code>/push/*</code> 推播</dd>
+        <dt>即時報價</dt><dd>美股用 Alpaca(IEX)最新成交價,快取 5 秒;台股或 Alpaca 失敗時退回 yfinance</dd>
+        <dt>資料</dt><dd>美股約 585 檔(另有約 20 檔 ETF、指數與原物料)十年日線、台股約 1,900 檔,每檔存成一個 JSON 檔;SQLite 記錄 AI 分析紀錄和推播裝置、警示;每日結果輸出成 JSON 快取</dd>
+        <dt>排程</dt><dd>macOS launchd,美股收盤後(台灣時間週二到週六 06:00)更新日線、重算排名和漲幅榜</dd>
+        <dt>推播</dt><dd>直接以 HTTP/2 + ES256 JWT 呼叫 APNs;美股交易時段每 5 分鐘檢查一次警示;每天 06:10 若 AI 精選前 20 名有新進榜的股票就推播(最多 5 檔);自選股隔天公布財報也會提醒</dd>
+        <dt>大型語言模型</dt><dd>本機 Ollama 跑 gemma4:31b,資料不出主機</dd>
+        <dt>語音合成</dt><dd>獨立服務:英文 Kokoro-82M、中文 CosyVoice2-0.5B,24 kHz 串流</dd>
+      </dl>
+    </article>
+    <article class="panel">
+      <h3><span class="dot web"></span>網頁版:3D 房間與遊戲</h3>
+      <dl>
+        <dt>部署</dt><dd>推到 GitHub 後由 GitHub Actions 建置,部署到 GitHub Pages,經 Cloudflare 提供</dd>
+        <dt>3D 房間</dt><dd>Three.js 0.174:等軸測風格的房間(透視相機)、模板緩衝區做窗外 2.5D 夜景、RectAreaLight、會眨眼的 canvas 動態海報</dd>
+        <dt>大富翁</dt><dd>Three.js 卡通渲染(三階 Toon 材質 + 描邊)、Draco 壓縮的 glTF 角色、Web Audio 即時合成音效,背景音樂和環境音用音檔</dd>
+        <dt>電腦對手</dt><dd>普通和困難的決策在 Web Worker 裡跑,畫面不卡(超過 6 秒改由主執行緒計算);簡單電腦的規則很輕,直接在主執行緒跑</dd>
+        <dt>排行榜</dt><dd>Cloudflare Workers + D1(SQLite),同一 IP 每小時最多送出 12 次</dd>
+        <dt>線上同樂</dt><dd>每個房間一個 Durable Object,用 WebSocket 同步主機和手機,手機掃 QR Code 加入</dd>
+      </dl>
+      <p class="note">3D 房間和遊戲都是原生 JavaScript 模組,不經過前端框架,瀏覽器直接載入執行,也方便把遊戲規則拿到 Node.js 裡做大量模擬。</p>
+    </article>
+  </div>
+</section>
+
+<!-- 3. App 的 AI 選股 -->
+<section class="stack" id="fig2">
+  <header><span class="eyebrow">3 · 機器學習</span><h2>App 的「AI 精選」怎麼算出來</h2></header>
+  <div class="read stack">
+    <p>每天收盤後,模型把約 570 檔美股依「明天的表現」排名,取前 20 名給 App 顯示。這是一個<b>排序學習(learning to rank)</b>問題:不是預測每檔股票的漲幅,而是學會「同一天裡哪些股票比較好」。</p>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><b>XGBoost</b><span>LambdaMART(rank:ndcg)</span></div>
+    <div class="kpi"><b>124</b><span>個特徵</span></div>
+    <div class="kpi"><b>1,451,026</b><span>筆訓練資料</span></div>
+    <div class="kpi"><b>0.539</b><span>NDCG@10(5 折時間序列交叉驗證,±0.011)</span></div>
+  </div>
+  <figure>
+    <div class="diagram"><svg class="uml" viewBox="0 0 780 710" role="img" aria-label="UML 活動圖:每天早上六點更新資料、計算特徵、排名、過濾、寫入快取,再提供給 App 和推播" style="max-width:720px"><defs>
+<marker id="d2-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d2-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d2-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d2-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><circle cx="390" cy="24" r="9" class="solid"/><path d="M390 33 L390 56" class="ed" marker-end="url(#d2-a)"/><rect x="280" y="56" width="220" height="48" rx="18" class="bx k-ml"/><text x="390" y="77" class="t" text-anchor="middle">排程啟動</text><text x="390" y="94" class="s" text-anchor="middle">launchd · 台灣時間 06:00</text><path d="M390 104 L390 128" class="ed" marker-end="url(#d2-a)"/><rect x="280" y="128" width="220" height="48" rx="18" class="bx k-ml"/><text x="390" y="149" class="t" text-anchor="middle">更新日線</text><text x="390" y="166" class="s" text-anchor="middle">yfinance · 美股約 585 檔 + ETF</text><path d="M390 176 L390 196" class="ed" marker-end="url(#d2-a)"/><rect x="160" y="196" width="460" height="6" rx="2" class="solid"/><path d="M280 202 L280 226" class="ed" marker-end="url(#d2-a)"/><path d="M500 202 L500 226" class="ed" marker-end="url(#d2-a)"/><rect x="180" y="226" width="200" height="48" rx="18" class="bx k-ml"/><text x="280" y="247" class="t" text-anchor="middle">計算特徵</text><text x="280" y="264" class="s" text-anchor="middle">每檔 124 個</text><rect x="400" y="226" width="200" height="48" rx="18" class="bx k-ml"/><text x="500" y="247" class="t" text-anchor="middle">更新漲幅榜</text><text x="500" y="264" class="s" text-anchor="middle">top_gainers_latest.json</text><path d="M280 274 L280 298" class="ed" marker-end="url(#d2-a)"/><rect x="180" y="298" width="200" height="48" rx="18" class="bx k-ml"/><text x="280" y="319" class="t" text-anchor="middle">LambdaMART 排名</text><text x="280" y="336" class="s" text-anchor="middle">XGBoost · 每天一組</text><path d="M280 346 L280 370" class="ed" marker-end="url(#d2-a)"/><rect x="180" y="370" width="200" height="48" rx="18" class="bx k-ml"/><text x="280" y="391" class="t" text-anchor="middle">規則過濾</text><text x="280" y="408" class="s" text-anchor="middle">排除投機股 · 類股動能加減分</text><path d="M280 418 L280 442" class="ed" marker-end="url(#d2-a)"/><path d="M500 274 L500 442" class="ed" marker-end="url(#d2-a)"/><rect x="160" y="442" width="460" height="6" rx="2" class="solid"/><path d="M390 448 L390 472" class="ed" marker-end="url(#d2-a)"/><rect x="225" y="472" width="330" height="48" rx="18" class="bx k-ml"/><text x="390" y="493" class="t" text-anchor="middle">寫入快取</text><text x="390" y="510" class="s" text-anchor="middle">ranking_latest.json · health_latest.json</text><path d="M390 520 L390 544" class="ed" marker-end="url(#d2-a)"/><rect x="160" y="544" width="460" height="6" rx="2" class="solid"/><path d="M280 550 L280 574" class="ed" marker-end="url(#d2-a)"/><path d="M500 550 L500 574" class="ed" marker-end="url(#d2-a)"/><rect x="180" y="574" width="200" height="48" rx="18" class="bx k-ml"/><text x="280" y="595" class="t" text-anchor="middle">提供給 App</text><text x="280" y="612" class="s" text-anchor="middle">/ranking · /health API</text><rect x="400" y="574" width="200" height="48" rx="18" class="bx k-ml"/><text x="500" y="595" class="t" text-anchor="middle">精選更新推播</text><text x="500" y="612" class="s" text-anchor="middle">有新進榜才推 · APNs</text><path d="M280 622 L280 646" class="ed" marker-end="url(#d2-a)"/><path d="M500 622 L500 646" class="ed" marker-end="url(#d2-a)"/><rect x="160" y="646" width="460" height="6" rx="2" class="solid"/><path d="M390 652 L390 676" class="ed" marker-end="url(#d2-a)"/><circle cx="390" cy="688" r="11" class="ring"/><circle cx="390" cy="688" r="6" class="solid"/><path d="M618 280 L762 280 L774 292 L774 376 L618 376 Z" class="note"/><path d="M762 280 L762 292 L774 292" class="bxl"/><text x="628" y="302" class="sg" text-anchor="start">離線訓練(另外做)</text><text x="628" y="320" class="s" text-anchor="start">抓十年歷史與財報</text><text x="628" y="338" class="s" text-anchor="start">→ 訓練 → .joblib</text><text x="628" y="356" class="s" text-anchor="start">→ 回測確認</text><path d="M618 322 L380 322" class="ed dash"/></svg></div>
+    <figcaption><b>圖 2 · UML 活動圖</b>粗橫線是分岔與匯合:兩條路線同時進行,都做完才往下走。</figcaption>
+  </figure>
+  <div class="cols">
+    <article class="panel">
+      <h3><span class="dot ml"></span>模型設定</h3>
+      <dl>
+        <dt>演算法</dt><dd>XGBRanker,400 棵樹、深度 4、學習率 0.05</dd>
+        <dt>分組</dt><dd>每個交易日一組,只在同一天的股票之間比較</dd>
+        <dt>標籤</dt><dd>隔日報酬切成 4 級(門檻 −5%、+3%、+10%)</dd>
+        <dt>驗證</dt><dd>5 折擴展視窗的時間序列交叉驗證:每折只用較早的資料訓練、較晚的資料測試,以 NDCG@10 評分;正式模型再用到 2026-07-15 的全部資料重新訓練</dd>
+        <dt>回測</dt><dd>用只訓練到 2025-11-30 的模型,在之後 12 個日期(每月 1 日和 15 日)取前 20 名,持有 90 天看報酬</dd>
+      </dl>
+    </article>
+    <article class="panel">
+      <h3><span class="dot ml"></span>124 個特徵的類別</h3>
+      <ul>
+        <li>價格與技術指標:各期報酬、RSI、MFI、MACD、均線、VWAP、OBV</li>
+        <li>相對強弱:對 SPY 大盤、SOXX 半導體 ETF</li>
+        <li>市場環境:SPY、QQQ、SOXX、VIX 恐慌指數</li>
+        <li>基本面:毛利率、成長率、本益比、近四季(TTM)數字</li>
+        <li>財報:超預期幅度、連續打敗預期、EPS 加速</li>
+        <li>分析師:目標價、升降評</li>
+        <li>跨資產:與黃金、原油、比特幣的連動</li>
+      </ul>
+    </article>
+    <article class="panel">
+      <h3><span class="dot ml"></span>模型之後的規則</h3>
+      <ul>
+        <li>排除投機股和成交量太小又過熱的股票</li>
+        <li>排除深度回檔、「接刀子」型態</li>
+        <li>歷史不到 400 天的股票改用規則評分</li>
+        <li>沒有基本面也沒有財報資料的股票不列入</li>
+        <li>依類股相對大盤的動能加減分</li>
+      </ul>
+      <p class="cap">財務健康雷達:另外把動能、品質、成長、分析師、估值、穩定度 6 個面向換算成百分位數,給個股詳情頁顯示(這張卡片目前在後端暫時關閉)。</p>
+    </article>
+  </div>
+</section>
+
+<!-- 4. 生成式 AI 與語音 -->
+<section class="stack" id="fig3">
+  <header><span class="eyebrow">4 · 生成式 AI</span><h2>AI 對話、新聞摘要與語音</h2></header>
+  <figure>
+    <div class="diagram"><svg class="uml" viewBox="0 0 1000 540" role="img" aria-label="UML 循序圖:使用者用語音問問題,App 送到後端,後端查股票代號、問語言模型,再把回覆合成語音串流回手機"><defs>
+<marker id="d3-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d3-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d3-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d3-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><circle cx="70" cy="24" r="8" class="actor"/><path d="M70 32 L70 50 M56 40 L84 40 M70 50 L58 64 M70 50 L82 64" class="actor"/><text x="70" y="82" class="t" text-anchor="middle">使用者</text><line x1="70" y1="90" x2="70" y2="530" class="ll"/><rect x="175" y="16" width="150" height="46" rx="6" class="bx k-app"/><text x="250" y="36" class="t" text-anchor="middle">App</text><text x="250" y="53" class="s" text-anchor="middle">iOS</text><line x1="250" y1="62" x2="250" y2="530" class="ll"/><rect x="385" y="16" width="150" height="46" rx="6" class="bx k-api"/><text x="460" y="36" class="t" text-anchor="middle">FastAPI</text><text x="460" y="53" class="s" text-anchor="middle">後端主服務</text><line x1="460" y1="62" x2="460" y2="530" class="ll"/><rect x="615" y="16" width="150" height="46" rx="6" class="bx k-api"/><text x="690" y="36" class="t" text-anchor="middle">Ollama</text><text x="690" y="53" class="s" text-anchor="middle">gemma4:31b</text><line x1="690" y1="62" x2="690" y2="530" class="ll"/><rect x="825" y="16" width="150" height="46" rx="6" class="bx k-api"/><text x="900" y="36" class="t" text-anchor="middle">語音服務</text><text x="900" y="53" class="s" text-anchor="middle">Kokoro · CosyVoice2</text><line x1="900" y1="62" x2="900" y2="530" class="ll"/><rect x="244" y="96" width="12" height="416" rx="1" class="act"/><rect x="454" y="186" width="12" height="194" rx="1" class="act"/><rect x="454" y="406" width="12" height="70" rx="1" class="act"/><rect x="684" y="296" width="12" height="44" rx="1" class="act"/><rect x="894" y="430" width="12" height="44" rx="1" class="act"/><path d="M76 100 L244 100" class="ed" marker-end="url(#d3-f)"/><path d="M256 124 L290 124 L290 146 L257 146" class="ed" marker-end="url(#d3-f)"/><path d="M256 190 L454 190" class="ed" marker-end="url(#d3-f)"/><path d="M466 214 L500 214 L500 236 L467 236" class="ed" marker-end="url(#d3-f)"/><path d="M466 300 L684 300" class="ed" marker-end="url(#d3-f)"/><path d="M684 336 L466 336" class="ed dash" marker-end="url(#d3-a)"/><path d="M454 372 L256 372" class="ed dash" marker-end="url(#d3-a)"/><path d="M256 410 L454 410" class="ed" marker-end="url(#d3-f)"/><path d="M466 434 L894 434" class="ed" marker-end="url(#d3-f)"/><path d="M894 470 L256 470" class="ed dash" marker-end="url(#d3-a)"/><path d="M244 506 L76 506" class="ed dash" marker-end="url(#d3-a)"/><text x="160" y="93" class="el" text-anchor="middle">說出問題</text><text x="298" y="139" class="el" text-anchor="start">語音轉文字(系統語音辨識)</text><text x="355" y="183" class="el" text-anchor="middle">POST /api/ai/chat</text><text x="508" y="229" class="el" text-anchor="start">公司名稱對應到股票代號</text><text x="575" y="293" class="el" text-anchor="middle">問題 + 行情、財報資料</text><text x="575" y="329" class="el" text-anchor="middle">回覆文字</text><text x="355" y="365" class="el" text-anchor="middle">回覆 + 提到的股票</text><text x="355" y="403" class="el" text-anchor="middle">GET /tts/stream</text><text x="680" y="427" class="el" text-anchor="middle">合成(中文 CosyVoice2 · 英文 Kokoro)</text><text x="575" y="463" class="el" text-anchor="middle">24 kHz 音訊串流</text><text x="160" y="499" class="el" text-anchor="middle">播放語音</text></svg></div>
+    <figcaption><b>圖 3 · UML 循序圖</b>由上往下是時間順序;實線是呼叫,虛線是回傳,直立的細長方塊表示那段時間正在處理。Android 版的語音回覆用系統 TextToSpeech,不經過語音服務。</figcaption>
+  </figure>
+  <div class="cols">
+    <article class="panel">
+      <h3><span class="dot api"></span>大型語言模型</h3>
+      <p>後端在本機用 Ollama 執行 gemma4:31b,負責 AI 對話、個股分析報告、新聞摘要(根據最新 8 則新聞寫成三句話,加上偏多 / 偏空 / 中性,快取 30 分鐘)和「明日展望」。對話可以用公司名稱找股票:內建中英文對照表,其他名稱用 Yahoo 搜尋,台股中文簡稱則對照證交所和櫃買中心的公開清單(每 7 天更新)。</p>
+    </article>
+    <article class="panel">
+      <h3><span class="dot api"></span>語音</h3>
+      <p>語音辨識用手機系統的 API。iOS 的回覆由後端的語音服務合成:英文用 Kokoro-82M,中文和中英混合用 CosyVoice2-0.5B,在 Apple GPU(MPS)上執行,邊生成邊串流回手機。Android 版目前用系統內建的 TextToSpeech。</p>
+    </article>
+    <article class="panel">
+      <h3><span class="dot ml"></span>個股「AI 綜合分析」</h3>
+      <p>用 XGBoost 分類器判斷「買 / 不買」(61 個特徵,門檻為隔日 +1.5%),失敗時退回線性迴歸預測隔日報酬,再退回規則判斷。個股的文字報告和明日展望則由語言模型另外產生。</p>
+    </article>
+  </div>
+</section>
+
+<!-- 5. 遊戲 -->
+<section class="stack" id="fig4">
+  <header><span class="eyebrow">5 · 遊戲</span><h2>貓咪股市大富翁</h2></header>
+  <figure>
+    <div class="diagram"><svg class="uml" viewBox="0 -24 1000 420" role="img" aria-label="UML 元件圖:主機瀏覽器裡的遊戲流程、遊戲規則、模擬器、電腦對手,透過 Cloudflare 的房間和玩家手機連線,並把成績送到排行榜"><defs>
+<marker id="d4-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d4-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d4-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d4-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><path d="M20 20 L30 10 L480 10 L470 20 Z" class="nd2"/><path d="M470 20 L480 10 L480 380 L470 390 Z" class="nd3"/><rect x="20" y="20" width="450" height="370" rx="1" class="nd"/><text x="32" y="38" class="st" text-anchor="start">«browser»</text><text x="32" y="57" class="nt" text-anchor="start">主機瀏覽器(電腦或平板)</text><path d="M520 20 L530 10 L990 10 L980 20 Z" class="nd2"/><path d="M980 20 L990 10 L990 240 L980 250 Z" class="nd3"/><rect x="520" y="20" width="460" height="230" rx="1" class="nd"/><text x="532" y="38" class="st" text-anchor="start">«cloud»</text><text x="532" y="57" class="nt" text-anchor="start">Cloudflare</text><path d="M520 290 L530 280 L790 280 L780 290 Z" class="nd2"/><path d="M780 290 L790 280 L790 380 L780 390 Z" class="nd3"/><rect x="520" y="290" width="260" height="100" rx="1" class="nd"/><text x="532" y="308" class="st" text-anchor="start">«device»</text><text x="532" y="327" class="nt" text-anchor="start">玩家手機</text><rect x="40" y="70" width="170" height="56" rx="6" class="bx k-web"/><rect x="192" y="77" width="11" height="13" rx="1" class="ic"/><rect x="189" y="80" width="6" height="3" class="ic"/><rect x="189" y="85" width="6" height="3" class="ic"/><text x="125" y="95" class="t" text-anchor="middle">遊戲規則</text><text x="125" y="113" class="s" text-anchor="middle">engine.mjs</text><rect x="40" y="180" width="170" height="56" rx="6" class="bx k-web"/><rect x="192" y="187" width="11" height="13" rx="1" class="ic"/><rect x="189" y="190" width="6" height="3" class="ic"/><rect x="189" y="195" width="6" height="3" class="ic"/><text x="125" y="205" class="t" text-anchor="middle">模擬器</text><text x="125" y="223" class="s" text-anchor="middle">sim.mjs</text><rect x="40" y="290" width="170" height="56" rx="6" class="bx k-web"/><rect x="192" y="297" width="11" height="13" rx="1" class="ic"/><rect x="189" y="300" width="6" height="3" class="ic"/><rect x="189" y="305" width="6" height="3" class="ic"/><text x="125" y="315" class="t" text-anchor="middle">電腦對手</text><text x="125" y="333" class="s" text-anchor="middle">ai-worker.mjs</text><rect x="250" y="175" width="170" height="60" rx="6" class="bx k-web"/><rect x="402" y="182" width="11" height="13" rx="1" class="ic"/><rect x="399" y="185" width="6" height="3" class="ic"/><rect x="399" y="190" width="6" height="3" class="ic"/><text x="335" y="202" class="t" text-anchor="middle">遊戲流程</text><text x="335" y="220" class="s" text-anchor="middle">board.mjs</text><rect x="250" y="295" width="170" height="56" rx="6" class="bx k-web"/><rect x="402" y="302" width="11" height="13" rx="1" class="ic"/><rect x="399" y="305" width="6" height="3" class="ic"/><rect x="399" y="310" width="6" height="3" class="ic"/><text x="335" y="320" class="t" text-anchor="middle">畫面與音效</text><text x="335" y="338" class="s" text-anchor="middle">Three.js · Web Audio</text><rect x="550" y="70" width="200" height="60" rx="6" class="bx k-web"/><rect x="732" y="77" width="11" height="13" rx="1" class="ic"/><rect x="729" y="80" width="6" height="3" class="ic"/><rect x="729" y="85" width="6" height="3" class="ic"/><text x="650" y="97" class="t" text-anchor="middle">Durable Objects</text><text x="650" y="115" class="s" text-anchor="middle">每個房間一個</text><rect x="780" y="70" width="180" height="60" rx="6" class="bx k-web"/><rect x="942" y="77" width="11" height="13" rx="1" class="ic"/><rect x="939" y="80" width="6" height="3" class="ic"/><rect x="939" y="85" width="6" height="3" class="ic"/><text x="870" y="97" class="t" text-anchor="middle">Workers API</text><text x="870" y="115" class="s" text-anchor="middle">/api/board</text><path d="M780 167 A90 7 0 0 1 960 167 L960 219 A90 7 0 0 1 780 219 Z" class="bx k-web"/><path d="M780 167 A90 7 0 0 0 960 167" class="bxl"/><text x="870" y="195" class="t" text-anchor="middle">D1 資料庫</text><text x="870" y="213" class="s" text-anchor="middle">全球排行榜</text><rect x="540" y="335" width="220" height="46" rx="6" class="bx k-web"/><rect x="742" y="342" width="11" height="13" rx="1" class="ic"/><rect x="739" y="345" width="6" height="3" class="ic"/><rect x="739" y="350" width="6" height="3" class="ic"/><text x="650" y="355" class="t" text-anchor="middle">加入頁面</text><text x="650" y="373" class="s" text-anchor="middle">join.mjs</text><path d="M125 290 L125 236" class="ed" marker-end="url(#d4-a)"/><path d="M125 180 L125 126" class="ed" marker-end="url(#d4-a)"/><path d="M250 190 L230 190 L230 98 L210 98" class="ed" marker-end="url(#d4-a)"/><path d="M250 220 L230 220 L230 318 L210 318" class="ed" marker-end="url(#d4-a)"/><path d="M335 235 L335 295" class="ed" marker-end="url(#d4-a)"/><path d="M420 195 L495 195 L495 100 L550 100" class="ed" marker-end="url(#d4-a)" marker-start="url(#d4-a)"/><path d="M650 130 L650 335" class="ed" marker-end="url(#d4-a)" marker-start="url(#d4-a)"/><path d="M870 130 L870 160" class="ed" marker-end="url(#d4-a)"/><path d="M380 175 L380 -4 L870 -4 L870 70" class="ed" marker-end="url(#d4-a)"/><text x="236" y="150" class="el" text-anchor="start">呼叫規則</text><text x="236" y="272" class="el" text-anchor="start">局面快照</text><text x="342" y="270" class="el" text-anchor="start">繪製</text><text x="457" y="187" class="el" text-anchor="middle">同步</text><text x="658" y="278" class="el" text-anchor="start">WebSocket</text><text x="625" y="-10" class="el" text-anchor="middle">一局結束送成績</text></svg></div>
+    <figcaption><b>圖 4 · UML 元件圖</b>主機瀏覽器跑完整遊戲;玩家手機只負責操作,透過 Cloudflare 的房間同步。</figcaption>
+  </figure>
+  <div class="cols">
+    <article class="panel">
+      <h3><span class="dot web"></span>遊戲經濟</h3>
+      <ul>
+        <li>25 種虛構資產(含太空股、電商零售、機器人),59 張依真實歷史改編的事件卡;棋盤外圈 72 格</li>
+        <li>買賣會推動股價:買進每股 +0.4%、賣出每股 −0.3%(最多 −15%)、放空每股 −0.5%(最多 −20%),一手 10 股;都用推動後的價格成交</li>
+        <li>融資:整個帳戶維持率低於 130% 會被斷頭;放空:漲 30% 會被軋空</li>
+        <li>事件卡在載入時做平衡:每檔資產在整副牌的漲跌幾何平均為 1,方向不變只調幅度</li>
+        <li>大盤趨勢由事件卡決定:重大危機每回合 −2%、壞消息 −1%、好消息 +1%、降息和央行救市 +2%,其餘 21 張不改。轉多、轉空的牌各 16 張;趨勢只作用在股票和 ETF,黃金、債券、加密貨幣、農產不受影響</li>
+        <li>股利事件(加發 3 張、削減 2 張)讓殖利率每局不同</li>
+        <li>15 種命運牌,其中兩張會把人送進棋盤中間的小路:「涉嫌內線交易」進警察局、「受邀內部認購」進認購攤位</li>
+        <li>內部認購:先免費獲得 10 股;還能用市價 8 折加碼認購,一定買得到,但加碼的股數有 3 回合閉鎖期不能賣(參考台灣私募「價格不低於參考價 8 成、有轉讓限制」的規定)</li>
+        <li>32 個階梯式成就,真人和電腦用同一套規則;斷頭高手、軋空高手只算自己動作造成的</li>
+      </ul>
+    </article>
+    <article class="panel">
+      <h3><span class="dot web"></span>公平的不完全資訊</h3>
+      <p>看不到對手的持股和現金。電腦只能讀「公開帳本」:畫面上公告過的交易。公告只說買或賣、不說股數,所以帳本裡的股數也是推測(買一次當作 2 手、賣一次當作賣掉一半,斷頭、軋空這類寫明「全部」的才歸零),而且依難度會忘記(簡單 2 回合、普通 5 回合、困難全記得)。這在 AI 裡叫做信念狀態(belief state)。用「偵查報告」道具($400)才能看到對手 3 回合內的真實部位。</p>
+    </article>
+  </div>
+</section>
+
+<!-- 6. 單一遊戲引擎 -->
+<section class="stack" id="fig5">
+  <header><span class="eyebrow">6 · 架構</span><h2>單一遊戲引擎</h2></header>
+  <div class="read stack">
+    <p>遊戲規則只有一份,放在 <code>engine.mjs</code>。真正的遊戲和電腦用來模擬未來的模擬器,呼叫的是同一套規則。所以<b>蒙地卡羅模擬的世界,就是玩家實際在玩的世界</b>,模擬一萬次得到的答案才有意義。</p>
+  </div>
+  <figure>
+    <div class="diagram"><svg class="uml" viewBox="0 0 1000 680" role="img" aria-label="UML 類別圖:data.mjs 提供資料給 engine.mjs,board.mjs 和 sim.mjs 都使用同一個引擎,GameState 由多個 Player 組成,三種電腦策略實作同一個介面"><defs>
+<marker id="d5-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d5-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d5-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d5-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><rect x="20" y="20" width="250" height="212" rx="3" class="bx k-web"/><text x="145" y="37" class="st" text-anchor="middle">«data»</text><text x="145" y="56" class="t" text-anchor="middle">data.mjs</text><line x1="20" y1="64" x2="270" y2="64" class="div"/><line x1="20" y1="202" x2="270" y2="202" class="div"/><text x="30" y="83" class="m" text-anchor="start">SECTORS: 25 檔資產</text><text x="30" y="101" class="m" text-anchor="start">TILES: 棋盤格子</text><text x="30" y="119" class="m" text-anchor="start">EVENTS: 59 張事件卡</text><text x="30" y="137" class="m" text-anchor="start">FATE: 15 種命運牌</text><text x="30" y="155" class="m" text-anchor="start">LANES: 小路</text><text x="30" y="173" class="m" text-anchor="start">MARKET_DRIFT: 開局 +1%</text><text x="30" y="191" class="m" text-anchor="start">DIV_*: 股息規則</text><text x="30" y="221" class="m" text-anchor="start">gameData(L, fmt)</text><rect x="340" y="20" width="310" height="338" rx="3" class="bx k-web"/><text x="495" y="37" class="st" text-anchor="middle">«module»</text><text x="495" y="56" class="t" text-anchor="middle">engine.mjs</text><line x1="340" y1="64" x2="650" y2="64" class="div"/><line x1="340" y1="112" x2="650" y2="112" class="div"/><text x="350" y="83" class="m" text-anchor="start">D: 遊戲資料</text><text x="350" y="101" class="m" text-anchor="start">opts: hooks · slippage · drift</text><text x="350" y="131" class="m" text-anchor="start">makeEngine(D, opts)</text><text x="350" y="149" class="sg" text-anchor="start">交易與風控</text><text x="350" y="167" class="m" text-anchor="start">buy() · sell() · short() · cover()</text><text x="350" y="185" class="m" text-anchor="start">impact() · marginCheck() · squeeze()</text><text x="350" y="203" class="sg" text-anchor="start">現金流</text><text x="350" y="221" class="m" text-anchor="start">roundDividends() · payday()</text><text x="350" y="239" class="sg" text-anchor="start">事件與大盤</text><text x="350" y="257" class="m" text-anchor="start">instantiate() · applyEvent()</text><text x="350" y="275" class="m" text-anchor="start">newRound() · trendOf()</text><text x="350" y="293" class="sg" text-anchor="start">回合流程</text><text x="350" y="311" class="m" text-anchor="start">dice() · advance() · enterLane()</text><text x="350" y="329" class="m" text-anchor="start">pathEffect() · fate() · ipoBuy()</text><text x="350" y="347" class="m" text-anchor="start">bank() · buyItem()</text><rect x="720" y="20" width="260" height="190" rx="3" class="bx k-web"/><text x="850" y="37" class="st" text-anchor="middle">«state»</text><text x="850" y="56" class="t" text-anchor="middle">GameState(st)</text><line x1="720" y1="64" x2="980" y2="64" class="div"/><line x1="720" y1="202" x2="980" y2="202" class="div"/><text x="730" y="83" class="m" text-anchor="start">players: Player[]</text><text x="730" y="101" class="m" text-anchor="start">price: {資產: 價格}</text><text x="730" y="119" class="m" text-anchor="start">div: {資產: 殖利率}</text><text x="730" y="137" class="m" text-anchor="start">trend: 每回合大盤漲跌</text><text x="730" y="155" class="m" text-anchor="start">turn · rolls</text><text x="730" y="173" class="m" text-anchor="start">actor: 動作是誰的(暫存)</text><text x="730" y="191" class="m" text-anchor="start">notices: 公告(遊戲端)</text><rect x="720" y="270" width="260" height="140" rx="3" class="bx k-web"/><text x="850" y="290" class="t" text-anchor="middle">Player</text><line x1="720" y1="300" x2="980" y2="300" class="div"/><line x1="720" y1="402" x2="980" y2="402" class="div"/><text x="730" y="319" class="m" text-anchor="start">cash: 現金</text><text x="730" y="337" class="m" text-anchor="start">debt: 借款</text><text x="730" y="355" class="m" text-anchor="start">hold: {n, cost, loan}</text><text x="730" y="373" class="m" text-anchor="start">short: {n, entry}</text><text x="730" y="391" class="m" text-anchor="start">flags: 成就進度(遊戲端)</text><rect x="20" y="290" width="250" height="158" rx="3" class="bx k-web"/><text x="145" y="307" class="st" text-anchor="middle">«UI»</text><text x="145" y="326" class="t" text-anchor="middle">board.mjs</text><line x1="20" y1="334" x2="270" y2="334" class="div"/><line x1="20" y1="364" x2="270" y2="364" class="div"/><text x="30" y="353" class="m" text-anchor="start">S: GameState</text><text x="30" y="383" class="m" text-anchor="start">playEvent()</text><text x="30" y="401" class="m" text-anchor="start">buyPanel() · bagPanel() · shopPanel()</text><text x="30" y="419" class="m" text-anchor="start">simSnapshot()</text><text x="30" y="437" class="m" text-anchor="start">動畫 · 音效 · 多人連線</text><rect x="340" y="430" width="310" height="158" rx="3" class="bx k-web"/><text x="495" y="447" class="st" text-anchor="middle">«module»</text><text x="495" y="466" class="t" text-anchor="middle">sim.mjs</text><line x1="340" y1="474" x2="650" y2="474" class="div"/><line x1="340" y1="504" x2="650" y2="504" class="div"/><text x="350" y="493" class="m" text-anchor="start">EVP: 期望值策略參數</text><text x="350" y="523" class="m" text-anchor="start">makeSim(D, opts)</text><text x="350" y="541" class="m" text-anchor="start">newGame() · playGame()</text><text x="350" y="559" class="m" text-anchor="start">evOf(): 期望報酬</text><text x="350" y="577" class="m" text-anchor="start">assetsOf()</text><rect x="20" y="510" width="250" height="100" rx="3" class="bx k-web"/><text x="145" y="527" class="st" text-anchor="middle">«Web Worker»</text><text x="145" y="546" class="t" text-anchor="middle">ai-worker.mjs</text><line x1="20" y1="554" x2="270" y2="554" class="div"/><line x1="20" y1="562" x2="270" y2="562" class="div"/><text x="30" y="581" class="m" text-anchor="start">onmessage(局面快照)</text><text x="30" y="599" class="m" text-anchor="start">→ 回傳最佳動作</text><rect x="720" y="470" width="260" height="82" rx="3" class="bx k-web"/><text x="850" y="487" class="st" text-anchor="middle">«interface»</text><text x="850" y="506" class="t" text-anchor="middle">電腦策略 Policy</text><line x1="720" y1="514" x2="980" y2="514" class="div"/><line x1="720" y1="522" x2="980" y2="522" class="div"/><text x="730" y="541" class="m" text-anchor="start">onTurn(st, p)</text><rect x="720" y="610" width="84" height="46" rx="3" class="bx k-web"/><text x="762" y="630" class="t" text-anchor="middle">規則式</text><text x="762" y="647" class="s" text-anchor="middle">簡單</text><rect x="808" y="610" width="84" height="46" rx="3" class="bx k-web"/><text x="850" y="630" class="t" text-anchor="middle">期望值</text><text x="850" y="647" class="s" text-anchor="middle">普通</text><rect x="896" y="610" width="84" height="46" rx="3" class="bx k-web"/><text x="938" y="630" class="t" text-anchor="middle">蒙地卡羅</text><text x="938" y="647" class="s" text-anchor="middle">困難</text><path d="M340 120 L270 120" class="ed dash" marker-end="url(#d5-a)"/><path d="M650 115 L720 115" class="ed dash" marker-end="url(#d5-a)"/><path d="M270 330 L340 330" class="ed dash" marker-end="url(#d5-a)"/><path d="M145 448 L145 510" class="ed dash" marker-end="url(#d5-a)"/><path d="M270 560 L340 560" class="ed dash" marker-end="url(#d5-a)"/><path d="M495 430 L495 358" class="ed dash" marker-end="url(#d5-a)"/><path d="M650 510 L720 510" class="ed" marker-end="url(#d5-a)"/><path d="M850 210 L850 270" class="ed" marker-start="url(#d5-d)"/><path d="M762 610 L762 584 L938 584 L938 610" class="ed dash"/><path d="M850 610 L850 552" class="ed dash" marker-end="url(#d5-t)"/><text x="305" y="112" class="el" text-anchor="middle">«use»</text><text x="685" y="107" class="el" text-anchor="middle">讀寫</text><text x="305" y="322" class="el" text-anchor="middle">«use»</text><text x="153" y="484" class="el" text-anchor="start">postMessage</text><text x="305" y="552" class="el" text-anchor="middle">«use»</text><text x="503" y="398" class="el" text-anchor="start">«use»</text><text x="685" y="502" class="el" text-anchor="middle">policies</text><text x="858" y="262" class="el" text-anchor="start">1..*</text></svg></div>
+    <figcaption><b>圖 5 · UML 類別圖</b>每個方塊分三格:名稱、資料、函式。JavaScript 模組沒有 class 關鍵字,這裡把每個模組當成一個類別來畫。</figcaption>
+  </figure>
+  <div class="cols">
+    <article class="panel">
+      <h3><span class="dot web"></span>設計重點</h3>
+      <ul>
+        <li><b>純函式、不碰畫面</b>:同一份程式可以在瀏覽器、Web Worker 和 Node.js 裡跑</li>
+        <li><b>亂數由外面給</b>:遊戲用 <code>Math.random</code>,模擬器用可以固定種子的亂數,實驗結果可以重現</li>
+        <li><b>引擎回報、畫面播放</b>:例如 <code>advance()</code> 每走一步就回報「到了哪一格、有沒有發薪」,畫面照著播棋子跳的動畫</li>
+        <li><b>副作用用 hooks 接</b>:被斷頭時要跳的說明卡、公開帳本,由引擎通知遊戲去處理</li>
+        <li><b>actor</b>:記下這次價格變動是誰「自己的動作」造成的,成就只算給他</li>
+      </ul>
+    </article>
+    <article class="panel">
+      <h3><span class="dot web"></span>策略模式</h3>
+      <p>三種電腦對手實作同一個 <code>onTurn(st, p)</code> 介面(設計模式裡的 Strategy pattern)。模擬器不需要知道是哪一種電腦,換難度只是換掉策略物件;對戰工具也靠這點讓不同策略同桌互打。</p>
+    </article>
+  </div>
+  <figure id="fig6">
+    <div class="diagram"><svg class="uml" viewBox="0 0 1000 450" role="img" aria-label="UML 狀態圖:新回合、等待擲骰、移動中、停在格子上的六種情況、換下一位,第 20 回合結束後結算"><defs>
+<marker id="d6-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d6-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d6-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d6-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><circle cx="40" cy="85" r="9" class="solid"/><path d="M49 85 L80 85" class="ed" marker-end="url(#d6-a)"/><rect x="80" y="40" width="230" height="90" rx="14" class="bx k-web"/><text x="195" y="62" class="t" text-anchor="middle">新回合</text><line x1="80" y1="72" x2="310" y2="72" class="div"/><text x="92" y="90" class="s" text-anchor="start">entry / 抽事件卡、改變大盤趨勢</text><text x="92" y="108" class="s" text-anchor="start">entry / 配息、價格隨機波動</text><path d="M310 85 L360 85" class="ed" marker-end="url(#d6-a)"/><rect x="360" y="55" width="140" height="60" rx="14" class="bx k-web"/><text x="430" y="82" class="t" text-anchor="middle">等待擲骰</text><text x="430" y="100" class="s" text-anchor="middle">擲 1 或 2 顆骰子</text><path d="M500 85 L600 85" class="ed" marker-end="url(#d6-a)"/><rect x="600" y="55" width="170" height="60" rx="14" class="bx k-web"/><text x="685" y="82" class="t" text-anchor="middle">移動中</text><text x="685" y="100" class="s" text-anchor="middle">經過起點領薪水和利息</text><path d="M685 115 L685 170" class="ed" marker-end="url(#d6-a)"/><rect x="560" y="170" width="420" height="260" rx="16" class="bx k-web"/><text x="770" y="192" class="t" text-anchor="middle">停在格子上</text><line x1="560" y1="202" x2="980" y2="202" class="div"/><rect x="580" y="215" width="180" height="52" rx="12" class="bx"/><text x="670" y="238" class="t" text-anchor="middle">股票格</text><text x="670" y="256" class="s" text-anchor="middle">買 · 賣 · 融資 · 放空</text><rect x="780" y="215" width="180" height="52" rx="12" class="bx"/><text x="870" y="238" class="t" text-anchor="middle">命運牌</text><text x="870" y="256" class="s" text-anchor="middle">15 種隨機效果</text><rect x="580" y="280" width="180" height="52" rx="12" class="bx"/><text x="670" y="303" class="t" text-anchor="middle">銀行 · 商店</text><text x="670" y="321" class="s" text-anchor="middle">借款 · 買道具</text><rect x="780" y="280" width="180" height="52" rx="12" class="bx"/><text x="870" y="303" class="t" text-anchor="middle">警察局</text><text x="870" y="321" class="s" text-anchor="middle">休息一回合或保釋</text><rect x="580" y="345" width="180" height="52" rx="12" class="bx"/><text x="670" y="368" class="t" text-anchor="middle">內部認購</text><text x="670" y="386" class="s" text-anchor="middle">送 10 股 · 8 折加碼</text><rect x="780" y="345" width="180" height="52" rx="12" class="bx"/><text x="870" y="368" class="t" text-anchor="middle">金錢格</text><text x="870" y="386" class="s" text-anchor="middle">股息 · 撿到錢 · 手續費</text><path d="M560 300 L500 300" class="ed" marker-end="url(#d6-a)"/><rect x="330" y="270" width="170" height="60" rx="14" class="bx k-web"/><text x="415" y="305" class="t" text-anchor="middle">換下一位</text><path d="M470 270 L470 115" class="ed" marker-end="url(#d6-a)"/><path d="M360 270 L360 200 L195 200 L195 130" class="ed" marker-end="url(#d6-a)"/><path d="M415 330 L415 380" class="ed" marker-end="url(#d6-a)"/><rect x="340" y="380" width="150" height="56" rx="14" class="bx k-web"/><text x="415" y="405" class="t" text-anchor="middle">結算</text><text x="415" y="423" class="s" text-anchor="middle">排名 · 送排行榜</text><path d="M340 408 L296 408" class="ed" marker-end="url(#d6-a)"/><circle cx="284" cy="408" r="11" class="ring"/><circle cx="284" cy="408" r="6" class="solid"/><text x="550" y="78" class="el" text-anchor="middle">擲骰</text><text x="693" y="147" class="el" text-anchor="start">停下</text><text x="530" y="292" class="el" text-anchor="middle">做完動作</text><text x="462" y="190" class="el" text-anchor="end">[還有人沒走]</text><text x="278" y="192" class="el" text-anchor="middle">[這回合大家都走完了]</text><text x="423" y="360" class="el" text-anchor="start">[最後一回合結束]</text></svg></div>
+    <figcaption><b>圖 6 · UML 狀態圖</b>圓角方塊是狀態,箭頭上的方括號是條件。預設 20 回合,可選 20 到 40 回合。「停在格子上」是組合狀態,依格子類型進入其中一種。</figcaption>
+  </figure>
+  <div class="read stack">
+    <h3>怎麼確認重構沒改壞規則</h3>
+    <p>原本規則分散在遊戲和模擬器兩份程式裡,有一次就因為兩邊不一致,讓對戰數字算錯。重構分四步進行(買賣 → 配息 → 事件卡 → 回合流程),每一步都要通過:</p>
+    <ol class="steps">
+      <li><span><b>固定種子 checksum</b>:改之前先跑 103 局(含蒙地卡羅電腦),記下總資產、現金、股價的總和;改完必須到小數點第 4 位都相同。</span></li>
+      <li><span><b>遊戲內固定劇本</b>:買、融資、部分賣出、放空、回補、斷頭、軋空、各種事件卡、命運牌,改前改後所有數字逐項比對。</span></li>
+      <li><span><b>新舊對照測試</b>:把舊版規則逐字抄出來,和新引擎在隨機產生的局面上比對,回合流程共 55,500 次、0 差異。</span></li>
+      <li><span><b>完整遊玩</b>:簡單、普通、困難各打完一整局,再由真人實際測多人連線。</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 7. 遊戲 AI -->
+<section class="stack" id="fig7">
+  <header><span class="eyebrow">7 · 演算法</span><h2>電腦對手的三種演算法</h2></header>
+  <div class="read stack">
+    <p>三個難度是三種不同的演算法,一層比一層強。全部在瀏覽器裡執行,不需要伺服器。</p>
+  </div>
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>難度</th><th>演算法</th><th>怎麼做決定</th></tr></thead>
+      <tbody>
+        <tr><td>簡單</td><td>規則式 / 啟發法<br/><span class="cap">rule-based heuristic</span></td><td>用評分挑一檔「主攻股」,有錢就買,漲 35% 才賣;其他股票漲 15% 賣、價格接近或低於開盤時買;對手公開持股多、股價又漲超過 15% 時,有一定機率放空。</td></tr>
+        <tr><td>普通</td><td>期望值<br/><span class="cap">expected value</span></td><td>從事件卡資料算出每檔資產「每抽一張卡的平均漲跌與波動」,加上配息、大盤趨勢(用整副牌的長期平均,不假設目前的趨勢會一直持續)和崩盤後的反彈,扣掉風險,得到持有到結束的期望報酬。擲 1 顆還是 2 顆骰子,比較兩種擲法所有落點的平均分數,選期望值高的。股利蓋得過融資利息、維持率保持 200% 以上才借錢。</td></tr>
+        <tr><td>困難</td><td>蒙地卡羅模擬<br/><span class="cap">Monte Carlo rollout</span></td><td>每個候選動作(買幾手、融資、賣、放空、擲幾顆)都把後面 3 回合隨機模擬 120 次,剩下的回合用期望值估(擲骰的決定模擬 72 次)。所有候選動作用同一組隨機種子(common random numbers)做配對比較,只有比期望值策略的建議好超過 1.5 個標準誤才換動作,避免被雜訊騙。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figure>
+    <div class="diagram"><svg class="uml" viewBox="0 0 1000 580" role="img" aria-label="UML 循序圖:遊戲把局面快照交給背景執行緒,蒙地卡羅模擬器對每個候選動作模擬 120 次,選出最佳動作後由遊戲引擎執行"><defs>
+<marker id="d7-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d7-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d7-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d7-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><rect x="35" y="16" width="150" height="46" rx="6" class="bx k-web"/><text x="110" y="36" class="t" text-anchor="middle">board.mjs</text><text x="110" y="53" class="s" text-anchor="middle">遊戲流程</text><line x1="110" y1="62" x2="110" y2="570" class="ll"/><rect x="255" y="16" width="150" height="46" rx="6" class="bx k-web"/><text x="330" y="36" class="t" text-anchor="middle">ai-worker.mjs</text><text x="330" y="53" class="s" text-anchor="middle">背景執行緒</text><line x1="330" y1="62" x2="330" y2="570" class="ll"/><rect x="495" y="16" width="150" height="46" rx="6" class="bx k-web"/><text x="570" y="36" class="t" text-anchor="middle">sim.mjs</text><text x="570" y="53" class="s" text-anchor="middle">蒙地卡羅</text><line x1="570" y1="62" x2="570" y2="570" class="ll"/><rect x="775" y="16" width="150" height="46" rx="6" class="bx k-web"/><text x="850" y="36" class="t" text-anchor="middle">engine.mjs</text><text x="850" y="53" class="s" text-anchor="middle">遊戲規則</text><line x1="850" y1="62" x2="850" y2="570" class="ll"/><rect x="104" y="96" width="12" height="460" rx="1" class="act"/><rect x="324" y="96" width="12" height="386" rx="1" class="act"/><rect x="564" y="136" width="12" height="316" rx="1" class="act"/><rect x="844" y="244" width="12" height="50" rx="1" class="act"/><rect x="844" y="506" width="12" height="44" rx="1" class="act"/><path d="M116 100 L324 100" class="ed" marker-end="url(#d7-f)"/><path d="M336 140 L564 140" class="ed" marker-end="url(#d7-f)"/><path d="M576 162 L610 162 L610 184 L577 184" class="ed" marker-end="url(#d7-f)"/><rect x="440" y="208" width="550" height="152" rx="2" class="frag"/><path d="M440 208 H490 V221 L482 229 H440 Z" class="fragh"/><text x="448" y="223" class="fo" text-anchor="start">loop</text><text x="500" y="224" class="s gd" text-anchor="start">[每個候選動作 × 120 次,用同一組亂數]</text><path d="M576 250 L844 250" class="ed" marker-end="url(#d7-f)"/><path d="M844 290 L576 290" class="ed dash" marker-end="url(#d7-a)"/><path d="M576 312 L610 312 L610 334 L577 334" class="ed" marker-end="url(#d7-f)"/><path d="M576 384 L610 384 L610 406 L577 406" class="ed" marker-end="url(#d7-f)"/><path d="M564 446 L336 446" class="ed dash" marker-end="url(#d7-a)"/><path d="M324 478 L116 478" class="ed dash" marker-end="url(#d7-a)"/><path d="M116 512 L844 512" class="ed" marker-end="url(#d7-f)"/><path d="M844 546 L116 546" class="ed dash" marker-end="url(#d7-a)"/><text x="220" y="93" class="el" text-anchor="middle">postMessage(局面快照)</text><text x="450" y="133" class="el" text-anchor="middle">決定動作(st)</text><text x="618" y="177" class="el" text-anchor="start">列出候選動作:買幾手 · 融資 · 賣 · 放空 · 擲幾顆</text><text x="710" y="243" class="el" text-anchor="middle">複製局面,模擬 3 回合</text><text x="710" y="283" class="el" text-anchor="middle">3 回合後的資產</text><text x="618" y="327" class="el" text-anchor="start">剩下的回合用期望值估</text><text x="618" y="399" class="el" text-anchor="start">配對比較,差距夠大才換動作</text><text x="450" y="439" class="el" text-anchor="middle">最佳動作</text><text x="220" y="471" class="el" text-anchor="middle">最佳動作</text><text x="480" y="505" class="el" text-anchor="middle">buy() / short() / advance() …</text><text x="480" y="539" class="el" text-anchor="middle">結果:價格、公告</text></svg></div>
+    <figcaption><b>圖 7 · UML 循序圖</b>loop 框是重複執行的區段。整段在背景執行緒完成,一次交易決策約 0.13 秒(Node.js 實測),畫面不會卡住。</figcaption>
+  </figure>
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>對戰(20 回合,座位隨機)</th><th class="r">局數</th><th class="r">規則式</th><th class="r">期望值</th><th class="r">蒙地卡羅</th></tr></thead>
+      <tbody>
+        <tr><td>規則式 vs 期望值</td><td class="r num">700</td><td class="r num">30.4%</td><td class="r num best">69.6%</td><td class="r num">—</td></tr>
+        <tr><td>三方同桌</td><td class="r num">560</td><td class="r num">19.9%</td><td class="r num">31.0%</td><td class="r num best">49.9%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap read">勝率由 <code>tools/ladder.sh</code> 在 Node.js 裡用同一份模擬器平行對戰得出,使用目前的規則(72 格棋盤、25 種資產、大盤趨勢由事件卡決定,轉多轉空牌各 16 張)。</p>
+  <div class="read stack">
+    <h3>怎麼調出這些參數</h3>
+    <ol class="steps">
+      <li><span>把遊戲規則抽成不碰畫面的純函式,讓電腦可以在 Node.js 裡一秒打幾十局。</span></li>
+      <li><span>寫對戰工具,讓三種電腦互打幾百到上千局,記錄勝率和平均資產。</span></li>
+      <li><span>用對戰找出規則漏洞:原本先用舊價成交再推價,買進立刻有帳面獲利;事件卡長期偏多偏空。兩個都修掉,讓電腦贏是因為玩得好,而不是抓到漏洞。</span></li>
+      <li><span>參數掃描(grid search)期望值策略,再用 28 核心平行跑上千局,確認差異大於統計誤差才採用。大盤改成事件決定後,期望值電腦一度輸給規則式(46%),原因是它假設目前的趨勢會維持到結束;改成用長期平均後回到 64%。</span></li>
+      <li><span><b>試過但沒有採用</b>:把困難電腦的目標改成「拿第一的機率」(對期望值的勝率 58.8% → 53.1%)、模擬次數加到 4 倍(59.6% → 60.9%,在誤差內)、往後看 6 回合(降到 53.2%)。加大搜尋量沒有明顯變強,代表瓶頸不在搜尋,所以沒有改成 MCTS。</span></li>
+      <li><span><b>策略網路 + 價值網路實驗</b>:另外做了一個參考 AlphaZero 的電腦:策略網路提供先驗、價值網路評估局面勝率,在根節點用 PUCT 公式分配模擬次數(只有一層,沒有展開成完整的多層搜尋樹),先用蒙地卡羅的 97 萬筆紀錄訓練,再混合對弈一代、用搜尋次數分布更新策略網路。結果和蒙地卡羅一樣強(三方同桌 48% 對 47%),每次決策約 16 毫秒,快 13 倍;多一代訓練、加大搜尋量都沒有再變強。</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 8. 資料庫 -->
+<section class="stack" id="fig8">
+  <header><span class="eyebrow">8 · 資料庫</span><h2>資料怎麼存</h2></header>
+  <div class="read stack">
+    <p>系統有三個資料庫,都是 SQLite:後端的 <code>push.db</code> 管推播,<code>predictions.db</code> 記錄每次 AI 分析;遊戲排行榜放在 Cloudflare D1。股價歷史不在資料庫裡,而是每檔股票一個 JSON 檔,方便每日排程整批讀寫。</p>
+  </div>
+  <figure>
+    <div class="diagram"><svg class="uml" viewBox="0 0 1000 700" role="img" aria-label="ER 圖:push.db 的 devices 對 alerts、watch 是一對多,對 token_env 是一對零或一;sent_log、ranking_snapshot 獨立;predictions.db 記錄 AI 分析;Cloudflare D1 的 records 存遊戲排行榜"><defs>
+<marker id="d8-a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" class="mk-open"/></marker>
+<marker id="d8-f" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="mk-fill"/></marker>
+<marker id="d8-t" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto"><path d="M1 1 L11 6 L1 11 Z" class="mk-hollow"/></marker>
+<marker id="d8-d" viewBox="0 0 14 8" refX="1" refY="4" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="10" orient="auto"><path d="M1 4 L7 1 L13 4 L7 7 Z" class="mk-fill"/></marker>
+</defs><rect x="20" y="20" width="620" height="500" rx="12" class="grp"/><text x="34" y="42" class="nt" text-anchor="start">push.db</text><text x="34" y="59" class="st" text-anchor="start">SQLite · 後端 · 推播</text><rect x="670" y="20" width="310" height="360" rx="12" class="grp"/><text x="684" y="42" class="nt" text-anchor="start">predictions.db</text><text x="684" y="59" class="st" text-anchor="start">SQLite · 後端 · AI 分析紀錄</text><rect x="670" y="410" width="310" height="270" rx="12" class="grp"/><text x="684" y="432" class="nt" text-anchor="start">Cloudflare D1</text><text x="684" y="449" class="st" text-anchor="start">SQLite · 遊戲全球排行榜</text><rect x="40" y="70" width="200" height="114" rx="4" class="bx"/><path d="M40 100 V74 Q40 70 44 70 H236 Q240 70 240 74 V100 Z" class="bx k-api"/><text x="52" y="90" class="t" text-anchor="start">devices</text><line x1="40" y1="100" x2="240" y2="100" class="div"/><text x="50" y="118" class="pk" text-anchor="start">PK</text><text x="88" y="118" class="mc b" text-anchor="start">token</text><text x="230" y="118" class="ty" text-anchor="end">TEXT</text><text x="88" y="137" class="mc" text-anchor="start">platform</text><text x="230" y="137" class="ty" text-anchor="end">TEXT</text><text x="88" y="156" class="mc" text-anchor="start">lang</text><text x="230" y="156" class="ty" text-anchor="end">TEXT</text><text x="88" y="175" class="mc" text-anchor="start">updated_at</text><text x="230" y="175" class="ty" text-anchor="end">REAL</text><rect x="380" y="70" width="240" height="209" rx="4" class="bx"/><path d="M380 100 V74 Q380 70 384 70 H616 Q620 70 620 74 V100 Z" class="bx k-api"/><text x="392" y="90" class="t" text-anchor="start">alerts</text><line x1="380" y1="100" x2="620" y2="100" class="div"/><text x="390" y="118" class="pk" text-anchor="start">PK</text><text x="428" y="118" class="mc b" text-anchor="start">id</text><text x="610" y="118" class="ty" text-anchor="end">TEXT</text><text x="390" y="137" class="pk" text-anchor="start">PK FK</text><text x="428" y="137" class="mc b" text-anchor="start">token</text><text x="610" y="137" class="ty" text-anchor="end">TEXT</text><text x="428" y="156" class="mc" text-anchor="start">symbol</text><text x="610" y="156" class="ty" text-anchor="end">TEXT</text><text x="428" y="175" class="mc" text-anchor="start">metric</text><text x="610" y="175" class="ty" text-anchor="end">TEXT</text><text x="428" y="194" class="mc" text-anchor="start">direction</text><text x="610" y="194" class="ty" text-anchor="end">TEXT</text><text x="428" y="213" class="mc" text-anchor="start">target</text><text x="610" y="213" class="ty" text-anchor="end">REAL</text><text x="428" y="232" class="mc" text-anchor="start">period/fast/slow/signal</text><text x="428" y="251" class="mc" text-anchor="start">enabled</text><text x="610" y="251" class="ty" text-anchor="end">INT</text><text x="428" y="270" class="mc" text-anchor="start">last_triggered</text><text x="610" y="270" class="ty" text-anchor="end">REAL</text><rect x="40" y="240" width="150" height="76" rx="4" class="bx"/><path d="M40 270 V244 Q40 240 44 240 H186 Q190 240 190 244 V270 Z" class="bx k-api"/><text x="52" y="260" class="t" text-anchor="start">watch</text><line x1="40" y1="270" x2="190" y2="270" class="div"/><text x="50" y="288" class="pk" text-anchor="start">PK FK</text><text x="88" y="288" class="mc b" text-anchor="start">token</text><text x="180" y="288" class="ty" text-anchor="end">TEXT</text><text x="50" y="307" class="pk" text-anchor="start">PK</text><text x="88" y="307" class="mc b" text-anchor="start">symbol</text><text x="180" y="307" class="ty" text-anchor="end">TEXT</text><rect x="40" y="360" width="200" height="95" rx="4" class="bx"/><path d="M40 390 V364 Q40 360 44 360 H236 Q240 360 240 364 V390 Z" class="bx k-api"/><text x="52" y="380" class="t" text-anchor="start">token_env</text><line x1="40" y1="390" x2="240" y2="390" class="div"/><text x="50" y="408" class="pk" text-anchor="start">PK FK</text><text x="88" y="408" class="mc b" text-anchor="start">token</text><text x="230" y="408" class="ty" text-anchor="end">TEXT</text><text x="88" y="427" class="mc" text-anchor="start">env</text><text x="230" y="427" class="ty" text-anchor="end">TEXT</text><text x="88" y="446" class="mc" text-anchor="start">sandbox / production</text><rect x="380" y="310" width="240" height="95" rx="4" class="bx"/><path d="M380 340 V314 Q380 310 384 310 H616 Q620 310 620 314 V340 Z" class="bx k-api"/><text x="392" y="330" class="t" text-anchor="start">sent_log</text><line x1="380" y1="340" x2="620" y2="340" class="div"/><text x="390" y="358" class="pk" text-anchor="start">PK</text><text x="428" y="358" class="mc b" text-anchor="start">key</text><text x="610" y="358" class="ty" text-anchor="end">TEXT</text><text x="428" y="377" class="mc" text-anchor="start">at</text><text x="610" y="377" class="ty" text-anchor="end">REAL</text><text x="428" y="396" class="mc" text-anchor="start">key = earn:token:代號:日期</text><rect x="380" y="420" width="240" height="76" rx="4" class="bx"/><path d="M380 450 V424 Q380 420 384 420 H616 Q620 420 620 424 V450 Z" class="bx k-api"/><text x="392" y="440" class="t" text-anchor="start">ranking_snapshot</text><line x1="380" y1="450" x2="620" y2="450" class="div"/><text x="390" y="468" class="pk" text-anchor="start">PK</text><text x="428" y="468" class="mc b" text-anchor="start">as_of</text><text x="610" y="468" class="ty" text-anchor="end">TEXT</text><text x="428" y="487" class="mc" text-anchor="start">symbols(前 20 名 JSON)</text><text x="610" y="487" class="ty" text-anchor="end">TEXT</text><rect x="690" y="70" width="270" height="266" rx="4" class="bx"/><path d="M690 100 V74 Q690 70 694 70 H956 Q960 70 960 74 V100 Z" class="bx k-ml"/><text x="702" y="90" class="t" text-anchor="start">predictions</text><line x1="690" y1="100" x2="960" y2="100" class="div"/><text x="700" y="118" class="pk" text-anchor="start">PK</text><text x="738" y="118" class="mc b" text-anchor="start">prediction_id</text><text x="950" y="118" class="ty" text-anchor="end">TEXT</text><text x="738" y="137" class="mc" text-anchor="start">symbol · companyName</text><text x="950" y="137" class="ty" text-anchor="end">TEXT</text><text x="738" y="156" class="mc" text-anchor="start">model_version</text><text x="950" y="156" class="ty" text-anchor="end">TEXT</text><text x="738" y="175" class="mc" text-anchor="start">predicted_at</text><text x="950" y="175" class="ty" text-anchor="end">TEXT</text><text x="738" y="194" class="mc" text-anchor="start">currentPrice</text><text x="950" y="194" class="ty" text-anchor="end">REAL</text><text x="738" y="213" class="mc" text-anchor="start">predictedLow · Mid · High</text><text x="950" y="213" class="ty" text-anchor="end">REAL</text><text x="738" y="232" class="mc" text-anchor="start">actualPrice · residual</text><text x="950" y="232" class="ty" text-anchor="end">REAL</text><text x="738" y="251" class="mc" text-anchor="start">predictedDirection</text><text x="950" y="251" class="ty" text-anchor="end">TEXT</text><text x="738" y="270" class="mc" text-anchor="start">actualDirection · isCorrect</text><text x="738" y="289" class="mc" text-anchor="start">confidence · bias</text><text x="950" y="289" class="ty" text-anchor="end">TEXT</text><text x="738" y="308" class="mc" text-anchor="start">summary · news*(3 欄)</text><text x="950" y="308" class="ty" text-anchor="end">TEXT</text><text x="738" y="327" class="mc" text-anchor="start">indicators · marketContext</text><text x="950" y="327" class="ty" text-anchor="end">TEXT</text><rect x="690" y="460" width="270" height="190" rx="4" class="bx"/><path d="M690 490 V464 Q690 460 694 460 H956 Q960 460 960 464 V490 Z" class="bx k-web"/><text x="702" y="480" class="t" text-anchor="start">records</text><line x1="690" y1="490" x2="960" y2="490" class="div"/><text x="700" y="508" class="pk" text-anchor="start">PK</text><text x="738" y="508" class="mc b" text-anchor="start">id</text><text x="950" y="508" class="ty" text-anchor="end">INTEGER</text><text x="738" y="527" class="mc" text-anchor="start">name · char</text><text x="950" y="527" class="ty" text-anchor="end">TEXT</text><text x="738" y="546" class="mc" text-anchor="start">assets</text><text x="950" y="546" class="ty" text-anchor="end">INTEGER</text><text x="738" y="565" class="mc" text-anchor="start">rounds · players</text><text x="950" y="565" class="ty" text-anchor="end">INTEGER</text><text x="738" y="584" class="mc" text-anchor="start">ai(難度)</text><text x="950" y="584" class="ty" text-anchor="end">TEXT</text><text x="738" y="603" class="mc" text-anchor="start">lang</text><text x="950" y="603" class="ty" text-anchor="end">TEXT</text><text x="738" y="622" class="mc" text-anchor="start">ip_hash(限制送出)</text><text x="950" y="622" class="ty" text-anchor="end">TEXT</text><text x="738" y="641" class="mc" text-anchor="start">created_at</text><text x="950" y="641" class="ty" text-anchor="end">INTEGER</text><line x1="240" y1="110" x2="380" y2="110" class="ed"/><path d="M247 103 L247 117" class="ed"/><path d="M253 103 L253 117" class="ed"/><path d="M380 118 L367 110 L380 102 M380 110 L367 110" class="ed"/><path d="M365 117 L365 103" class="ed"/><circle cx="355" cy="110" r="5" class="ringd"/><line x1="100" y1="182" x2="100" y2="240" class="ed"/><path d="M107 189 L93 189" class="ed"/><path d="M107 195 L93 195" class="ed"/><path d="M92 240 L100 227 L108 240 M100 240 L100 227" class="ed"/><path d="M93 225 L107 225" class="ed"/><circle cx="100" cy="215" r="5" class="ringd"/><line x1="215" y1="182" x2="215" y2="360" class="ed"/><path d="M222 189 L208 189" class="ed"/><path d="M222 195 L208 195" class="ed"/><path d="M208 352 L222 352" class="ed"/><circle cx="215" cy="341" r="5" class="ringd"/><text x="310" y="102" class="el" text-anchor="middle">設定警示</text><text x="108" y="216" class="el" text-anchor="start">追蹤</text><text x="223" y="300" class="el" text-anchor="start">推播環境</text></svg></div>
+    <figcaption><b>圖 8 · ER 圖(鴉爪表示法)</b>兩條直線表示「剛好一筆」,圓圈加鴉爪表示「零到多筆」,圓圈加直線表示「零或一筆」。PK 是主鍵,FK 是外鍵。</figcaption>
+  </figure>
+  <div class="cols">
+    <article class="panel">
+      <h3><span class="dot api"></span>push.db 的關聯</h3>
+      <ul>
+        <li>一台裝置(<code>devices</code>,以 APNs token 當主鍵)可以有很多個警示和追蹤的股票</li>
+        <li><code>token_env</code> 記住這個 token 要送到 APNs 的 sandbox 還是 production,Xcode 安裝和 App Store 版本不同</li>
+        <li><code>sent_log</code> 記錄已送過的財報提醒,避免同一則重複推播</li>
+        <li><code>ranking_snapshot</code> 存每天的 AI 精選前 20 名,用來比較哪些是新進榜</li>
+      </ul>
+    </article>
+    <article class="panel">
+      <h3><span class="dot web"></span>設計取捨</h3>
+      <ul>
+        <li>外鍵關係由程式維護,SQLite 沒有宣告 FOREIGN KEY;刪除裝置時由程式一起清掉警示</li>
+        <li>沒有帳號系統,所以用推播 token 當使用者的識別</li>
+        <li>排行榜的 <code>ip_hash</code> 只存雜湊過的 IP,用來限制每小時最多送出 12 次,不保存真實 IP</li>
+        <li>排行榜依資產排序,另外建了索引(assets、ip_hash)</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- 9. 限制 -->
+<section class="stack read">
+  <header><span class="eyebrow">9 · 現況與限制</span><h2>還可以改進的地方</h2></header>
+  <ul>
+    <li>後端跑在一台主機上,沒有備援;每日排程依賴這台機器開著。</li>
+    <li>AI 精選的排名模型只涵蓋美股。台股有實驗版排名模型,還沒有上線。</li>
+    <li>個股「買 / 不買」分類器準確率 82%,其實略低於「全部猜不買」的 82.4%,該買的只抓到 3.4%;只適合當參考,排名模型才是主力。</li>
+    <li>每日排程只更新股價;基本面、財報、分析師資料目前沒有排程更新,停在 2026 年 6 月。</li>
+    <li>主 API 和語音服務目前是手動啟動,沒有交給 launchd 管理;財務健康雷達卡片暫時關閉。</li>
+    <li>Android 版還沒上架,也還沒有遠端推播。</li>
+    <li>大富翁的遊戲規則已統一成一份,但電腦的部分策略(何時去銀行借錢、商店買什麼)遊戲和模擬器還各有一份,模擬器的比較簡化。</li>
+  </ul>
+</section>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,634 @@
+{
+  "modelType": "XGBRanker-LambdaMART",
+  "horizon": 1,
+  "gradeThresholds": [
+    -0.05,
+    0.03,
+    0.1
+  ],
+  "featureNames": [
+    "lag_1_return",
+    "lag_2_return",
+    "lag_3_return",
+    "mean_return_5",
+    "mean_return_20",
+    "volatility_20",
+    "momentum_20",
+    "avg_volume_20",
+    "volume_ratio",
+    "rsi",
+    "mfi",
+    "rsi_norm",
+    "mfi_norm",
+    "rsi_change_3d",
+    "mfi_change_3d",
+    "ma5_deviation",
+    "ma20_deviation",
+    "rsi_delta_1",
+    "mfi_delta_1",
+    "ma5_slope",
+    "ma20_slope",
+    "vwap_deviation",
+    "price_mfi_divergence",
+    "obv_change_5",
+    "macd",
+    "macdSignal",
+    "macdHist",
+    "macdHist_change_3d",
+    "relative_strength_spy",
+    "relative_strength_soxx",
+    "relative_strength_spy_change_3d",
+    "relative_strength_soxx_change_3d",
+    "spy_return1d",
+    "qqq_return1d",
+    "soxx_return1d",
+    "vix_change1d",
+    "spy_rsi14",
+    "qqq_rsi14",
+    "soxx_rsi14",
+    "vix_rsi14",
+    "spy_macdHist",
+    "qqq_macdHist",
+    "soxx_macdHist",
+    "vix_macdHist",
+    "vix_level",
+    "pe_ratio_log",
+    "profit_margin",
+    "gross_margin",
+    "gross_net_spread",
+    "eps_growth",
+    "revenue_growth",
+    "has_fundamentals",
+    "eps_surprise_pct",
+    "earnings_beat",
+    "post_earnings_gap_pct",
+    "analyst_upside_30d",
+    "analyst_raises_ratio_30d",
+    "analyst_coverage_30d",
+    "analyst_target_high_30d",
+    "eps_qoq",
+    "eps_trend_3q",
+    "next_eps_est_vs_prev",
+    "eps_yoy",
+    "eps_accel",
+    "beat_streak",
+    "price_to_52w_high",
+    "price_to_52w_low",
+    "eps_price_divergence",
+    "price_to_fair_value",
+    "log_market_cap",
+    "consecutive_neg_eps",
+    "analyst_raises_x_momentum",
+    "eps_analyst_lag",
+    "value_growth",
+    "loss_depth",
+    "quality_eps_growth",
+    "momentum_x_eps_lag",
+    "crash_no_support",
+    "revenue_growth_x_margin",
+    "pe_momentum",
+    "beat_streak_quality",
+    "gold_corr_60d",
+    "oil_corr_60d",
+    "btc_corr_60d",
+    "btc_p52w_high",
+    "eps_miss",
+    "gld_momentum_20d",
+    "cl_momentum_20d",
+    "btc_momentum_20d",
+    "beat_streak_x_momentum",
+    "neg_margin_x_miss",
+    "consec_loss_sq",
+    "spy_momentum_20d",
+    "vix_change_5d",
+    "beta_60d",
+    "drawdown_depth",
+    "low_gross_margin",
+    "drawdown_x_momentum",
+    "momentum_accel",
+    "vol_surge_20_60",
+    "hot_score",
+    "cold_penalty",
+    "accel_x_volume",
+    "overrun_risk",
+    "deep_value",
+    "value_x_momentum",
+    "overrun_x_neg_momentum",
+    "oil_bear_signal",
+    "gold_bear_signal",
+    "btc_bear_signal",
+    "hot_macro_headwind",
+    "rsi_miss_combo",
+    "crash_momentum",
+    "dead_cat",
+    "loss_miss_signal",
+    "next_est_decline",
+    "stale_target_risk",
+    "hot_valuation_risk",
+    "crowded_momentum",
+    "falling_knife"
+  ],
+  "lookbackDays": 20,
+  "trainEnd": "2025-11-28",
+  "testStart": "2025-12-30",
+  "trainRows": 1177348,
+  "testRows": 55812,
+  "testNDCG10": 0.550457,
+  "testNDCG20": 0.58163,
+  "crossValidation": {
+    "method": "TimeSeriesSplit-manual",
+    "nSplits": 5,
+    "ndcg10Mean": 0.572986,
+    "ndcg10Std": 0.01347,
+    "foldNDCG10": [
+      0.59419,
+      0.555998,
+      0.577752,
+      0.575772,
+      0.561218
+    ]
+  },
+  "clipBounds": {
+    "lag_1_return": {
+      "lo": -0.0638478,
+      "hi": 0.06523306
+    },
+    "lag_2_return": {
+      "lo": -0.0638497,
+      "hi": 0.06522863
+    },
+    "lag_3_return": {
+      "lo": -0.06383191,
+      "hi": 0.06520759
+    },
+    "mean_return_5": {
+      "lo": -0.02989733,
+      "hi": 0.03126931
+    },
+    "mean_return_20": {
+      "lo": -0.01604014,
+      "hi": 0.01732009
+    },
+    "volatility_20": {
+      "lo": -0.01858541,
+      "hi": 0.05037813
+    },
+    "momentum_20": {
+      "lo": -0.31067944,
+      "hi": 0.33139417
+    },
+    "avg_volume_20": {
+      "lo": -11230111.25,
+      "hi": 17566908.75
+    },
+    "volume_ratio": {
+      "lo": -0.52947691,
+      "hi": 2.4217652
+    },
+    "rsi": {
+      "lo": -32.6486,
+      "hi": 138.1808
+    },
+    "mfi": {
+      "lo": -26.1459,
+      "hi": 131.5858
+    },
+    "rsi_norm": {
+      "lo": -1.652972,
+      "hi": 1.763616
+    },
+    "mfi_norm": {
+      "lo": -1.522918,
+      "hi": 1.631716
+    },
+    "rsi_change_3d": {
+      "lo": -51.022475,
+      "hi": 51.1812
+    },
+    "mfi_change_3d": {
+      "lo": -48.7856,
+      "hi": 48.7776
+    },
+    "ma5_deviation": {
+      "lo": -0.07189167,
+      "hi": 0.0743318
+    },
+    "ma20_deviation": {
+      "lo": -0.17214804,
+      "hi": 0.18211975
+    },
+    "rsi_delta_1": {
+      "lo": -27.59448545,
+      "hi": 27.64462622
+    },
+    "mfi_delta_1": {
+      "lo": -30.64311427,
+      "hi": 30.65749389
+    },
+    "ma5_slope": {
+      "lo": -2.438,
+      "hi": 2.56
+    },
+    "ma20_slope": {
+      "lo": -1.284,
+      "hi": 1.3865
+    },
+    "vwap_deviation": {
+      "lo": -0.17135935,
+      "hi": 0.18309757
+    },
+    "price_mfi_divergence": {
+      "lo": -0.25807047,
+      "hi": 0.25857591
+    },
+    "obv_change_5": {
+      "lo": -0.23729892,
+      "hi": 0.24881148
+    },
+    "macd": {
+      "lo": -0.07858235,
+      "hi": 0.08441473
+    },
+    "macdSignal": {
+      "lo": -0.0738634,
+      "hi": 0.07969409
+    },
+    "macdHist": {
+      "lo": -0.02428118,
+      "hi": 0.02442907
+    },
+    "macdHist_change_3d": {
+      "lo": -0.01539179,
+      "hi": 0.0153947
+    },
+    "relative_strength_spy": {
+      "lo": -0.78150875,
+      "hi": 1.35629825
+    },
+    "relative_strength_soxx": {
+      "lo": -3.06775054,
+      "hi": 5.10446538
+    },
+    "relative_strength_spy_change_3d": {
+      "lo": -0.02236369,
+      "hi": 0.02239592
+    },
+    "relative_strength_soxx_change_3d": {
+      "lo": -0.11112401,
+      "hi": 0.10798873
+    },
+    "spy_return1d": {
+      "lo": -0.032773,
+      "hi": 0.035043
+    },
+    "qqq_return1d": {
+      "lo": -0.044394,
+      "hi": 0.047222
+    },
+    "soxx_return1d": {
+      "lo": -0.074622,
+      "hi": 0.077642
+    },
+    "vix_change1d": {
+      "lo": -0.273097,
+      "hi": 0.265399
+    },
+    "spy_rsi14": {
+      "lo": -23.7646,
+      "hi": 137.6806
+    },
+    "qqq_rsi14": {
+      "lo": -25.2434,
+      "hi": 140.1386
+    },
+    "soxx_rsi14": {
+      "lo": -23.1373,
+      "hi": 133.5409
+    },
+    "vix_rsi14": {
+      "lo": -13.0784,
+      "hi": 109.731
+    },
+    "spy_macdHist": {
+      "lo": -3.89288,
+      "hi": 3.937607
+    },
+    "qqq_macdHist": {
+      "lo": -3.985761,
+      "hi": 4.02065
+    },
+    "soxx_macdHist": {
+      "lo": -2.770592,
+      "hi": 2.736455
+    },
+    "vix_macdHist": {
+      "lo": -1.383025,
+      "hi": 1.388478
+    },
+    "vix_level": {
+      "lo": -10.99,
+      "hi": 46.13
+    },
+    "pe_ratio_log": {
+      "lo": null,
+      "hi": null
+    },
+    "profit_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "gross_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "gross_net_spread": {
+      "lo": null,
+      "hi": null
+    },
+    "eps_growth": {
+      "lo": null,
+      "hi": null
+    },
+    "revenue_growth": {
+      "lo": null,
+      "hi": null
+    },
+    "has_fundamentals": {
+      "lo": -3.0,
+      "hi": 4.0
+    },
+    "eps_surprise_pct": {
+      "lo": -0.2208,
+      "hi": 0.2944
+    },
+    "earnings_beat": {
+      "lo": -3.0,
+      "hi": 4.0
+    },
+    "post_earnings_gap_pct": {
+      "lo": -0.02821799,
+      "hi": 0.03029094
+    },
+    "analyst_upside_30d": {
+      "lo": -0.61885999,
+      "hi": 0.762363
+    },
+    "analyst_raises_ratio_30d": {
+      "lo": -2.78947368,
+      "hi": 3.84210526
+    },
+    "analyst_coverage_30d": {
+      "lo": -1.0,
+      "hi": 1.8
+    },
+    "analyst_target_high_30d": {
+      "lo": -0.73918557,
+      "hi": 1.11797987
+    },
+    "eps_qoq": {
+      "lo": -0.19230769,
+      "hi": 0.25641026
+    },
+    "eps_trend_3q": {
+      "lo": -0.10806916,
+      "hi": 0.14409222
+    },
+    "next_eps_est_vs_prev": {
+      "lo": -0.20164173,
+      "hi": 0.17046207
+    },
+    "eps_yoy": {
+      "lo": -0.2486631,
+      "hi": 0.3315508
+    },
+    "eps_accel": {
+      "lo": null,
+      "hi": null
+    },
+    "beat_streak": {
+      "lo": -9.0,
+      "hi": 12.0
+    },
+    "price_to_52w_high": {
+      "lo": 0.33693912,
+      "hi": 1.44406974
+    },
+    "price_to_52w_low": {
+      "lo": 0.12649064,
+      "hi": 2.48487842
+    },
+    "eps_price_divergence": {
+      "lo": -1.19150652,
+      "hi": 1.26850669
+    },
+    "price_to_fair_value": {
+      "lo": -2.25188398,
+      "hi": 3.00251197
+    },
+    "log_market_cap": {
+      "lo": -69.44893263,
+      "hi": 92.59857684
+    },
+    "consecutive_neg_eps": {
+      "lo": null,
+      "hi": null
+    },
+    "analyst_raises_x_momentum": {
+      "lo": -0.1140502,
+      "hi": 0.13112952
+    },
+    "eps_analyst_lag": {
+      "lo": null,
+      "hi": null
+    },
+    "value_growth": {
+      "lo": -0.3144022,
+      "hi": 0.41920293
+    },
+    "loss_depth": {
+      "lo": null,
+      "hi": null
+    },
+    "quality_eps_growth": {
+      "lo": null,
+      "hi": null
+    },
+    "momentum_x_eps_lag": {
+      "lo": null,
+      "hi": null
+    },
+    "crash_no_support": {
+      "lo": null,
+      "hi": null
+    },
+    "revenue_growth_x_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "pe_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "beat_streak_quality": {
+      "lo": null,
+      "hi": null
+    },
+    "gold_corr_60d": {
+      "lo": -0.97229346,
+      "hi": 1.03429838
+    },
+    "oil_corr_60d": {
+      "lo": -0.88775167,
+      "hi": 1.2931434
+    },
+    "btc_corr_60d": {
+      "lo": -0.82701889,
+      "hi": 1.03734502
+    },
+    "btc_p52w_high": {
+      "lo": -0.58473824,
+      "hi": 2.07733319
+    },
+    "eps_miss": {
+      "lo": null,
+      "hi": null
+    },
+    "gld_momentum_20d": {
+      "lo": -0.1692942,
+      "hi": 0.18765736
+    },
+    "cl_momentum_20d": {
+      "lo": -0.2151313,
+      "hi": 0.21866524
+    },
+    "btc_momentum_20d": {
+      "lo": -0.82177465,
+      "hi": 0.91606114
+    },
+    "beat_streak_x_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "neg_margin_x_miss": {
+      "lo": null,
+      "hi": null
+    },
+    "consec_loss_sq": {
+      "lo": null,
+      "hi": null
+    },
+    "spy_momentum_20d": {
+      "lo": -0.13824068,
+      "hi": 0.16504905
+    },
+    "vix_change_5d": {
+      "lo": -0.57113178,
+      "hi": 0.56758589
+    },
+    "beta_60d": {
+      "lo": -1.31561853,
+      "hi": 3.17203901
+    },
+    "drawdown_depth": {
+      "lo": -0.44406974,
+      "hi": 0.66306088
+    },
+    "low_gross_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "drawdown_x_momentum": {
+      "lo": -0.01654961,
+      "hi": 0.01241221
+    },
+    "momentum_accel": {
+      "lo": -0.21707649,
+      "hi": 0.20617673
+    },
+    "vol_surge_20_60": {
+      "lo": 0.21959154,
+      "hi": 1.76363402
+    },
+    "hot_score": {
+      "lo": -0.16069061,
+      "hi": 0.21425414
+    },
+    "cold_penalty": {
+      "lo": -0.00850033,
+      "hi": 0.01133377
+    },
+    "accel_x_volume": {
+      "lo": null,
+      "hi": null
+    },
+    "overrun_risk": {
+      "lo": -0.23072183,
+      "hi": 0.30762911
+    },
+    "deep_value": {
+      "lo": null,
+      "hi": null
+    },
+    "value_x_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "overrun_x_neg_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "oil_bear_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "gold_bear_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "btc_bear_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "hot_macro_headwind": {
+      "lo": -0.00027822,
+      "hi": 0.00037096
+    },
+    "rsi_miss_combo": {
+      "lo": null,
+      "hi": null
+    },
+    "crash_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "dead_cat": {
+      "lo": null,
+      "hi": null
+    },
+    "loss_miss_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "next_est_decline": {
+      "lo": null,
+      "hi": null
+    },
+    "stale_target_risk": {
+      "lo": null,
+      "hi": null
+    },
+    "hot_valuation_risk": {
+      "lo": null,
+      "hi": null
+    },
+    "crowded_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "falling_knife": {
+      "lo": null,
+      "hi": null
+    }
+  },
+  "sourceDir": "./data/history_10y"
+}

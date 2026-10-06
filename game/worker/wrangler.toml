@@ -1,0 +1,21 @@
+# 貓咪股市大富翁 全球排行榜 API(Cloudflare Workers + D1)
+# 部署:cd worker && npx wrangler deploy
+name = "catstreet-board-api"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# 掛在遊戲網頁同一個網域底下(網域要走 Cloudflare 代理),前端直接呼叫 /api/board/...,不用處理 CORS;部署前把 your-domain.com 換成自己的網域
+routes = [{ pattern = "your-domain.com/api/board/*", zone_name = "your-domain.com" }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "catstreet-board"
+database_id = "8aba5f4f-5244-4e98-a252-898cd593ffac"
+
+# 線上同樂的房間:每個房間一個 Durable Object(免費方案要用 SQLite 版)
+[durable_objects]
+bindings = [{ name = "ROOM", class_name = "Room" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]

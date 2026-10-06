@@ -1,0 +1,10 @@
+import { gameData } from '../web/catinsight-3d/board/data.mjs';
+import { makeSim } from '../web/catinsight-3d/board/sim.mjs';
+const D = gameData((en, zh) => en, (n) => String(Math.round(n)));
+const sim = makeSim(D, { seed: 7, mc: { n: 120, depth: 3 } });
+const st = sim.newGame(['ev', 'mc', 'ev', 'ev'], 20); sim.run(st, 5); st.turn = 1;
+const p = st.players[1]; p.cash = 9000;
+let t0 = performance.now(); for (let i = 0; i < 10; i++) sim.mcTrade(st, p, 'tech'); console.log('mcTrade', ((performance.now() - t0) / 10).toFixed(1), 'ms');
+t0 = performance.now(); for (let i = 0; i < 10; i++) sim.mcDice(st, p); console.log('mcDice', ((performance.now() - t0) / 10).toFixed(1), 'ms');
+t0 = performance.now(); for (let i = 0; i < 2000; i++) sim.clone(st); console.log('clone', ((performance.now() - t0) / 2000 * 1000).toFixed(1), 'us');
+t0 = performance.now(); for (let i = 0; i < 300; i++) { const c = sim.clone(st); sim.run(c, c.rolls + 3); } console.log('rollout(3 rounds)', ((performance.now() - t0) / 300 * 1000).toFixed(0), 'us');

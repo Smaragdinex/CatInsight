@@ -1,0 +1,513 @@
+/* 貓咪股市大富翁:棋盤頁和手機遙控頁共用的樣式 */
+  :root{--fs:1;--ava:clamp(64px,10.5vmin,116px);--roll:clamp(112px,17vmin,180px);--btn:clamp(58px,9vmin,94px);--ink:#3b2f2a;--cream:#fff8ec;--line:#e8d9c2;--pink:#ff8fc0;--purple:#8b7cff;--teal:#35c2a1;--amber:#f5b942;--coral:#f2796b}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#9bdc7a;color:var(--ink);
+    font-family:"Avenir Next","Nunito","Helvetica Neue",-apple-system,"PingFang TC",sans-serif}
+  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  html,body{touch-action:none;overscroll-behavior:none}   /* 整個畫面都能拖地圖,不要被瀏覽器當成捲動 */
+  .panel,.end,.box .body,#assetRows,.frows{touch-action:pan-y}
+  .hud{position:fixed;left:12px;right:12px;top:12px;display:flex;align-items:center;gap:10px;pointer-events:none;z-index:5}
+  .ava{width:var(--ava);height:var(--ava);border-radius:50%;border:4px solid #fff;background:#ffd9e8 center/cover;flex:none;
+    box-shadow:0 3px 0 rgba(0,0,0,.12)}
+  .bar{flex:1;display:flex;align-items:center;gap:10px;background:var(--cream);border:2px solid var(--line);border-radius:16px;
+    padding:7px 12px;box-shadow:0 3px 0 rgba(0,0,0,.1);pointer-events:auto;min-width:0}
+  .pill{display:flex;align-items:center;gap:6px;background:#8a6f60;color:#fff;border-radius:999px;padding:4px 12px 4px 5px;font-weight:800;font-size:calc(16px * var(--fs))}
+  .coin{width:22px;height:22px;border-radius:50%;background:#ffd24a;border:2px solid #e2a51c;display:inline-block}
+  .stat{font-size:calc(12px * var(--fs));font-weight:700;color:#8a6f60;line-height:1.15;white-space:nowrap}
+  .stat b{display:block;font-size:calc(15px * var(--fs));color:var(--ink)}
+  .sp{flex:1}
+  .snd.fs{background:#8a5cf5;font-size:calc(15px * var(--fs))}
+  .snd{width:calc(30px * var(--fs));height:calc(30px * var(--fs));flex:none;border-radius:50%;border:0;background:#ff9ec4;color:#fff;font-weight:900;font-size:calc(16px * var(--fs));line-height:1;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.15);position:relative}
+  .snd.off{background:#c9bfb5}
+  .snd.off::after{content:'';position:absolute;left:15%;right:15%;top:50%;height:3px;border-radius:2px;background:#fff;transform:rotate(-45deg)}
+  .chip{display:flex;align-items:center;gap:5px;font-weight:800;font-size:calc(15px * var(--fs));white-space:nowrap}
+  .chip i{font-style:normal;display:inline-flex;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;color:#fff;font-size:calc(13px * var(--fs))}
+  .m{background:var(--cream);border:2px solid var(--line);border-radius:12px;padding:6px 10px;font-size:calc(12.5px * var(--fs));font-weight:700;
+    display:flex;gap:8px;align-items:center;box-shadow:0 2px 0 rgba(0,0,0,.08);transition:background .3s,transform .3s}
+  .m .ck{width:18px;height:18px;border-radius:50%;border:2px solid #c9b79f;flex:none;display:flex;align-items:center;justify-content:center;font-size:calc(11px * var(--fs));color:#fff}
+  .m.done{background:#e3f7ea;border-color:#9ad9b0;transform:scale(1.02)}
+  .m.done .ck{background:#35c26b;border-color:#35c26b}
+  .m small{display:block;font-weight:600;color:#9a8676;font-size:calc(11px * var(--fs))}
+  .ctl{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));display:flex;justify-content:center;align-items:flex-end;gap:calc(14px + var(--roll) * .1);z-index:6}
+  /* 背包鈕:只放背包圖示,右上角一個小數字是手上的道具數 */
+  /* 背包鈕:和擲骰鈕同一套造型,但用藍色 —— 藍色圓、白邊、下方深藍影,裡面是白色的扁平背包;數量紅點在右上角 */
+  .paw.bag{position:relative;width:calc(var(--btn) * 1.1);height:calc(var(--btn) * 1.1);padding:0;border:5px solid #fff;background:#5ab4ff;box-shadow:0 5px 0 #3b8fd6,0 8px 14px rgba(0,0,0,.18);border-radius:50%;overflow:visible;display:flex;align-items:center;justify-content:center}
+  .paw.bag svg{width:94%;height:94%;display:block;filter:drop-shadow(0 2px 0 rgba(0,0,0,.14))}
+  .paw.bag:active{transform:translateY(3px);box-shadow:0 2px 0 #3b8fd6,0 4px 8px rgba(0,0,0,.18)}
+  @media(hover:hover){ .paw.bag:not(:disabled):hover{background:#74c2ff;filter:none;box-shadow:0 5px 0 #3b8fd6,0 8px 14px rgba(0,0,0,.18),0 0 0 4px rgba(255,255,255,.35)} }
+  .paw.bag b{position:absolute;left:88%;top:12%;transform:translate(-50%,-50%);width:36%;height:36%;min-width:0;padding:0;border-radius:50%;background:#fd472a;border:2px solid #fff;color:#fff;font-size:calc(var(--btn) * .26);line-height:1;font-weight:900;display:flex;align-items:center;justify-content:center}
+  .snd.fs svg{width:60%;height:60%;display:block;margin:auto;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+  /* 背包鈕靠在擲骰鈕左邊(絕對定位,擲骰鈕才會留在正中間),中心和擲骰鈕對齊 */
+  .ctl > .paw{position:absolute;right:calc(50% + var(--roll) * .6 + 14px);bottom:calc((var(--roll) - var(--btn)) / 2)}
+  .roll{width:var(--roll);height:var(--roll);border-radius:50%;border:6px solid #fff;background:#ff7a59;color:#fff;font-size:calc(var(--roll) * .2);font-weight:900;
+    letter-spacing:.04em;box-shadow:0 6px 0 #d4553a,0 10px 18px rgba(0,0,0,.2);cursor:pointer;transform:translateZ(0);-webkit-backface-visibility:hidden;backface-visibility:hidden;isolation:isolate}
+  /* iPad Safari 會把按鈕裡的字另外畫一層,顏色和底色差一點點,看起來像文字外面有個淡淡的方框 → 不用轉場動畫、把整顆按鈕固定成一層,字就跟按鈕畫在一起 */
+  .roll span{display:block;background:transparent;transform:translateZ(0)}
+  .roll:active{transform:translateY(4px) translateZ(0);box-shadow:0 2px 0 #d4553a,0 4px 8px rgba(0,0,0,.2)}
+  /* 骰子往上拋再落下(每 2.2 秒一次),文字縮小放在骰子下面;滑鼠移上去橘色變亮一點 */
+  .roll{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--roll) * .02);padding:0}
+  .roll .dice{display:flex;align-items:center;justify-content:center;gap:calc(var(--roll) * .03)}
+  .roll .die{width:calc(var(--roll) * .44);height:calc(var(--roll) * .44);filter:drop-shadow(0 3px 0 rgba(0,0,0,.18));animation:dieToss 3.6s ease-in-out infinite}
+  .roll .die svg{width:100%;height:100%;display:block}
+  .roll .dice.one .die:nth-child(2){display:none}
+  .roll .dice.two .die{width:calc(var(--roll) * .34);height:calc(var(--roll) * .34)}
+  .roll .dice.two .die:nth-child(2){animation-delay:.3s}
+  .roll #rollTxt{font-size:calc(var(--roll) * .15)}
+  .roll #rollTxt:empty{display:none}
+  .roll .dice.rest{display:none}
+  .roll:disabled .die{animation:none}
+  @media(hover:hover){ .roll:hover{background:#ff8f6e;box-shadow:0 6px 0 #d4553a,0 10px 18px rgba(0,0,0,.2),0 0 0 4px rgba(255,255,255,.35)} }   /* 滑鼠移上去只變色,不動骰子的動畫(改速度會讓它跳一下) */
+  /* 慢慢往上飄、轉半圈、再落下彈一下;後半段休息 */
+@keyframes dieToss{0%,62%,100%{transform:translateY(0) rotate(0deg)}22%{transform:translateY(calc(var(--roll) * -.17)) rotate(150deg)}40%{transform:translateY(calc(var(--roll) * -.05)) rotate(320deg)}48%{transform:translateY(0) rotate(360deg)}54%{transform:translateY(calc(var(--roll) * -.03)) rotate(360deg)}}
+  .roll small{display:block;font-size:calc(var(--roll) * .105);font-weight:700;opacity:.9;letter-spacing:0}
+  .paw{height:var(--btn);padding:0 calc(var(--btn) * .34);border-radius:999px;border:4px solid #fff;background:#7cc6ff;color:#fff;font-weight:900;font-size:calc(var(--btn) * .27);
+    box-shadow:0 4px 0 #4f9bd6;cursor:pointer}
+  .paw:disabled{background:#c9d3da;box-shadow:0 4px 0 #a9b3ba}
+  .paw.bag:disabled{background:#c9d3da;box-shadow:0 5px 0 #a9b3ba}
+  .steps{display:flex;gap:8px}
+  .steps button{width:54px;height:54px;border-radius:16px;border:4px solid #fff;background:#7cc6ff;color:#fff;font-weight:900;font-size:calc(20px * var(--fs));box-shadow:0 4px 0 #4f9bd6;cursor:pointer}
+  .panel{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(430px * var(--fs)),calc(100vw - 24px));
+    background:var(--cream);border:3px solid #fff;outline:2px solid var(--line);border-radius:22px;padding:14px 16px 16px;z-index:7;
+    box-shadow:0 8px 0 rgba(0,0,0,.12),0 18px 30px rgba(0,0,0,.18);animation:pop .28s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:translateX(-50%) translateY(30px) scale(.94);opacity:0}}
+  .panel h3{font-size:calc(19px * var(--fs));font-weight:900;display:flex;align-items:center;gap:8px}
+  .tag{font-size:calc(11px * var(--fs));font-weight:800;color:#fff;border-radius:999px;padding:2px 9px}
+  .panel p{font-size:calc(13.5px * var(--fs));line-height:1.45;margin-top:6px;font-weight:600;color:#6b594e}
+  .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .kv div{background:#fff;border:2px solid var(--line);border-radius:12px;padding:6px 8px;font-size:calc(11px * var(--fs));font-weight:700;color:#9a8676}
+  .kv b{display:block;font-size:calc(15px * var(--fs));color:var(--ink)}
+  .btns{display:flex;gap:8px;margin-top:12px}
+  /* 按鈕高度跟著內容長:有些按鈕是兩行(名稱 + 金額),字放大後固定高度會裝不下 */
+  .btns button{flex:1 1 0;min-width:0;height:auto;min-height:calc(48px * var(--fs));padding:calc(7px * var(--fs)) 6px calc(8px * var(--fs));line-height:1.25;
+    border-radius:14px;border:0;font-weight:900;font-size:calc(14px * var(--fs));color:#fff;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18)}
+  .btns button span{display:block;margin-top:2px;font-weight:800;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btns{align-items:stretch}
+  .btns button:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.18)}
+  .b-buy{background:#35c26b}.b-sell{background:#f2796b}.b-skip{background:#a99b90}.b-ok{background:#8b7cff}
+  .btns button:disabled{background:#d6ccc4;box-shadow:none;color:#fff}
+  .moves{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .mv{font-size:calc(12px * var(--fs));font-weight:800;border-radius:999px;padding:3px 10px}
+  .up{background:#e3f7ea;color:#1c8a4a}.dn{background:#fde7e3;color:#c4472f}
+  .toast{position:fixed;left:50%;top:150px;transform:translateX(-50%);background:#3b2f2a;color:#fff;font-weight:800;font-size:calc(14px * var(--fs));
+    border-radius:999px;padding:8px 16px;z-index:8;opacity:0;transition:opacity .25s,top .25s;pointer-events:none;white-space:nowrap}
+  .toast.on{opacity:1;top:140px}
+  .end{position:fixed;inset:0;background:rgba(59,47,42,.45);z-index:9;display:flex;align-items:center;justify-content:center;padding:16px}
+  .card{width:min(400px,100%);background:var(--cream);border:4px solid #fff;border-radius:26px;padding:22px 20px;text-align:center;
+    box-shadow:0 10px 0 rgba(0,0,0,.15);animation:pop2 .35s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop2{from{transform:scale(.85);opacity:0}}
+  /* 結算:成績卡上的「看排行榜」按鈕 → 疊一塊 1~10 名的排行榜(用 .panel 顯示,內容是 .rbox) */
+  /* 排行榜清單:固定高度,20 名用拖移 / 滾輪看,分頁和關閉鈕留在外面不動 */
+  .lblist{max-height:min(calc(52vh),calc(420px * var(--fs)));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-right:2px}
+  .lbtabs{display:flex;gap:8px;margin-bottom:10px}.lbtabs button{flex:1;border:2px solid #e6d9c4;background:#fff;border-radius:999px;padding:7px 0;font-weight:900;font-size:calc(13px * var(--fs));color:#9a8676;cursor:pointer}.lbtabs button.on{background:#ff7a59;border-color:#ff7a59;color:#fff}
+  .lnk{border:0;background:transparent;color:#8a5cf5;font-weight:900;font-size:inherit;cursor:pointer;text-decoration:underline;padding:0}
+  .panel .rbox{width:auto;border:0;box-shadow:none;padding:0;background:transparent}
+  .rbox{width:min(calc(330px * var(--fs)),100%);background:var(--cream);border:4px solid #fff;border-radius:22px;padding:14px 14px 12px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .rbox h4{font-size:calc(16px * var(--fs));font-weight:900;color:#3b2f2a;margin:0 0 4px}
+  .rbox p{margin:0 0 8px;font-size:calc(12px * var(--fs));font-weight:700;color:#9a8676}
+  .rrow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-top:1.5px solid #f1e6d6;font-size:calc(12.5px * var(--fs));font-weight:800;color:#3b2f2a}
+  .rrow .rk{width:1.5em;text-align:center;color:#9a8676;flex:none}.rrow:nth-child(-n+3) .rk{font-size:1.25em}.rrow:nth-child(-n+5) .rk{color:#3b2f2a}
+  .rrow .ic{flex:none}
+  .rrow .c{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+  .rrow b{font-size:calc(13.5px * var(--fs))}
+  .rrow small{font-weight:700;color:#9a8676;font-size:calc(10.5px * var(--fs));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rrow .st{flex:none;color:#ffb000;letter-spacing:1px}.rrow .st i{font-style:normal;color:#e2d6c6}
+  .rrow.me{background:#fff3d6;border-radius:10px;border-top-color:transparent}
+  .rbox .note2{display:block;margin-top:8px;font-size:calc(10.5px * var(--fs));font-weight:700;color:#b5a593;text-align:center}
+  .stars{font-size:calc(46px * var(--fs));letter-spacing:6px;color:#e2d6c6}.stars b{color:#ffc93c}
+  .card h2{font-size:calc(24px * var(--fs));font-weight:900;margin-top:4px}
+  .card p{font-size:calc(14px * var(--fs));font-weight:600;color:#6b594e;margin-top:8px;line-height:1.5}
+  .note{display:none}
+
+  .bubble{background:#fff;border:3px solid #3b4a7a;border-radius:18px;padding:10px 12px;font-size:calc(13px * var(--fs));font-weight:800;line-height:1.45;color:#2f3a63;
+    box-shadow:0 3px 0 rgba(0,0,0,.1);display:flex;gap:8px;align-items:flex-start}
+  .bubble .av{width:30px;height:30px;border-radius:50%;flex:none;border:2px solid #fff;box-shadow:0 0 0 2px #3b4a7a}
+  .bubble .av.ex{background:#ff7a59;color:#fff;font-weight:900;font-size:19px;line-height:1;display:flex;align-items:center;justify-content:center}
+  .box{background:var(--cream);border:2px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 3px 0 rgba(0,0,0,.1)}
+  .box h4{background:#8a6f60;color:#fff;font-size:calc(13px * var(--fs));font-weight:900;padding:6px 12px;letter-spacing:.04em}
+  .box.ev h4{background:#f2685a}
+  .row{display:grid;grid-template-columns:20px 1fr auto auto;gap:8px;align-items:center;padding:4px 12px;font-size:calc(12.5px * var(--fs));font-weight:800;border-top:1.5px solid #f1e6d6}
+  .row:first-of-type{border-top:0}
+  .row i{width:18px;height:18px;border-radius:6px;display:block}
+  .row .q{color:#9a8676;font-weight:700}
+  .evt .body{padding:8px 12px 10px;font-size:calc(12.5px * var(--fs));font-weight:800}
+  .evt .why{font-weight:600;color:#6b594e;font-size:calc(12px * var(--fs));margin-top:3px;line-height:1.4}
+  .evt .mvrow{display:flex;justify-content:space-between;padding:3px 0;font-size:calc(12.5px * var(--fs))}
+  @media(max-width:560px){ .snd.fs{display:none!important} }
+  .it{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid var(--line);border-radius:14px;padding:8px 10px;margin-top:8px}
+  .it .ic{font-size:calc(26px * var(--fs));flex:none}
+  .cardico{height:1.45em;width:1.04em;object-fit:cover;border-radius:3px;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .it .tx{flex:1;min-width:0;font-size:calc(13.5px * var(--fs));font-weight:900}
+  .it .tx small{display:block;font-size:calc(11.5px * var(--fs));font-weight:600;color:#8a786c;line-height:1.35}
+  .it button{flex:none;height:38px;padding:0 14px;border-radius:12px;border:0;color:#fff;font-weight:900;font-size:calc(13px * var(--fs));cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+  .it button:disabled{background:#d6ccc4;box-shadow:none}
+  .steps{flex-wrap:wrap;justify-content:center;max-width:min(520px,94vw)}
+  body.embed .hud{right:64px}
+  /* 3D 選角:畫面中間是模型,上面一行標題,下面是 ◀ 名字 ▶ 和確定鈕 */
+  body.picking .hud, body.picking .lcol, body.picking .rcol, body.picking .tipbar, body.picking .ranktag, body.picking .rbanner, body.picking .ctl { display: none !important; }
+  .pickui{position:fixed;inset:0;z-index:7;display:none;flex-direction:column;justify-content:space-between;align-items:center;padding:22px 16px calc(34px + env(safe-area-inset-bottom));pointer-events:none}
+  body.picking .pickui{display:flex}
+  .pickui h2{font-size:calc(26px * var(--fs));font-weight:900;color:#3b2f2a;background:var(--cream);border:3px solid #fff;outline:2px solid var(--line);border-radius:999px;padding:8px 26px;box-shadow:0 4px 0 rgba(0,0,0,.1)}
+  .pbar{display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:auto}
+  .pnav{display:flex;align-items:center;gap:14px}
+  .pnav button{width:52px;height:52px;border-radius:50%;border:4px solid #fff;background:#7cc6ff;color:#fff;font-size:calc(22px * var(--fs));font-weight:900;cursor:pointer;box-shadow:0 4px 0 #4f9bd6}
+  .pnav button:active{transform:translateY(3px);box-shadow:0 1px 0 #4f9bd6}
+  .pok{height:60px;padding:0 44px;border-radius:999px;border:5px solid #fff;background:#ff7a59;color:#fff;font-size:calc(20px * var(--fs));font-weight:900;letter-spacing:.04em;cursor:pointer;box-shadow:0 6px 0 #d4553a}
+  .pok:active{transform:translateY(4px);box-shadow:0 2px 0 #d4553a}
+  .b-short{background:#8a5cf5}
+  .b-margin{background:#e0902a}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chips button{display:flex;align-items:center;gap:6px;border:2px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;font-weight:900;font-size:calc(12.5px * var(--fs));color:var(--ink);cursor:pointer}
+  .chips button i{width:10px;height:10px;border-radius:50%;display:block}
+  .chips button small{font-weight:700;color:#9a8676;font-size:calc(11px * var(--fs))}
+  .chips button:hover{background:#fff1ec}
+  .panel{max-height:calc(100vh - 40px);overflow-y:auto}
+  .panel.over{z-index:10}   /* 結算畫面(z 9)上面再開的面板,例如排行榜 */
+  .ava{background-color:#ffe9c9;background-size:cover;background-position:center 20%}
+  .box.foe h4{background:#5c7cba;display:flex;align-items:center;gap:8px}
+  .fav{width:24px;height:24px;border-radius:50%;background:#dfe8ff center 20%/cover;border:2px solid #fff;flex:none}
+  .tri{margin-left:auto;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #fff;transition:transform .2s}
+  .box.fold .tri{transform:rotate(-90deg)}
+  .box.fold > div{display:none}
+  /* 資產框上面那排頭像:點誰看誰。橘色外框 = 正在看的;右下角綠點 = 現在輪到的 */
+  .tabs{display:flex;gap:calc(8px * var(--fs));padding:calc(7px * var(--fs)) 12px;border-bottom:1.5px solid #f1e6d6;pointer-events:auto}
+  .tabs .pava{position:relative;display:block;width:calc(34px * var(--fs));height:calc(34px * var(--fs));flex:none;border-radius:50%;border:2px solid #fff;background:#dfe8ff center 20%/cover;box-shadow:0 0 0 2px #e6d9c4;padding:0}
+  .box.foe .fn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .box.foe .ft{margin-left:auto;font-weight:900}
+  .box.foe .tri{margin-left:6px}
+  .box.foe .frows{max-height:calc(120px * var(--fs))}
+  /* 選角畫面上方:標題 + 人數設定 */
+  .ptop{display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
+  #pcRule{flex-basis:100%;text-align:center}
+  /* 我的資產 / 對手的資產:內容區固定最高約 5 列半,超過就在框裡上下拖(或滾輪)捲動 */
+  #assetRows,.frows{max-height:calc(230px * var(--fs));overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;pointer-events:auto;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:#d9c9b3 transparent}
+  #assetRows::-webkit-scrollbar,.frows::-webkit-scrollbar{width:5px}
+  #assetRows::-webkit-scrollbar-thumb,.frows::-webkit-scrollbar-thumb{background:#d9c9b3;border-radius:3px}
+  /* 抽市場事件:三張牌背。滑鼠移上去會浮起、傾斜、掃光;點了之後 3D 翻面 */
+  .draw{position:fixed;inset:0;z-index:8;background:rgba(40,30,60,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(18px * var(--fs));padding:16px}
+  .draw h2{font-size:calc(24px * var(--fs));font-weight:900;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+  .dcards{display:flex;gap:calc(18px * var(--fs));perspective:1400px}
+  .dcard{width:min(calc(190px * var(--fs)),28vw);aspect-ratio:5/7;cursor:pointer;position:relative;
+    animation:deal .55s cubic-bezier(.2,1.2,.4,1) both;animation-delay:calc(var(--i) * .12s);transition:transform .25s cubic-bezier(.2,.8,.2,1),filter .3s,opacity .4s}
+  @keyframes deal{from{transform:translateY(60vh) rotate(calc((var(--i) - 1) * 18deg));opacity:0}}
+  .dinner{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.3,.1,.2,1)}
+  .dcard.flip .dinner{transform:rotateY(180deg)}
+  .dback,.dfront{position:absolute;inset:0;border-radius:16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:5px solid #fff;box-shadow:0 10px 24px rgba(0,0,0,.3);overflow:hidden}
+  /* 卡背是圖片:市場事件(奶油底、貓咪問號)、命運(紫色、星星)。圖裡已經有圖案,所以不再疊文字 */
+  .dback{background:#f6ecd6 url(card-event.webp) center/cover no-repeat}
+  .dback.fate{background:#6b4bb8 url(card-fate.webp) center/cover no-repeat}
+  .dback.gift{background:#f7a6b8 url(card-gift.webp) center/cover no-repeat}
+  .dback span{display:none}
+  .dback::after{content:"";position:absolute;inset:-40% -80%;background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.55) 50%,transparent 58%);transform:translateX(-70%);pointer-events:none}
+  .dfront{transform:rotateY(180deg);background:var(--cream);display:flex;flex-direction:column;text-align:left}
+  .dhead{padding:10px 10px 8px;font-size:calc(15px * var(--fs) * var(--fit, 1));font-weight:900;color:#fff;line-height:1.25}
+  .dhead.good{background:#35ad6d}.dhead.bad{background:#e2604f}
+  .dwhy{padding:8px 10px 0;font-size:calc(11.5px * var(--fs) * var(--fit, 1));font-weight:700;color:#6b594e;line-height:1.4}
+  .dmv{padding:8px 8px 10px;display:flex;flex-wrap:wrap;gap:4px;margin-top:auto}
+  .dmv .mv{font-size:calc(11px * var(--fs) * var(--fit, 1));padding:2px 7px;max-width:100%;overflow-wrap:anywhere}   /* --fit:牌面塞不下時由 fitCardFace 調小 */
+  @media(hover:hover){
+    .draw:not(.done):not(.auto) .dcard:hover{transform:translateY(-18px) rotate(calc((var(--i) - 1) * 3deg)) scale(1.06);filter:drop-shadow(0 0 18px rgba(255,220,120,.9))}
+    .draw:not(.done):not(.auto) .dcard:hover .dback::after{transform:translateX(70%);transition:transform .7s ease}
+  }
+  .draw:not(.done):not(.auto) .dcard:active{transform:translateY(-8px) scale(1.02)}
+  .draw.auto .dcard{cursor:default}
+  .dcard.picked{transform:translateY(-14px) scale(1.08);z-index:2}
+  .dcard.lost{filter:grayscale(.65) brightness(.8);transform:scale(.93)}
+  .dgo{height:calc(50px * var(--fs));padding:0 calc(40px * var(--fs));border-radius:999px;border:4px solid #fff;background:#8b7cff;color:#fff;font-weight:900;font-size:calc(17px * var(--fs));cursor:pointer;box-shadow:0 5px 0 #6a5bd6}
+  .dgo:active{transform:translateY(3px);box-shadow:0 2px 0 #6a5bd6}
+  /* 擲 1 顆 / 2 顆的切換,放在擲骰子按鈕正上方 */
+  /* 骰子數切換:兩顆小圓鈕掛在擲骰鈕的左上、右上弧線上(不另外占一排的高度) */
+  .rollcol{position:relative;display:flex;flex-direction:column;align-items:center}
+  .rollcol .roll{position:relative;z-index:2}
+  .rollcol .dsel{position:absolute;inset:0;z-index:3;pointer-events:none}
+  .dsel button,.dsel button:focus,.dsel button:active{outline:none;box-shadow:none;-webkit-tap-highlight-color:transparent}
+  .dsel button{position:absolute;top:2%;width:calc(var(--roll) * .33);height:calc(var(--roll) * .33);border-radius:50%;border:3px solid #fff;background:var(--cream);box-shadow:0 3px 0 rgba(0,0,0,.14);
+    display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;pointer-events:auto;color:#dccfbd}
+  .dsel button[data-n="1"]{left:calc(var(--roll) * -.12)}
+  .dsel button[data-n="2"]{right:calc(var(--roll) * -.12)}
+  .dsel svg{height:calc(var(--roll) * .16);width:auto;display:block;overflow:visible}
+  .dsel button .pip{fill:#8a786c}
+  .dsel button.on{background:#ff7a59;color:#fff}
+  .dsel button.on .pip{fill:#ff7a59}
+  /* 手機 / 平板點按鈕時,瀏覽器會在按鈕外面閃一個方形的灰色反白和對焦框 → 關掉 */
+  *{-webkit-tap-highlight-color:transparent}
+  button{outline:none;-webkit-user-select:none;user-select:none;touch-action:manipulation;-webkit-appearance:none;appearance:none}
+  button:focus,button:focus-visible{outline:none}
+  /* 銀行的借款 / 還款拉桿 */
+  .slider{display:flex;align-items:center;gap:10px;margin-top:10px;font-weight:800;font-size:calc(12.5px * var(--fs));color:#6b594e}
+  .slider span{flex:none;width:calc(34px * var(--fs))}
+  .slider b{flex:none;min-width:calc(150px * var(--fs));text-align:right;color:var(--ink);font-size:calc(12px * var(--fs))}
+  .slider input[type=range]{flex:1;min-width:0;height:calc(28px * var(--fs));-webkit-appearance:none;appearance:none;background:transparent;margin:0}
+  .slider input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:5px;background:#e6dccf}
+  .slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:calc(26px * var(--fs));height:calc(26px * var(--fs));border-radius:50%;background:#4a63b0;border:3px solid #fff;box-shadow:0 2px 0 rgba(0,0,0,.2);margin-top:calc(5px - 13px * var(--fs))}
+  .slider input[type=range]::-moz-range-track{height:10px;border-radius:5px;background:#e6dccf}
+  .slider input[type=range]::-moz-range-thumb{width:calc(26px * var(--fs));height:calc(26px * var(--fs));border-radius:50%;background:#4a63b0;border:3px solid #fff}
+  .hide{display:none!important}
+  @media(max-width:560px){ .stat.opt{display:none} }
+
+/* ---------- 線上同樂 ---------- */
+.lobby .qr{width:calc(104px * var(--fs));height:calc(104px * var(--fs));flex:none;background:#fff}.lobby .qr svg{width:100%;height:100%;display:block}
+.lobby .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;text-align:left;font-size:calc(12px * var(--fs));color:#6b594e;font-weight:700}
+.lobby .info b{font-size:calc(14px * var(--fs));color:#3b2f2a}.lobby .code{font-family:"SF Mono",Menlo,monospace;letter-spacing:3px;background:#fff3d6;border-radius:8px;padding:2px 8px;color:#d4553a;font-size:calc(18px * var(--fs))}
+.lobby .url{word-break:break-all;color:#8b7cff}
+.lobby .who{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:2px}.lobby .who span{background:#eef0ff;border-radius:999px;padding:2px 9px;color:#3b2f2a}.lobby .who .none{background:transparent;color:#b5a593}
+/* 輪到手機上的玩家:主機這邊的操作鎖住,上方顯示等待提示 */
+.rbanner{position:fixed;left:50%;top:calc(var(--ava) + 26px);transform:translateX(-50%);z-index:6;background:#3b2f2a;color:#fff;font-weight:900;font-size:calc(14px * var(--fs));padding:8px 16px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.25);pointer-events:none;white-space:nowrap}
+body.remote #ctl, body.remote #panel, body.remote #draw, body.remote #stepCtl{pointer-events:none}
+/* 輪到手機玩家時,主機這邊的背包 / 擲骰鈕 / 提示整個藏起來(和看電腦走的時候一樣),只留他的買賣面板看得到 */
+body.remote #ctl, body.remote #tipbar{visibility:hidden}
+
+/* ---------- 版面:左欄(頭像直排 + 資產)、右欄(任務 + 市場事件)、上方正中提示、頭像下名次、擲骰鈕下回合 ---------- */
+.ranktag{background:#8a6f60;color:#fff;border-radius:999px;padding:2px 12px;font-weight:900;font-size:calc(13px * var(--fs));box-shadow:0 2px 0 rgba(0,0,0,.15);white-space:nowrap;align-self:flex-start;letter-spacing:.02em}
+.ranktag.top{background:#ffb000}
+/* 提示泡泡掛在擲骰鈕上方;手機可縮成一顆「!」(點了展開) */
+.tipbar{position:fixed;left:50%;bottom:calc(58px + var(--roll) + 14px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(460px * var(--fs)),calc(100vw - 24px));z-index:6;display:flex;justify-content:center;pointer-events:none}
+.tipbar .bubble{max-width:100%;box-sizing:border-box;pointer-events:auto;cursor:pointer}
+.tipbar.min .bubble{width:34px;height:34px;padding:0;border-radius:50%;justify-content:center;align-items:center;gap:0}
+.tipbar.min .bubble #tip{display:none}
+.tipbar.min{bottom:calc(58px + var(--roll) - 10px + env(safe-area-inset-bottom));transform:translateX(calc(-50% - var(--roll) * .62))}
+.tipbar.min .bubble .av{width:26px;height:26px}
+/* 「!」平常每 2.4 秒小跳兩下,讓人知道那是提示;文字換新的時候再放大閃一下 */
+.tipbar .bubble .av.ex{animation:tipHop 2.4s ease-in-out infinite}
+.tipbar.min .bubble{animation:tipHop 2.4s ease-in-out infinite}
+.tipbar.min .bubble .av.ex{animation:none}
+.tipbar.pulse .bubble .av{animation:tipPulse .6s ease 2}
+.tipbar.min.pulse .bubble{animation:tipPulse .6s ease 2}
+@keyframes tipPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+@keyframes tipHop{0%,55%,100%{transform:translateY(0)}65%{transform:translateY(-6px) scale(1.06)}75%{transform:translateY(0)}83%{transform:translateY(-3px)}91%{transform:translateY(0)}}
+.lcol{position:fixed;left:12px;top:calc(var(--ava) + 52px);z-index:5;display:flex;gap:8px;align-items:flex-start;pointer-events:none;max-height:calc(100vh - var(--ava) - var(--roll) - 120px)}
+.rcol{position:fixed;right:12px;top:calc(var(--ava) + 52px);z-index:5;display:flex;flex-direction:row-reverse;gap:10px;align-items:flex-start;pointer-events:none;max-height:calc(100vh - var(--ava) - var(--roll) - 120px)}
+.rbtns{display:flex;flex-direction:column;gap:10px;flex:none}
+.rb{position:relative;flex:none;width:calc(64px * var(--fs));border:0;background:transparent;padding:0;cursor:pointer;pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:2px;-webkit-tap-highlight-color:transparent}
+.rb .ic{width:100%;aspect-ratio:1;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;border:5px solid #fff;box-sizing:border-box;transition:transform .15s,background .15s}
+.rb .ic svg{width:84%;height:84%;display:block;filter:drop-shadow(0 2px 0 rgba(0,0,0,.12))}
+.rb.evt .ic{background:#f5b942;box-shadow:0 5px 0 #cf9426,0 8px 14px rgba(0,0,0,.18)}
+.rb.tsk .ic{background:#ff8fc0;box-shadow:0 5px 0 #d66ea0,0 8px 14px rgba(0,0,0,.18)}
+.rb:active .ic{transform:translateY(3px)}
+.rb.evt:active .ic{box-shadow:0 2px 0 #cf9426,0 4px 8px rgba(0,0,0,.18)}.rb.tsk:active .ic{box-shadow:0 2px 0 #d66ea0,0 4px 8px rgba(0,0,0,.18)}
+.rb.on .ic{transform:scale(1.06)}
+.rb.evt.on .ic{box-shadow:0 5px 0 #cf9426,0 8px 14px rgba(0,0,0,.18),0 0 0 4px rgba(255,255,255,.45)}.rb.tsk.on .ic{box-shadow:0 5px 0 #d66ea0,0 8px 14px rgba(0,0,0,.18),0 0 0 4px rgba(255,255,255,.45)}
+.rb span{background:#fff8ec;border:2px solid #e8d9c2;border-radius:999px;padding:1px 10px;font-weight:900;font-size:calc(11px * var(--fs));color:#6b594e;white-space:nowrap;margin-top:-8px;position:relative;z-index:1;box-shadow:0 2px 0 rgba(0,0,0,.12)}
+#missBtn span{border-color:#f0869a;color:#8a3b4a;background:#fff0f3}
+.rb .bd{position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#ff5a4f;color:#fff;font-style:normal;font-weight:900;font-size:calc(12px * var(--fs));display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.rb .bd.hide{display:none}
+.rpop{display:flex;flex-direction:column;gap:10px;width:calc(236px * var(--fs));min-height:0}
+.rpop .box.fold{display:none}
+.lcol .box,.rcol .box{pointer-events:auto;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.lcol .box > div,.rcol .box > div{overflow-y:auto;-webkit-overflow-scrolling:touch}
+.box h4{display:flex;align-items:center;gap:8px;pointer-events:auto;cursor:pointer;user-select:none;flex:none}
+.box.assets{width:calc(236px * var(--fs))}
+/* 頭像直排(瑪利歐派對那種):點誰看誰;橘框 = 正在看;綠點 = 現在輪到 */
+.tabs.col{flex-direction:column;padding:0;border:0;background:none;box-shadow:none;gap:calc(12px * var(--fs));flex:none}   /* 對手頭像:一顆一顆單獨的,沒有後面的板子 */
+.tabs.col .pava{width:calc(64px * var(--fs));height:calc(64px * var(--fs));border-width:3px;box-shadow:0 0 0 2px #e6d9c4,0 3px 0 rgba(0,0,0,.12)}   /* 對手頭像:正常顏色不變淡,大一點 */
+/* 對手一列:頭像 | 名次 | 股票鈕。股票鈕亮橘框 = 正在看他的資產 */
+.otab{display:flex;align-items:center;gap:8px;pointer-events:auto}
+.otab .stockbtn.on{border-color:#ff7a59;box-shadow:0 0 0 2px #ff7a59,0 3px 0 rgba(0,0,0,.12)}
+/* 任務清單放進框裡:每個任務一列 */
+.missbox h4{background:#ffb000}
+.miss{display:flex;flex-direction:column;gap:6px;padding:8px}
+.miss .m{background:#fff}
+.miss .sub{font-size:calc(11px * var(--fs));font-weight:800;color:#9a8676;padding:4px 2px 0;border-top:1.5px solid #f1e6d6;margin-top:2px}
+.m.old{opacity:.75}
+/* 擲骰鈕下面的回合數 */
+.rollcol .roundTxt{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;white-space:nowrap;background:var(--cream);border:2px solid var(--line);border-radius:999px;padding:2px 10px;font-weight:900;font-size:calc(12px * var(--fs));color:#6b594e;pointer-events:none}
+@media(max-width:900px){
+  /* 手機:左欄只留頭像直排,點頭像才浮出資產框;右欄任務和事件預設收起只剩標題 */
+  .lcol{top:calc(var(--ava) + 46px)}
+  .rcol{top:calc(var(--ava) + 46px)}
+  .rb{width:calc(52px * var(--fs))}.rpop{width:calc(190px * var(--fs))}
+  .box.assets{width:calc(200px * var(--fs))}
+  .lcol{z-index:6}   /* 資產框展開時蓋在右欄上面 */
+  .tipbar:not(.min) .bubble{font-size:calc(11.5px * var(--fs));padding:5px 9px;line-height:1.35;border-width:2px;gap:6px;align-items:center}
+  .tipbar #tip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .bar{gap:6px;padding:5px 8px}.pill{font-size:calc(14px * var(--fs));padding:3px 9px 3px 4px}.coin{width:18px;height:18px}
+  .stat{font-size:calc(10.5px * var(--fs))}.stat b{font-size:calc(13px * var(--fs))}
+  .chip{font-size:calc(13px * var(--fs))}.chip i{width:20px;height:20px}
+  .snd{width:calc(26px * var(--fs));height:calc(26px * var(--fs));font-size:calc(14px * var(--fs))}
+  body.embed .hud{padding-right:48px}
+  .m{font-size:calc(11.5px * var(--fs));padding:5px 8px}.m small{display:none}
+}
+
+/* ---------- 選角設定卡 ---------- */
+.pcfg{position:relative;width:min(calc(470px * var(--fs)),92vw);box-sizing:border-box;display:flex;flex-direction:column;gap:8px;padding:2px 2px 4px;pointer-events:auto;text-align:left;margin-top:30px;
+  border:30px solid transparent;border-image:url(frame-card.webp?v=1) 60 fill / 30px stretch;border-radius:0;background:none;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}   /* 外框是插畫:九宮格拉伸,四角不變形 */
+.pcfg .pawtag{position:absolute;left:50%;top:-30px;transform:translateX(-50%);width:130px;height:47px;background:url(frame-ears.webp?v=1) center/contain no-repeat;margin-top:-31px;pointer-events:none}   /* 貓耳 + 肉球疊在外框上緣正中 */
+.prow{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #f3e3c8;border-radius:16px;padding:7px 10px}
+.prow .ico{font-size:calc(24px * var(--fs));line-height:1;flex:none;width:calc(48px * var(--fs));text-align:center;display:flex;align-items:center;justify-content:center}
+.prow .ico img{max-width:100%;max-height:calc(38px * var(--fs));width:auto;height:auto;display:block;filter:drop-shadow(0 2px 2px rgba(0,0,0,.12))}
+.prow .lbl{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:1}
+.prow .lbl b{font-size:calc(16px * var(--fs));font-weight:900;color:#5a2a2a}
+.prow .lbl small{font-size:calc(11px * var(--fs));font-weight:700;color:#9a8676;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .opts{display:flex;gap:6px;flex:none}
+.prow .opts button{min-width:calc(38px * var(--fs));height:calc(38px * var(--fs));padding:0 calc(10px * var(--fs));border-radius:999px;border:0;background:#eadfce;color:#8a786c;font-weight:900;font-size:calc(14px * var(--fs));cursor:pointer;-webkit-tap-highlight-color:transparent}
+.prow .opts button.on{background:#ff7a59;color:#fff;box-shadow:0 3px 0 #d4553a}
+.prow .step{display:inline-flex;align-items:center;gap:4px;background:#f6ecd6;border-radius:999px;padding:3px;flex:none}
+.prow .step button{width:calc(34px * var(--fs));height:calc(34px * var(--fs));border-radius:50%;border:0;background:#eadfce;color:#8a786c;font-weight:900;font-size:calc(18px * var(--fs));cursor:pointer;line-height:1}
+.prow .step button[data-r="1"]{background:#ff7a59;color:#fff}
+.prow .step button:disabled{opacity:.4}
+.prow .step b{min-width:calc(44px * var(--fs));text-align:center;font-size:calc(17px * var(--fs));color:#3b2f2a}
+.prow .step button[data-ns="1"],.prow .step button[data-ds="1"]{background:#ff7a59;color:#fff}
+.pcfg .online{display:flex;align-items:center;gap:12px;border:0;border-radius:18px;padding:10px 14px;background:linear-gradient(90deg,#8f7bff,#6f5be6);color:#fff;cursor:pointer;text-align:left;box-shadow:0 4px 0 #5447b3;-webkit-tap-highlight-color:transparent}
+.pcfg .online .oic{flex:none;width:calc(96px * var(--fs));display:flex;align-items:center;justify-content:center}
+.pcfg .online .oic img{width:100%;height:auto;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.25))}
+.pcfg .online .otx{display:flex;flex-direction:column;line-height:1.15;flex:1;min-width:0}
+.pcfg .online .otx b{font-size:calc(19px * var(--fs));font-weight:900}
+.pcfg .online .otx small{font-size:calc(11.5px * var(--fs));font-weight:700;opacity:.9}
+.pcfg .online .chev{font-size:calc(26px * var(--fs));font-weight:900;flex:none;opacity:.9}
+.pcfg .online.on{background:linear-gradient(90deg,#a8998c,#8a786c);box-shadow:0 4px 0 #6f5f52}
+.lobby{display:flex;gap:12px;align-items:center;background:#fff;border:2px solid #f3e3c8;border-radius:16px;padding:10px}
+/* 角色名 + 名字輸入同一格 */
+.pname2{display:flex;align-items:center;gap:8px;background:var(--cream);border:3px solid #fff;border-radius:18px;padding:4px 6px 4px 16px;box-shadow:0 3px 0 rgba(0,0,0,.1);min-width:min(300px,70vw)}
+.pname2 b{font-size:calc(24px * var(--fs));font-weight:900;color:#3b2f2a;white-space:nowrap}
+.pnameIn{flex:1;min-width:0;width:calc(120px * var(--fs));font:900 calc(15px * var(--fs)) inherit;font-family:inherit;color:#3b2f2a;background:#fff;border:0;border-radius:12px;padding:8px 10px;outline:2px solid var(--line)}
+.pnameIn::placeholder{color:#b5a593;font-weight:800}
+.pnameIn:focus{outline-color:#ff7a59}
+@media(max-width:560px){ .prow .ico{width:calc(34px * var(--fs));font-size:calc(20px * var(--fs))} .prow .opts button{min-width:calc(34px * var(--fs));height:calc(34px * var(--fs))} .pcfg{padding:0 0 2px;gap:6px} .pname2{min-width:0;width:calc(100vw - 140px);padding-left:12px} .pname2 b{font-size:calc(18px * var(--fs))} .pnav{gap:8px} .pnav button{width:44px;height:44px} }
+/* 設定卡的縮放由 fitStage 動態決定(空間不夠就縮小) */
+.pcfg{zoom:var(--cardZoom,1)}
+.lobby .who span{animation:lobbyIn .35s ease}
+@keyframes lobbyIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+
+
+/* 金錢列拿掉:右上只剩音樂 / 全螢幕兩顆小鈕;左上頭像 + 名次 */
+.topbtns{position:fixed;right:12px;top:14px;z-index:6;display:flex;gap:8px;pointer-events:auto}
+body.embed .topbtns{right:64px}
+.hud{pointer-events:none}
+
+/* 左上:自己的頭像 + 現金;輪到自己時頭像右下角綠點 */
+.cashpill{display:flex;align-items:center;gap:6px;background:#8a6f60;color:#fff;border:3px solid #fff;border-radius:999px;padding:4px 12px 4px 6px;font-weight:900;font-size:calc(16px * var(--fs));box-shadow:0 3px 0 rgba(0,0,0,.12);pointer-events:none;white-space:nowrap}
+.ava{position:relative;pointer-events:none}   /* 自己的頭像只是顯示,點了沒反應(資產用旁邊的股票鈕開) */
+/* 輪到誰:頭像外面一圈綠色光環,像呼吸一樣放大縮小(自己和對手都一樣) */
+.ava.turn,.pava.turn{animation:turnBreath 1.6s ease-in-out infinite}
+@keyframes turnBreath{0%,100%{box-shadow:0 0 0 3px #35c26b,0 0 0 6px rgba(53,194,107,.25)}50%{box-shadow:0 0 0 5px #35c26b,0 0 0 12px rgba(53,194,107,.12)}}
+/* 名次放在頭像右下角(以前綠點的位置) */
+.ava .ranktag{position:absolute;right:-8px;bottom:-4px;padding:1px 8px;font-size:calc(11px * var(--fs));z-index:1}
+.pava .rk{position:absolute;right:-8px;bottom:-4px}
+@media(max-width:900px){ .cashpill{font-size:calc(14px * var(--fs));padding:3px 10px 3px 5px}.cashpill .coin{width:18px;height:18px} }
+
+/* 左上整合:頭像 | 現金 + 名次;第一名頭像戴皇冠 */
+.mecol{display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.ava .crown{position:absolute;left:-10px;top:-18px;width:calc(40px * var(--fs));transform:rotate(-22deg);filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));pointer-events:none;z-index:2}
+.ava .crown img{width:100%;height:auto;display:block}
+.ava .crown.hide{display:none}
+@media(max-width:900px){ .ava .crown{width:calc(34px * var(--fs))} .lcol{top:calc(var(--ava) + 24px)} .rcol{top:calc(var(--ava) + 24px)} }
+@media(max-width:900px){ .tabs.col .pava{width:calc(54px * var(--fs));height:calc(54px * var(--fs))} }
+
+/* 對手頭像右邊的名次 */
+.tabs.col{align-items:flex-start;margin-top:6px}
+.tabs.col .rk{background:#8a6f60;color:#fff;border-radius:999px;padding:1px 8px;font-size:calc(11px * var(--fs));font-weight:900;white-space:nowrap;pointer-events:none}
+.tabs.col .rk.top{background:#ffb000}
+.lcol .box.assets.fold{display:none}
+
+/* 自己的「股票」鈕:點開自己的資產清單 */
+.stockbtn{width:calc(46px * var(--fs));height:calc(30px * var(--fs));border-radius:999px;border:2px solid #f2b23c;background:#fff8ec;box-shadow:0 3px 0 rgba(0,0,0,.12);cursor:pointer;pointer-events:auto;display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}
+.stockbtn svg{width:calc(22px * var(--fs));height:calc(22px * var(--fs));fill:#d98a2b}
+.stockbtn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.12)}
+.hud{align-items:center}   /* 現金 + 名次那排和股票鈕,整組對齊頭像的垂直中心 */
+.mecol{justify-content:center}
+
+.merow{display:flex;align-items:center;gap:8px}
+.merow{min-height:0}
+/* 右上的音樂 / 全螢幕鈕放大到和離開鈕一樣(48px),手機也一樣 */
+.topbtns .snd{width:48px;height:48px;font-size:23px;border:4px solid #fff6e8;box-shadow:0 4px 6px rgba(0,0,0,.3)}   /* ♪ 和全螢幕鈕做成和離開 ✕ 那張圖一樣:48px、奶油色粗白邊、同樣的陰影 */
+.topbtns{top:12px;gap:10px}
+body.embed .topbtns{right:68px}   /* 離開 ✕ 在 right:10px、48px 寬 → 這排從 68px 開始,間距和鈕之間一樣 */
+
+/* 名字欄:前面不放角色名,角色名當預設字 */
+.pname2 b{display:none}
+.pname2{padding-left:6px}
+
+/* 多人連線第二步:人數格大廳 */
+.lobbyui{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:12px 12px calc(16px + env(safe-area-inset-bottom));pointer-events:none}
+.lobbyui.hide{display:none}
+.lobbycard{display:flex;gap:12px;align-items:center;background:#fff8ec;border:3px solid #fff;outline:2px solid var(--line);border-radius:18px;padding:10px 12px;pointer-events:auto;max-width:min(470px,92vw);box-shadow:0 8px 22px rgba(0,0,0,.15)}
+.lobbycard .qr{width:calc(96px * var(--fs));height:calc(96px * var(--fs));flex:none;background:#fff}.lobbycard .qr svg{width:100%;height:100%;display:block}
+.lobbycard .info{display:flex;flex-direction:column;gap:4px;font-size:calc(12px * var(--fs));color:#6b594e;font-weight:700;min-width:0}
+.lobbycard .info b{font-size:calc(14px * var(--fs));color:#3b2f2a}.lobbycard .code{font-family:"SF Mono",Menlo,monospace;letter-spacing:3px;background:#fff3d6;border-radius:8px;padding:2px 8px;color:#d4553a;font-size:calc(18px * var(--fs))}
+.lobbycard .url{word-break:break-all;color:#8b7cff}
+.lobbybar{display:flex;align-items:center;gap:12px;pointer-events:auto}
+.pback{width:52px;height:52px;border-radius:50%;border:4px solid #fff;background:#7cc6ff;color:#fff;font-size:calc(22px * var(--fs));font-weight:900;cursor:pointer;box-shadow:0 4px 0 #4f9bd6}
+body.picking .lobbyui{display:flex}
+body.picking .lobbyui.hide{display:none}
+
+/* 手機端觀戰:別人的面板看得到但不能按,右上角一個小標籤 */
+body.watch #panel::after{content:attr(data-watch);position:absolute;top:8px;right:12px;background:#8a6f60;color:#fff;border-radius:999px;padding:2px 10px;font-size:calc(11px * var(--fs));font-weight:900;box-shadow:0 2px 0 rgba(0,0,0,.15);white-space:nowrap}
+body.watch #panel[data-watch=""]::after{display:none}
+/* 手機抽卡:標題縮小、三張牌盡量放大;翻開後選中的那張放大到看得清楚字,另外兩張縮到旁邊 */
+@media(max-width:900px){
+  .draw{gap:12px;padding:12px}
+  .draw h2{font-size:calc(15px * var(--fs));text-align:center;line-height:1.3}
+  .dcards{gap:10px;align-items:center}
+  .dcard{width:min(calc(190px * var(--fs)),29vw,34vh);transition:width .4s cubic-bezier(.2,.8,.2,1),transform .25s cubic-bezier(.2,.8,.2,1),filter .3s,opacity .4s}
+  .dcard.picked{width:min(calc(100vw - 26vw - 40px),48vh);transform:none}   /* 扣掉兩張縮小的牌(各 13vw)和間距,手機上不會超出螢幕 */
+  .dcard.lost{width:min(13vw,10vh);transform:none;opacity:.7}
+  .dcard.picked .dhead{font-size:calc(16px * var(--fs) * var(--fit, 1));padding:12px 12px 10px}
+  .dcard.picked .dwhy{font-size:calc(13.5px * var(--fs) * var(--fit, 1));padding:10px 12px 0}
+  .dcard.picked .dmv .mv{font-size:calc(13px * var(--fs) * var(--fit, 1));padding:3px 9px}
+  .dcard.lost .dfront{visibility:hidden}
+  .dgo{height:calc(44px * var(--fs));font-size:calc(15px * var(--fs))}
+}
+
+/* 有滑鼠的裝置:所有按鈕移上去都變亮一點(.roll 和抽卡的牌有自己的 hover 效果) */
+@media(hover:hover){
+  button:not(:disabled):not(.roll):hover{filter:brightness(1.08) saturate(1.08)}
+  .rb.evt:not(:disabled):hover .ic{background:#ffc95a}.rb.tsk:not(:disabled):hover .ic{background:#ffa3cd}.rb:not(:disabled):hover{filter:none}
+  .stockbtn:not(:disabled):hover,.chips button:hover,.pnav button:hover,.prow button:hover,.lobbybar button:hover{filter:brightness(1.1)}
+}
+
+/* 大廳 QR 旁的「分享連結」鈕 */
+.lobby .share,.lobbycard .share{margin-top:4px;align-self:flex-start;border:0;border-radius:999px;padding:5px 12px;background:#35c2a1;color:#fff;font:inherit;font-weight:900;font-size:calc(12px * var(--fs));box-shadow:0 3px 0 #249c80;cursor:pointer;pointer-events:auto;white-space:nowrap}
+.lobby .share:active,.lobbycard .share:active{transform:translateY(2px);box-shadow:0 1px 0 #249c80}
+
+/* 買賣面板:四顆按鈕兩個一排(字才放得下);說明文字收進標題右邊的「?」,滑鼠移上去 / 點一下才顯示 */
+.btns.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btns.grid2 button{min-height:calc(54px * var(--fs));font-size:calc(15px * var(--fs))}
+.btns.grid2 button span{font-size:calc(13px * var(--fs));white-space:normal}
+.panel h3 .help{position:relative;margin-left:auto;flex:none;pointer-events:auto;cursor:help;outline:none}
+.panel h3 .help i{display:flex;align-items:center;justify-content:center;width:calc(24px * var(--fs));height:calc(24px * var(--fs));border-radius:50%;background:#e8d9c2;color:#6b594e;font-style:normal;font-weight:900;font-size:calc(14px * var(--fs))}
+.panel h3 .help:hover i,.panel h3 .help.open i{background:#ff7a59;color:#fff}
+.panel h3 .help:focus-visible i{outline:2px solid #ff7a59;outline-offset:2px}
+.panel h3 .help .tip{display:none;position:absolute;right:0;top:calc(100% + 8px);width:min(300px,78vw);background:#3b2f2a;color:#fff;border-radius:12px;padding:10px 12px;font-size:calc(12px * var(--fs));font-weight:600;line-height:1.5;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,.25);text-align:left}
+.panel h3 .help .tip b{color:#ffd9a3}
+.panel h3 .help.open .tip{display:block}   /* 只靠點擊開關:再按一次「?」或點旁邊就關 */
+
+/* 結算畫面:全球排行榜直接放在卡片裡,可以上下捲 */
+.endcard{width:min(440px,100%)}
+.endcard .endlb{width:auto;border:2px solid #f1e6d6;box-shadow:none;padding:10px 10px 8px;margin:10px 0 2px;max-height:min(42vh,calc(360px * var(--fs)));text-align:left}
+.endcard .btns button{font-size:calc(14px * var(--fs))}
+@media(max-height:620px){ .endcard .endlb{max-height:32vh} }
+
+/* 排行榜列上的小頭像 */
+.rrow .ic.mini{width:calc(26px * var(--fs));height:calc(26px * var(--fs));flex:none;border-radius:50%;border:2px solid #fff;background:#dfe8ff center 20%/cover;box-shadow:0 0 0 1.5px #e6d9c4}
+
+/* 任務框固定高度,內容多了用捲的;已完成的同名任務合併顯示 ×N */
+.missbox .miss{max-height:min(44vh,calc(300px * var(--fs)));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.m .cnt{margin-left:auto;flex:none;background:#8a6f60;color:#fff;border-radius:999px;padding:1px 7px;font-size:calc(11px * var(--fs));font-weight:900}
+
+/* 任務框分頁:進行中 / 已完成 */
+.mtabs{display:flex;gap:6px;padding:8px 8px 0}
+.mtabs button{flex:1;border:2px solid #e6d9c4;background:#fff;border-radius:999px;padding:5px 0;font:inherit;font-weight:900;font-size:calc(12px * var(--fs));color:#9a8676;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.mtabs button i{font-style:normal;background:#e8d9c2;color:#6b594e;border-radius:999px;padding:0 6px;font-size:calc(10.5px * var(--fs))}
+.missbox .mdone{display:none}
+.missbox[data-tab="done"] .mdone{display:block}.missbox[data-tab="done"] .mpend{display:none}
+.missbox:not([data-tab="done"]) .mtabs [data-mt="pend"],.missbox[data-tab="done"] .mtabs [data-mt="done"]{background:#ffb000;border-color:#ffb000;color:#fff}
+.missbox[data-tab="done"] .mtabs [data-mt="done"] i{background:#fff;color:#b57c00}
+.missbox .miss{display:block;padding:0 8px 8px}
+.missbox .miss .m{margin-top:6px}
+
+/* 成就達成跳出卡:從上方滑進來、金色邊 */
+.achv{position:fixed;left:50%;top:calc(var(--ava) + 30px);transform:translate(-50%,-30px);z-index:8;display:flex;flex-direction:column;align-items:center;gap:2px;background:#fff8ec;border:3px solid #ffb000;border-radius:18px;padding:10px 22px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .25s,transform .35s cubic-bezier(.2,1.2,.4,1)}
+.achv.on{opacity:1;transform:translate(-50%,0)}
+.achv b{font-size:calc(15px * var(--fs));font-weight:900;color:#b57c00}
+.achv span{font-size:calc(13px * var(--fs));font-weight:800;color:#3b2f2a}
+
+/* 文字裡的小圖示(獎盃、地球):和字同高、對齊基線 */
+.emo{height:1.25em;width:auto;vertical-align:-0.28em;display:inline-block}
+.endcard h2 .emo{height:1.4em;vertical-align:-0.32em}
+
+/* 英文「Achievements」比較長:字小一點,而且如果還是超出螢幕右邊,就往左推回來(--lblShift 由 board.mjs 量好設定) */
+.rb span#missLbl{font-size:calc(10px * var(--fs));padding:1px 7px;transform:translateX(var(--lblShift, 0px))}
+
+/* 事件面板最上面:目前的大盤趨勢 */
+.box.ev.mk-up h4{background:#3aa864}.box.ev.mk-dn h4{background:#e0533f}
+.evt .trendbox{border-bottom:1.5px dashed #e8d9c2;padding-bottom:6px;margin-bottom:6px}.evt .mvrow.trend{font-weight:900}
+.evt .tnote{font-size:calc(11px * var(--fs));font-weight:700;color:#9a8576;line-height:1.35}

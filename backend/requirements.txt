@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+httpx
+yfinance
+pandas
+numpy
+yahooquery
+scikit-learn
+matplotlib
+torch
+h2
+PyJWT
+cryptography
+truststore
+xgboost
+joblib

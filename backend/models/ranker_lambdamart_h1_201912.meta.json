@@ -1,0 +1,644 @@
+{
+  "modelType": "XGBRanker-LambdaMART",
+  "horizon": 1,
+  "gradeThresholds": [
+    -0.05,
+    0.03,
+    0.1
+  ],
+  "featureNames": [
+    "lag_1_return",
+    "lag_2_return",
+    "lag_3_return",
+    "mean_return_5",
+    "mean_return_20",
+    "volatility_20",
+    "momentum_20",
+    "avg_volume_20",
+    "volume_ratio",
+    "rsi",
+    "mfi",
+    "rsi_norm",
+    "mfi_norm",
+    "rsi_change_3d",
+    "mfi_change_3d",
+    "ma5_deviation",
+    "ma20_deviation",
+    "rsi_delta_1",
+    "mfi_delta_1",
+    "ma5_slope",
+    "ma20_slope",
+    "vwap_deviation",
+    "price_mfi_divergence",
+    "obv_change_5",
+    "macd",
+    "macdSignal",
+    "macdHist",
+    "macdHist_change_3d",
+    "relative_strength_spy",
+    "relative_strength_soxx",
+    "relative_strength_spy_change_3d",
+    "relative_strength_soxx_change_3d",
+    "spy_return1d",
+    "qqq_return1d",
+    "soxx_return1d",
+    "vix_change1d",
+    "spy_rsi14",
+    "qqq_rsi14",
+    "soxx_rsi14",
+    "vix_rsi14",
+    "spy_macdHist",
+    "qqq_macdHist",
+    "soxx_macdHist",
+    "vix_macdHist",
+    "vix_level",
+    "pe_ratio_log",
+    "profit_margin",
+    "gross_margin",
+    "gross_net_spread",
+    "eps_growth",
+    "revenue_growth",
+    "has_fundamentals",
+    "eps_surprise_pct",
+    "earnings_beat",
+    "post_earnings_gap_pct",
+    "analyst_upside_30d",
+    "analyst_raises_ratio_30d",
+    "analyst_coverage_30d",
+    "analyst_target_high_30d",
+    "eps_qoq",
+    "eps_trend_3q",
+    "next_eps_est_vs_prev",
+    "eps_yoy",
+    "eps_accel",
+    "beat_streak",
+    "price_to_52w_high",
+    "price_to_52w_low",
+    "eps_price_divergence",
+    "price_to_fair_value",
+    "log_market_cap",
+    "consecutive_neg_eps",
+    "analyst_raises_x_momentum",
+    "eps_analyst_lag",
+    "value_growth",
+    "loss_depth",
+    "quality_eps_growth",
+    "momentum_x_eps_lag",
+    "crash_no_support",
+    "revenue_growth_x_margin",
+    "pe_momentum",
+    "beat_streak_quality",
+    "gold_corr_60d",
+    "oil_corr_60d",
+    "btc_corr_60d",
+    "btc_p52w_high",
+    "eps_miss",
+    "gld_momentum_20d",
+    "cl_momentum_20d",
+    "btc_momentum_20d",
+    "beat_streak_x_momentum",
+    "neg_margin_x_miss",
+    "consec_loss_sq",
+    "spy_momentum_20d",
+    "vix_change_5d",
+    "beta_60d",
+    "drawdown_depth",
+    "low_gross_margin",
+    "drawdown_x_momentum",
+    "momentum_accel",
+    "vol_surge_20_60",
+    "hot_score",
+    "cold_penalty",
+    "accel_x_volume",
+    "overrun_risk",
+    "deep_value",
+    "value_x_momentum",
+    "overrun_x_neg_momentum",
+    "oil_bear_signal",
+    "gold_bear_signal",
+    "btc_bear_signal",
+    "hot_macro_headwind",
+    "rsi_miss_combo",
+    "crash_momentum",
+    "dead_cat",
+    "loss_miss_signal",
+    "next_est_decline",
+    "stale_target_risk",
+    "hot_valuation_risk",
+    "crowded_momentum",
+    "falling_knife",
+    "ttm_profit_margin",
+    "ttm_revenue_yoy"
+  ],
+  "lookbackDays": 20,
+  "trainEnd": "2019-12-31",
+  "testStart": "2020-01-31",
+  "trainRows": 480262,
+  "testRows": 943871,
+  "testNDCG10": 0.539657,
+  "testNDCG20": 0.584749,
+  "crossValidation": {
+    "method": "TimeSeriesSplit-manual",
+    "nSplits": 5,
+    "ndcg10Mean": 0.544161,
+    "ndcg10Std": 0.011567,
+    "foldNDCG10": [
+      0.555023,
+      0.537662,
+      0.552093,
+      0.551622,
+      0.524407
+    ]
+  },
+  "clipBounds": {
+    "lag_1_return": {
+      "lo": -0.05384097,
+      "hi": 0.05546991
+    },
+    "lag_2_return": {
+      "lo": -0.05388121,
+      "hi": 0.05549975
+    },
+    "lag_3_return": {
+      "lo": -0.05387878,
+      "hi": 0.05551532
+    },
+    "mean_return_5": {
+      "lo": -0.02540357,
+      "hi": 0.02682763
+    },
+    "mean_return_20": {
+      "lo": -0.01371952,
+      "hi": 0.01502003
+    },
+    "volatility_20": {
+      "lo": -0.01697166,
+      "hi": 0.04486171
+    },
+    "momentum_20": {
+      "lo": -0.26594812,
+      "hi": 0.28801487
+    },
+    "avg_volume_20": {
+      "lo": -10431615.0,
+      "hi": 16050137.5
+    },
+    "volume_ratio": {
+      "lo": -0.59560075,
+      "hi": 2.47402506
+    },
+    "rsi": {
+      "lo": -32.464925,
+      "hi": 139.4591
+    },
+    "mfi": {
+      "lo": -25.958725,
+      "hi": 132.8725
+    },
+    "rsi_norm": {
+      "lo": -1.6492985,
+      "hi": 1.789182
+    },
+    "mfi_norm": {
+      "lo": -1.5191745,
+      "hi": 1.65745
+    },
+    "rsi_change_3d": {
+      "lo": -51.0474,
+      "hi": 51.3199
+    },
+    "mfi_change_3d": {
+      "lo": -49.10645,
+      "hi": 49.145025
+    },
+    "ma5_deviation": {
+      "lo": -0.06093336,
+      "hi": 0.06357796
+    },
+    "ma20_deviation": {
+      "lo": -0.14675701,
+      "hi": 0.15764759
+    },
+    "rsi_delta_1": {
+      "lo": -27.36685848,
+      "hi": 27.46259793
+    },
+    "mfi_delta_1": {
+      "lo": -30.51059276,
+      "hi": 30.5423795
+    },
+    "ma5_slope": {
+      "lo": -1.444,
+      "hi": 1.538
+    },
+    "ma20_slope": {
+      "lo": -0.7695,
+      "hi": 0.8475
+    },
+    "vwap_deviation": {
+      "lo": -0.14668539,
+      "hi": 0.15871564
+    },
+    "price_mfi_divergence": {
+      "lo": -0.26052319,
+      "hi": 0.26028956
+    },
+    "obv_change_5": {
+      "lo": -0.43590865,
+      "hi": 0.46508371
+    },
+    "macd": {
+      "lo": -0.06718425,
+      "hi": 0.07368447
+    },
+    "macdSignal": {
+      "lo": -0.06313024,
+      "hi": 0.06955899
+    },
+    "macdHist": {
+      "lo": -0.0209438,
+      "hi": 0.02112465
+    },
+    "macdHist_change_3d": {
+      "lo": -0.01344633,
+      "hi": 0.01346211
+    },
+    "relative_strength_spy": {
+      "lo": -0.72922684,
+      "hi": 1.27995663
+    },
+    "relative_strength_soxx": {
+      "lo": -3.4863228,
+      "hi": 6.10321289
+    },
+    "relative_strength_spy_change_3d": {
+      "lo": -0.01828534,
+      "hi": 0.01845634
+    },
+    "relative_strength_soxx_change_3d": {
+      "lo": -0.12013261,
+      "hi": 0.11554872
+    },
+    "spy_return1d": {
+      "lo": -0.023219,
+      "hi": 0.025249
+    },
+    "qqq_return1d": {
+      "lo": -0.032845,
+      "hi": 0.035601
+    },
+    "soxx_return1d": {
+      "lo": -0.055449,
+      "hi": 0.057769
+    },
+    "vix_change1d": {
+      "lo": -0.274214,
+      "hi": 0.265024
+    },
+    "spy_rsi14": {
+      "lo": -25.3315,
+      "hi": 141.3553
+    },
+    "qqq_rsi14": {
+      "lo": -23.2689,
+      "hi": 140.2511
+    },
+    "soxx_rsi14": {
+      "lo": -22.25045,
+      "hi": 135.8036
+    },
+    "vix_rsi14": {
+      "lo": -6.6059,
+      "hi": 103.4607
+    },
+    "spy_macdHist": {
+      "lo": -2.227816,
+      "hi": 2.322856
+    },
+    "qqq_macdHist": {
+      "lo": -1.735021,
+      "hi": 1.792356
+    },
+    "soxx_macdHist": {
+      "lo": -1.064287,
+      "hi": 1.128442
+    },
+    "vix_macdHist": {
+      "lo": -1.088595,
+      "hi": 1.062372
+    },
+    "vix_level": {
+      "lo": -1.45,
+      "hi": 29.07
+    },
+    "pe_ratio_log": {
+      "lo": null,
+      "hi": null
+    },
+    "profit_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "gross_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "gross_net_spread": {
+      "lo": null,
+      "hi": null
+    },
+    "eps_growth": {
+      "lo": null,
+      "hi": null
+    },
+    "revenue_growth": {
+      "lo": null,
+      "hi": null
+    },
+    "has_fundamentals": {
+      "lo": null,
+      "hi": null
+    },
+    "eps_surprise_pct": {
+      "lo": null,
+      "hi": null
+    },
+    "earnings_beat": {
+      "lo": null,
+      "hi": null
+    },
+    "post_earnings_gap_pct": {
+      "lo": null,
+      "hi": null
+    },
+    "analyst_upside_30d": {
+      "lo": -1.35792429,
+      "hi": 1.1452095
+    },
+    "analyst_raises_ratio_30d": {
+      "lo": -2.25,
+      "hi": 3.0
+    },
+    "analyst_coverage_30d": {
+      "lo": -1.2,
+      "hi": 1.6
+    },
+    "analyst_target_high_30d": {
+      "lo": -0.68033649,
+      "hi": 0.90711532
+    },
+    "eps_qoq": {
+      "lo": null,
+      "hi": null
+    },
+    "eps_trend_3q": {
+      "lo": null,
+      "hi": null
+    },
+    "next_eps_est_vs_prev": {
+      "lo": null,
+      "hi": null
+    },
+    "eps_yoy": {
+      "lo": null,
+      "hi": null
+    },
+    "eps_accel": {
+      "lo": null,
+      "hi": null
+    },
+    "beat_streak": {
+      "lo": null,
+      "hi": null
+    },
+    "price_to_52w_high": {
+      "lo": 0.45222798,
+      "hi": 1.37375916
+    },
+    "price_to_52w_low": {
+      "lo": 0.30437588,
+      "hi": 2.19260022
+    },
+    "eps_price_divergence": {
+      "lo": -1.40017753,
+      "hi": 1.15698465
+    },
+    "price_to_fair_value": {
+      "lo": null,
+      "hi": null
+    },
+    "log_market_cap": {
+      "lo": null,
+      "hi": null
+    },
+    "consecutive_neg_eps": {
+      "lo": null,
+      "hi": null
+    },
+    "analyst_raises_x_momentum": {
+      "lo": -0.03884327,
+      "hi": 0.05179103
+    },
+    "eps_analyst_lag": {
+      "lo": null,
+      "hi": null
+    },
+    "value_growth": {
+      "lo": null,
+      "hi": null
+    },
+    "loss_depth": {
+      "lo": null,
+      "hi": null
+    },
+    "quality_eps_growth": {
+      "lo": null,
+      "hi": null
+    },
+    "momentum_x_eps_lag": {
+      "lo": null,
+      "hi": null
+    },
+    "crash_no_support": {
+      "lo": null,
+      "hi": null
+    },
+    "revenue_growth_x_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "pe_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "beat_streak_quality": {
+      "lo": null,
+      "hi": null
+    },
+    "gold_corr_60d": {
+      "lo": -0.91936549,
+      "hi": 0.81299127
+    },
+    "oil_corr_60d": {
+      "lo": -0.8350798,
+      "hi": 1.19474688
+    },
+    "btc_corr_60d": {
+      "lo": -0.70327153,
+      "hi": 0.68860905
+    },
+    "btc_p52w_high": {
+      "lo": -1.14332237,
+      "hi": 2.48803802
+    },
+    "eps_miss": {
+      "lo": null,
+      "hi": null
+    },
+    "gld_momentum_20d": {
+      "lo": -0.14154888,
+      "hi": 0.14664214
+    },
+    "cl_momentum_20d": {
+      "lo": -0.18818306,
+      "hi": 0.18776443
+    },
+    "btc_momentum_20d": {
+      "lo": -1.11094516,
+      "hi": 1.24597309
+    },
+    "beat_streak_x_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "neg_margin_x_miss": {
+      "lo": null,
+      "hi": null
+    },
+    "consec_loss_sq": {
+      "lo": null,
+      "hi": null
+    },
+    "spy_momentum_20d": {
+      "lo": -0.11028213,
+      "hi": 0.132078
+    },
+    "vix_change_5d": {
+      "lo": -0.58828694,
+      "hi": 0.58360739
+    },
+    "beta_60d": {
+      "lo": -1.25135018,
+      "hi": 3.26473813
+    },
+    "drawdown_depth": {
+      "lo": -0.37375916,
+      "hi": 0.54777202
+    },
+    "low_gross_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "drawdown_x_momentum": {
+      "lo": -0.01063763,
+      "hi": 0.00797822
+    },
+    "momentum_accel": {
+      "lo": -0.1881789,
+      "hi": 0.17712812
+    },
+    "vol_surge_20_60": {
+      "lo": 0.21068654,
+      "hi": 1.76402047
+    },
+    "hot_score": {
+      "lo": -0.14374984,
+      "hi": 0.19166645
+    },
+    "cold_penalty": {
+      "lo": -0.00961451,
+      "hi": 0.01281934
+    },
+    "accel_x_volume": {
+      "lo": null,
+      "hi": null
+    },
+    "overrun_risk": {
+      "lo": -1.005458,
+      "hi": 1.34061066
+    },
+    "deep_value": {
+      "lo": null,
+      "hi": null
+    },
+    "value_x_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "overrun_x_neg_momentum": {
+      "lo": -0.00157396,
+      "hi": 0.00209862
+    },
+    "oil_bear_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "gold_bear_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "btc_bear_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "hot_macro_headwind": {
+      "lo": -0.00027661,
+      "hi": 0.00036882
+    },
+    "rsi_miss_combo": {
+      "lo": null,
+      "hi": null
+    },
+    "crash_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "dead_cat": {
+      "lo": null,
+      "hi": null
+    },
+    "loss_miss_signal": {
+      "lo": null,
+      "hi": null
+    },
+    "next_est_decline": {
+      "lo": null,
+      "hi": null
+    },
+    "stale_target_risk": {
+      "lo": null,
+      "hi": null
+    },
+    "hot_valuation_risk": {
+      "lo": null,
+      "hi": null
+    },
+    "crowded_momentum": {
+      "lo": null,
+      "hi": null
+    },
+    "falling_knife": {
+      "lo": null,
+      "hi": null
+    },
+    "ttm_profit_margin": {
+      "lo": null,
+      "hi": null
+    },
+    "ttm_revenue_yoy": {
+      "lo": null,
+      "hi": null
+    }
+  },
+  "sourceDir": "./data/history_10y"
+}

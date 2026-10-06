@@ -1,0 +1,22 @@
+# 機密:API 金鑰、推播憑證放在本機,不進版本控制
+.env
+*.p8
+*.pem
+game/worker/.dev.vars
+# 資料和訓練產物(用 backend/scripts 和 game/tools 重新產生)
+backend/data/
+backend/logs/
+backend/models/*.joblib
+backend/*.db
+game/tools/nn/data/
+# 開發環境
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+ios/**/xcuserdata/
