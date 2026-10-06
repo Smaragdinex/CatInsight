@@ -1154,6 +1154,18 @@ function fitStage(dt) {
     else if (stageZoom > zMin) stageZoom = Math.max(zMin, stageZoom - 0.15 * k); else stageLift = Math.max(0, stageLift + needDown / unit * k * 0.5);
   }
 }                 // stageCur:目前滑到第幾個(小數),慢慢追上 stageSel
+// 一次算到定位(不要慢慢拉近):每輪把鏡頭放到目前的結果再量一次,直到不再變
+function snapStage() {
+  camT.x = STAGE.x; camT.z = STAGE.z;
+  for (let i = 0; i < 80; i++) {
+    const z0 = stageZoom, l0 = stageLift;
+    view.half = view.stageHalf + stageZoom; applyFrustum();
+    camT.y = 0.2 + stageLift; cam.position.copy(camT).add(CAM_OFF); cam.updateMatrixWorld();
+    fitStage(0.2);
+    if (i > 2 && Math.abs(stageZoom - z0) < 1e-4 && Math.abs(stageLift - l0) < 1e-4) break;
+  }
+  view.half = view.stageHalf + stageZoom; applyFrustum(); camT.y = 0.2 + stageLift; cam.position.copy(camT).add(CAM_OFF);
+}
 let pickWho = 0;                                              // 現在是第幾位真人在選(0 或 1)
 // 選第 i 個;如果那個角色已經被第一位真人選走,就往 dir 方向找下一個
 function stageSelect(i, dir = 1) {
@@ -1252,6 +1264,7 @@ function pickStage() {
       lobbyPhase = on; $('lobbyUI').classList.toggle('hide', !on); document.querySelector('.ptop').classList.toggle('hide', on); document.querySelector('.pbar').classList.toggle('hide', on);
       slots.forEach((sl) => { sl.g.visible = !on && !sl.taken; }); joinedRow.visible = !on;
       lobbySeats.forEach((st) => { st.g.visible = on; }); lobbyPaint(); netLobby(); if (!on) stageSelect(stageSel);
+      if (on) { stage.updateMatrixWorld(true); snapStage(); }   // 進等待房間:鏡頭直接到座位那邊,不要慢慢拉近
     };
     $('lobbyBack').onclick = () => enterLobby(false);
     $('lobbyGo').onclick = () => {
