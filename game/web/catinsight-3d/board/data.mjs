@@ -121,7 +121,7 @@ const EVENTS = [
     {agri: 0.95,  trans: 0.85, mat: 0.88, fin: 0.88, disc: 0.90, chip: 0.93, tech: 0.95, gold: 1.06, bond: 1.05 }),
   EVT(-0.01, L('European debt crisis', '歐債危機'), L('From 2010 Greece could not pay its debts. Even government bonds can default, and the banks holding them bleed.', '2010 年起希臘還不出國債。連國債都可能違約,抱著國債的銀行跟著失血。'),
     { bond: 0.88, fin: 0.85, reit: 0.92, disc: 0.95, gold: 1.08, def: 1.02 }),
-  EVT(-0.01, L('Bank run', '銀行擠兌'), L('In 2023 a bank serving tech startups lost its deposits in two days. Confidence is all a bank has.', '2023 年一家服務科技新創的銀行兩天內被提光存款。銀行靠的就是信心。'),
+  EVT(-0.01, L('Bank run', '銀行擠兌'), L('Once depositors fear a bank is in trouble, they all rush to withdraw, and even a sound bank can run dry in days. Confidence is all a bank has.', '存款人一擔心銀行出問題就搶著領錢,就算是健全的銀行,也可能幾天內被提光存款。銀行靠的就是信心。'),
     { fin: 0.80, soft: 0.90, tech: 0.92, bio: 0.94, bond: 1.06, gold: 1.03 }),
   EVT(-0.01, L('Trade war and tariffs', '中美貿易戰'), L('From 2018 tariffs hit chips, metals and shipping; the extra cost gets passed to consumers.', '2018 年起關稅打到晶片、原物料和航運,多出來的成本轉嫁給消費者。'),
     {robot: 0.92, ecom: 0.9, space: 0.92, agri: 0.90,  chip: 0.88, mat: 0.90, trans: 0.92, staples: 0.96, tech: 0.95, def: 1.05, gold: 1.02 }),

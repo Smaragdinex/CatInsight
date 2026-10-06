@@ -19,7 +19,7 @@ const ZH = (new URLSearchParams(location.search).get('lang') || savedLang || nav
 const L = (en, zh) => (ZH ? zh : en);
 
 /* ───────────── 資料 ───────────── */
-import { gameData } from './data.mjs?v=16';
+import { gameData } from './data.mjs?v=17';
 import { makeSim } from './sim.mjs?v=23';
 import { makeEngine } from './engine.mjs?v=11';
 import { makeAiPlan } from './aiplan.mjs?v=1';
@@ -88,7 +88,7 @@ const aiAlg = () => AI_ALG[S.aiLevel] || 'ev';
 const SIM = makeSim(GD,
   { mc: { n: 120, depth: 3 } });
 // 模擬跑在 Web Worker(開不起來就在主執行緒算)。回傳 Promise,aiTurn / aiLand 用 await 等
-const AIW = (() => { try { const w = new Worker('./ai-worker.mjs?v=26', { type: 'module' }); w.onerror = () => { AIW_BAD = true; }; return w; } catch (e) { return null; } })();
+const AIW = (() => { try { const w = new Worker('./ai-worker.mjs?v=27', { type: 'module' }); w.onerror = () => { AIW_BAD = true; }; return w; } catch (e) { return null; } })();
 let AIW_BAD = false, aiwId = 0; const aiwWait = {};
 if (AIW) AIW.onmessage = (ev) => { const r = aiwWait[ev.data.id]; if (r) { delete aiwWait[ev.data.id]; r(ev.data.act); } };
 function simDecide(kind, st, i, k) {
