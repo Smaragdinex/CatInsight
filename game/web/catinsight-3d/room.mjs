@@ -856,6 +856,12 @@ function holdButton(id, dir) {
   el.addEventListener('pointercancel', () => { if (timer) { clearInterval(timer); timer = null; } });
 }
 holdButton('next', 1); holdButton('prev', -1);
+// 左上角的 CatInsight Stock:回到 3D 房間的總覽(關掉遊戲 / 電腦畫面、鏡頭拉回來);在新分頁開啟時就是這個房間的網址
+document.getElementById('brand').onclick = (e) => {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+  e.preventDefault();
+  if (gameOn) hideGame(); else if (uiOn) hideUI(); else { focusArcade = false; zoomGoal = 0; }
+};
 document.getElementById('mid').onclick = () => { if (gameOn) hideGame(); else if (uiOn) hideUI(); else { focusArcade = false; zoomGoal = zoomGoal >= 1 ? 0 : 1; } };
 window.addEventListener('keydown', (e) => {
   if (gameOn) { if (e.key === 'Escape') hideGame(); return; }
