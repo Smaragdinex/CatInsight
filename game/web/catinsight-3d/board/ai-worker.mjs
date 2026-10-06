@@ -1,5 +1,5 @@
 // 電腦對手的蒙地卡羅模擬跑在 Web Worker 裡,主執行緒的動畫不會卡。board.mjs 丟 { id, kind, st, i, k, mc } 進來,回 { id, act }
-import { gameData } from './data.mjs?v=17';
+import { gameData } from './data.mjs?v=18';
 import { makeSim } from './sim.mjs?v=23';
 const sims = {};
 self.onmessage = (ev) => {

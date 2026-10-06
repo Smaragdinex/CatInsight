@@ -144,7 +144,7 @@ const EVENTS = [
     {robot: 1.08, agri: 1.02,  mat: 1.15, trans: 1.08, util: 1.05, green: 1.06, bond: 0.97 }),
   EV(L('Nuclear accident', '核災事故'), L('In 2011 the Fukushima disaster turned countries away from nuclear power and toward renewables and fossil fuels.', '2011 年福島核災讓各國遠離核電,轉向再生能源和化石燃料。'),
     { util: 0.85, green: 1.12, oil: 1.06, gold: 1.04, reit: 0.97 }),
-  EVT(-0.01, L('Property bubble bursts', '房市泡沫破裂'), L('Japan in 1990, China in 2021: when borrowed money stops flowing into property, prices fall and banks and builders fall with them.', '1990 年的日本、2021 年的中國:借來的錢不再流進房地產,房價一跌,銀行和建商跟著倒。'),
+  EVT(-0.01, L('Property bubble bursts', '房市泡沫破裂'), L('When prices are pushed up by borrowed money, the boom lasts only as long as the lending. Once loans stop flowing into property, prices fall and banks and builders fall with them.', '房價靠借來的錢推高,借錢一停就撐不住。資金不再流進房地產,房價一跌,銀行和建商跟著倒。'),
     { reit: 0.75, fin: 0.90, mat: 0.92, staples: 0.97, disc: 0.96, gold: 1.04, bond: 1.03 }),
   EV(L('Drought and crop failure', '乾旱歉收'), L('A bad harvest sends grain prices up. Farms that still have crops earn more; food makers and restaurants pay more for ingredients.', '歉收讓穀物價格大漲。還有收成的農場賺更多;食品廠和餐廳的原料變貴。'),
     { agri: 1.25, staples: 0.94, disc: 0.96, trans: 1.02 }),
