@@ -68,6 +68,21 @@ function fitCardFace(f) {
   while (f.scrollHeight > f.clientHeight + 1 && k > 0.62) { k -= 0.04; f.style.setProperty('--fit', k.toFixed(2)); }
 }
 function fitCards(ov) { ov.querySelectorAll('.dfront').forEach((f) => { fitCardFace(f); if (cardFitRO) cardFitRO.observe(f); }); }
+// 抽牌選定之後(市場事件、命運、禮物共用,電腦和手機同一套):選中的牌先滑到上面正中間放大,另外兩張縮小排到下面一排,
+// 移到定位(PICK_MOVE 秒)之後才翻開。位置用 FLIP 做:先量原本的位置,換成結果版面,再從原位置動畫到新位置
+const PICK_MOVE = 0.45;
+function pickToCenter(ov, cards, i) {
+  const first = cards.map((c) => c.getBoundingClientRect());
+  cards.forEach((c, j) => { c.style.animation = 'none'; c.classList.add(j === i ? 'picked' : 'lost'); });
+  ov.querySelector('.dcards').classList.add('result'); fitCards(ov);
+  flipCards(ov, first);
+}
+// 牌從舊位置(first:每張牌換版面前的位置)滑到現在的位置。手機玩家收到主機同步過來的結果版面時也用這個
+function flipCards(ov, first) {
+  [...ov.querySelectorAll('.dcard')].forEach((c, j) => { const f = first[j], l = c.getBoundingClientRect(); if (!f || !l.width) return;
+    const dx = f.left + f.width / 2 - (l.left + l.width / 2), dy = f.top + f.height / 2 - (l.top + l.height / 2);
+    c.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${f.width / l.width})` }, { transform: 'none' }], { duration: PICK_MOVE * 1000, easing: 'cubic-bezier(.2,.8,.2,1)' }); });
+}
 const cashChip = (e) => trendChip(e) + (e.cash ? `<span class="mv up">${L(`Everyone +$${fmt(e.cash)}`, `每人 +$${fmt(e.cash)}`)}</span>` : '') +
   (e.payPerShare ? `<span class="mv up">${L(`${SECTORS[e.pickKey].name} holders get $${e.payPerShare} per share`, `${SECTORS[e.pickKey].name}股東每股領 $${e.payPerShare}`)}</span>` : '') +
   (e.divTo ? e.divKeys.map((k) => `<span class="mv ${e.divTo[k][1] >= e.divTo[k][0] ? 'up' : 'dn'}">${SECTORS[k].code} ${pct(e.m[k])} · ${L('yield', '殖利率')} ${divPct(e.divTo[k][0])}→${divPct(e.divTo[k][1])}</span>`).join('') : '');   // 股利事件:漲跌和殖利率合成一顆,不重複列
@@ -1774,13 +1789,13 @@ function drawEventCards(auto, round = false, special = !round) {     // special=
     const cards = [...ov.querySelectorAll('.dcard')]; let chosen = -1;
     const choose = (i) => {
       if (chosen >= 0) return;
-      chosen = i; ov.classList.add('done'); cards[i].classList.add('flip', 'picked'); sfx('flip');
+      chosen = i; ov.classList.add('done'); pickToCenter(ov, cards, i); wait(PICK_MOVE).then(() => { cards[i].classList.add('flip'); sfx('flip'); });
       const e = picks[i];
-      wait(0.45).then(() => sfx(e.special ? (e.special === 'ipo' ? 'good' : 'bad') : evGood(e) ? 'good' : 'bad'));
+      wait(PICK_MOVE + 0.45).then(() => sfx(e.special ? (e.special === 'ipo' ? 'good' : 'bad') : evGood(e) ? 'good' : 'bad'));
       if (!e.special) applyEvent(e);
       drawAll(); hud();
-      wait(0.9).then(() => {
-        cards.forEach((c, j) => { if (j !== i) c.classList.add('flip', 'lost'); }); $('dgo').classList.remove('hide');
+      wait(PICK_MOVE + 0.9).then(() => {
+        cards.forEach((c, j) => { if (j !== i) c.classList.add('flip'); }); $('dgo').classList.remove('hide');
         // 對手抽的牌:給你 2 秒看完事件,然後自動按「繼續」(想快一點也可以自己先按)
         if (auto) wait(2).then(() => { if (!done) $('dgo').click(); });
       });
@@ -2042,9 +2057,9 @@ function drawGiftCards(auto) {
     const cards = [...ov.querySelectorAll('.dcard')]; let chosen = -1, done = false;
     const choose = (i) => {
       if (chosen >= 0) return;
-      chosen = i; ov.classList.add('done'); cards[i].classList.add('flip', 'picked'); sfx('flip');
-      wait(0.45).then(() => sfx('item'));
-      wait(0.9).then(() => { cards.forEach((c, j) => { if (j !== i) c.classList.add('flip', 'lost'); }); $('dgo').classList.remove('hide'); if (auto) wait(2).then(() => { if (!done) $('dgo').click(); }); });
+      chosen = i; ov.classList.add('done'); pickToCenter(ov, cards, i); wait(PICK_MOVE).then(() => { cards[i].classList.add('flip'); sfx('flip'); });
+      wait(PICK_MOVE + 0.45).then(() => sfx('item'));
+      wait(PICK_MOVE + 0.9).then(() => { cards.forEach((c, j) => { if (j !== i) c.classList.add('flip'); }); $('dgo').classList.remove('hide'); if (auto) wait(2).then(() => { if (!done) $('dgo').click(); }); });
     };
     cards.forEach((c, i) => { c.onclick = () => { if (!auto) choose(i); }; });
     if (auto) wait(1.2).then(() => choose(Math.floor(Math.random() * 3)));
@@ -2064,9 +2079,9 @@ function drawFateCards(auto) {
     const cards = [...ov.querySelectorAll('.dcard')]; let chosen = -1, done = false;
     const choose = (i) => {
       if (chosen >= 0) return;
-      chosen = i; ov.classList.add('done'); cards[i].classList.add('flip', 'picked'); sfx('flip');
-      wait(0.45).then(() => sfx(picks[i].good ? 'good' : 'bad'));
-      wait(0.9).then(() => { cards.forEach((c, j) => { if (j !== i) c.classList.add('flip', 'lost'); }); $('dgo').classList.remove('hide'); if (auto) wait(2).then(() => { if (!done) $('dgo').click(); }); });
+      chosen = i; ov.classList.add('done'); pickToCenter(ov, cards, i); wait(PICK_MOVE).then(() => { cards[i].classList.add('flip'); sfx('flip'); });
+      wait(PICK_MOVE + 0.45).then(() => sfx(picks[i].good ? 'good' : 'bad'));
+      wait(PICK_MOVE + 0.9).then(() => { cards.forEach((c, j) => { if (j !== i) c.classList.add('flip'); }); $('dgo').classList.remove('hide'); if (auto) wait(2).then(() => { if (!done) $('dgo').click(); }); });
     };
     cards.forEach((c, i) => { c.onclick = () => { if (!auto) choose(i); }; });
     if (auto) wait(1.2).then(() => choose(Math.floor(Math.random() * 3)));
@@ -2623,7 +2638,9 @@ function clientInit() {
       el.querySelector('button').onclick = () => { rulesOpen = false; AU.sfx('click'); send({ t: 'ready' }); if (pendingPanel) { const q = pendingPanel; pendingPanel = null; onMsg(q); } else { el.className = 'panel hide'; el.innerHTML = ''; } };
       return; }
     if (m.t === 'reset') { location.href = `join/?r=${code}`; return; }
-    if (m.t === 'ui') { if (m.box === 'panel' && rulesOpen) { pendingPanel = m; return; } const el = $(m.box); if (!el) return; el.className = m.cls; morph(el, m.html); applyMine(); return; }
+    if (m.t === 'ui') { if (m.box === 'panel' && rulesOpen) { pendingPanel = m; return; } const el = $(m.box); if (!el) return;
+      const before = m.box === 'draw' && !el.querySelector('.dcards.result') ? [...el.querySelectorAll('.dcard')].map((c) => c.getBoundingClientRect()) : null;   // 抽牌:主機選定後,手機也播「移到中間」的動畫
+      el.className = m.cls; morph(el, m.html); if (before && el.querySelector('.dcards.result')) { fitCards(el); flipCards(el, before); } applyMine(); return; }
     if (m.t === 'hud') { HUD = m; mine = !!m.mine; if (S.turn !== m.turn && PIECES[m.turn]) { focus = PIECES[m.turn]; pan.set(0, 0, 0); } S.turn = m.turn; /* 換人:鏡頭切到那位、平移歸零 */ (m.holds || []).forEach((h, i) => { const p = S.players[i]; if (!p) return; KEYS.forEach((k) => { p.hold[k].n = h[k] || 0; }); }); paintHud(); applyMine(); return; }
   }
   let HUD = null, mine = false, aview = null, rulesOpen = false, pendingPanel = null;

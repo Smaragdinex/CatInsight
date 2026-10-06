@@ -210,8 +210,11 @@
   }
   .draw:not(.done):not(.auto) .dcard:active{transform:translateY(-8px) scale(1.02)}
   .draw.auto .dcard{cursor:default}
-  .dcard.picked{transform:translateY(-14px) scale(1.08);z-index:2}
-  .dcard.lost{filter:grayscale(.65) brightness(.8);transform:scale(.93)}
+  /* 選定之後(pickToCenter):選中的牌在上面正中間放大,另外兩張縮小排在下面一排;先移到定位才翻開。電腦和手機同一套 */
+  .dcards.result{display:grid;grid-template-columns:auto auto;justify-content:center;justify-items:center;align-items:start;gap:calc(14px * var(--fs)) calc(16px * var(--fs))}
+  .dcards.result .dcard{transition:filter .3s,opacity .4s}
+  .dcards.result .dcard.picked{grid-column:1 / -1;grid-row:1;width:min(calc(300px * var(--fs)),82vw,calc(50vh * 5 / 7));z-index:2}
+  .dcards.result .dcard.lost{grid-row:2;width:min(calc(120px * var(--fs)),30vw,calc(16vh * 5 / 7));filter:grayscale(.65) brightness(.8)}
   .dgo{height:calc(50px * var(--fs));padding:0 calc(40px * var(--fs));border-radius:999px;border:4px solid #fff;background:#8b7cff;color:#fff;font-weight:900;font-size:calc(17px * var(--fs));cursor:pointer;box-shadow:0 5px 0 #6a5bd6}
   .dgo:active{transform:translateY(3px);box-shadow:0 2px 0 #6a5bd6}
   /* 擲 1 顆 / 2 顆的切換,放在擲骰子按鈕正上方 */
@@ -432,18 +435,15 @@ body.picking .lobbyui.hide{display:none}
 /* 手機端觀戰:別人的面板看得到但不能按,右上角一個小標籤 */
 body.watch #panel::after{content:attr(data-watch);position:absolute;top:8px;right:12px;background:#8a6f60;color:#fff;border-radius:999px;padding:2px 10px;font-size:calc(11px * var(--fs));font-weight:900;box-shadow:0 2px 0 rgba(0,0,0,.15);white-space:nowrap}
 body.watch #panel[data-watch=""]::after{display:none}
-/* 手機抽卡:標題縮小、三張牌盡量放大;翻開後選中的那張放大到看得清楚字,另外兩張縮到旁邊 */
+/* 手機抽卡:標題縮小、三張牌盡量放大;翻開後選中的那張字放大(版面和電腦一樣,見 .dcards.result) */
 @media(max-width:900px){
   .draw{gap:12px;padding:12px}
   .draw h2{font-size:calc(15px * var(--fs));text-align:center;line-height:1.3}
   .dcards{gap:10px;align-items:center}
   .dcard{width:min(calc(190px * var(--fs)),29vw,34vh);transition:width .4s cubic-bezier(.2,.8,.2,1),transform .25s cubic-bezier(.2,.8,.2,1),filter .3s,opacity .4s}
-  .dcard.picked{width:min(calc(100vw - 26vw - 40px),48vh);transform:none}   /* 扣掉兩張縮小的牌(各 13vw)和間距,手機上不會超出螢幕 */
-  .dcard.lost{width:min(13vw,10vh);transform:none;opacity:.7}
   .dcard.picked .dhead{font-size:calc(16px * var(--fs) * var(--fit, 1));padding:12px 12px 10px}
   .dcard.picked .dwhy{font-size:calc(13.5px * var(--fs) * var(--fit, 1));padding:10px 12px 0}
   .dcard.picked .dmv .mv{font-size:calc(13px * var(--fs) * var(--fit, 1));padding:3px 9px}
-  .dcard.lost .dfront{visibility:hidden}
   .dgo{height:calc(44px * var(--fs));font-size:calc(15px * var(--fs))}
 }
 
