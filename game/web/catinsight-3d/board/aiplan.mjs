@@ -51,7 +51,7 @@ export function makeAiPlan(D, ENG) {
     else if (t === 'ipo') v += 2.5;
     else if (t === 'gift') v += 1.5;
     else if (t === 'bank') v += p.cash < 1500 || (p.debt && p.cash > 6000) ? 1.5 : 0;
-    for (let j = 1; j <= i; j++) { const tt = TILES[(p.pos + j) % TILES.length]; if (tt === 'start') v += 2; else if (tt === 'divi') v += 0.8; }   // 經過發薪 / 股息格
+    for (let j = 1; j <= i; j++) { const tt = TILES[(p.pos + j) % TILES.length]; if (tt === 'start') v += 2; }   // 經過起點發薪
     return v;
   }
   // 規則式擲幾顆骰子:一顆走 1~6 格(機率相同)、兩顆走 2~12 格(7 最常出現),比較兩種擲法落點分數的期望值

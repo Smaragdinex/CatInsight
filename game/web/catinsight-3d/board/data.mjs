@@ -36,14 +36,13 @@ const TILES = (() => {
   t[0] = 'start'; t[18] = 'shop'; t[36] = 'bank'; t[54] = 'shop';     // 四個角(銀行在最遠的角)
   [4, 11, 14, 22, 32, 39, 48, 57, 61, 68].forEach((i) => { t[i] = 'chance'; });      // 市場事件(32、68 是兩條小路的出口,一出來就抽事件)
   [9, 28, 51, 70].forEach((i) => { t[i] = 'fate'; });  // 命運:每一邊一格(內部認購、警察局都是命運牌)
-  t[6] = 'divi';                                       // 股息結算(經過或停下都領一次全額股利)
-  [25, 44, 64].forEach((i) => { t[i] = 'gift'; });
+  [6, 25, 44, 64].forEach((i) => { t[i] = 'gift'; });   // 禮物(股利每回合自動配,不需要股息結算格)
   // 剩下 50 格:25 種資產各兩格
   const seq = [...KEYS, ...KEYS];
   let j = 0; for (let i = 0; i < t.length; i++) if (!t[i]) t[i] = seq[j++];
   return t;
 })();
-const TILE_COLOR = { start: 0xff8fc0, chance: 0xffd24a, fate: 0xc08cf5, fee: 0x9aa0ad, shop: 0x5aa9ff, gift: 0xf27a98, divi: 0x8f7cf0, ipo: 0x2fbf9f, bank: 0x4a63b0 };
+const TILE_COLOR = { start: 0xff8fc0, chance: 0xffd24a, fate: 0xc08cf5, fee: 0x9aa0ad, shop: 0x5aa9ff, gift: 0xf27a98, ipo: 0x2fbf9f, bank: 0x4a63b0 };
 // 事件卡:只寫「有變動的資產」,沒寫的就是不動。
 // 大盤 ETF 不用自己寫 —— 它等於所有「股票類股」這次漲跌的平均(黃金、債券、加密貨幣不算)
 const NON_EQUITY = new Set(['gold', 'bond', 'crypto', 'etf', 'agri']);
@@ -335,7 +334,7 @@ const PATH_FIXED = { jail: { 2: 'chance' }, ipo: { 2: 'chance' } };      // 固�
 const MARKET_DRIFT = 0.01;
 const DIV_STEP = 0.01, DIV_MAX = 0.08, DIV_MIN = 0.005, DIV_UP_PRICE = 1.04, DIV_CUT_PRICE = 0.92;   // 調高股利:每次 +1 個百分點、最多 8%、股價 +4%
 const LOT = 10, START_CASH = 10000, SALARY = 1000, FEE = 200, MAX_ROLLS = 20;
-const DIV_ROUND = 0.25;   // 股利每一回合配一次(每回合配年率的 1/4;股息格另外多配一次全額),不用等繞回起點
+const DIV_ROUND = 0.25;   // 股利每一回合配一次(每回合配年率的 1/4),不用等繞回起點;命運牌「特別股利」另外多配一次全額
 const REMOTE_PRICE = 300, CARD_PRICE = 500, ATK_PRICE = 600, ATK_DROP = 0.82, SPY_PRICE = 400, SPY_ROUNDS = 3, DICE3_PRICE = 350;
 const SALE_EVENTS = [0, 1, 2, 4, 6, 7, 8, 11, 12, 14, 16, 17, 20, 21, 61, 64, 65, 68, 69, 75, 104, 108, 112];    // 商店 / 禮物會出的事件卡(EVENTS 的編號,只有好消息類)
 const ITEM_IDS = ['remote', 'atk', 'spy', 'dice3'];                       // 道具;商店每次必有其中一樣

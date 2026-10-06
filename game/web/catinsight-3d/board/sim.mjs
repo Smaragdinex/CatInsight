@@ -1,5 +1,5 @@
-import { makeEngine } from './engine.mjs?v=12';
-import { makeAiPlan } from './aiplan.mjs?v=1';
+import { makeEngine } from './engine.mjs?v=13';
+import { makeAiPlan } from './aiplan.mjs?v=2';
 import { makePolicy, makeValue } from './nn.mjs?v=2';
 // 遊戲模擬器(純邏輯,不碰畫面)。兩個用途:
 //   1. board.mjs 裡的電腦對手用它做「蒙地卡羅模擬」:每個決策把後面幾回合隨機跑很多次,挑平均最好的那個動作
@@ -268,7 +268,7 @@ export function makeSim(D, opts = {}) {
       else v += Math.max(0.3, Math.min(4.5, e * 40)) * (p.cash >= st.price[t] * LOT + p.lv.reserve ? 1 : 0.3); }
     else if (t === 'shop') v += p.cash >= 2500 ? 1.5 : 0.3; else if (t === 'ipo') v += 2.5; else if (t === 'gift') v += 1.5; else if (t === 'chance') v += 0.8;
     else if (t === 'bank') v += p.cash < 1500 ? 1.5 : 0; else if (t === 'fee') v -= 1;
-    for (let j = 1; j <= i; j++) { const tt = TILES[(p.pos + j) % TILES.length]; if (tt === 'start') v += 2; else if (tt === 'divi') v += 0.8; }
+    for (let j = 1; j <= i; j++) { const tt = TILES[(p.pos + j) % TILES.length]; if (tt === 'start') v += 2; }
     return v;
   }
   function evDice(st, p) {
