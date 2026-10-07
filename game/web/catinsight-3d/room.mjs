@@ -773,7 +773,7 @@ for (const y of [2.55, 1.65]) {
 }
 
 // ---------- 窗前層架的小東西(原本太空):上層熔岩燈、書堆 + 復古鬧鐘(指針照真實時間走);下層金色公牛、粉紅小豬撲滿 + 金幣、
-//            黑膠唱盤(唱片會轉)+ 唱片封套、三盆多肉;兩層前緣各一串會微微閃的暖色串燈 ----------
+//            黑膠唱盤(唱片會轉)+ 唱片封套、三盆多肉(串燈拿掉了)----------
 {
   const TOP = 2.61, LOW = 1.71, ZC = L.z + 0.12, FRONT = L.z + 0.15 + 0.35;
   const gold = new THREE.MeshStandardMaterial({ color: 0xe0b24e, metalness: 0.9, roughness: 0.25 });
@@ -851,15 +851,6 @@ for (const y of [2.55, 1.65]) {
     for (let ring = 0; ring < 3; ring++) { const n = 7 - ring * 2, r = 0.035 - ring * 0.012, tilt = 0.9 - ring * 0.3;
       for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + ring * 0.4; const lf = put(new THREE.ConeGeometry(0.014, 0.05 - ring * 0.008, 6), leaf, Math.cos(a) * r, 0.09 + ring * 0.012, Math.sin(a) * r, g);
         lf.rotation.set(0, -a, 0); lf.rotateZ(-tilt); lf.scale.z = 0.5; } } });
-  // 兩層前緣的串燈:微微下垂的電線 + 一顆顆暖色小燈泡(分三組輪流微閃)
-  const bulbMats = [0, 1, 2].map(() => new THREE.MeshStandardMaterial({ color: 0xfff1d0, emissive: 0xffc77a, emissiveIntensity: 1.3 }));
-  for (const y of [TOP - 0.05, LOW - 0.05]) {
-    const pts = [], N = 26, x0 = SHELF_X0 + 0.08, x1 = SHELF_X1 - 0.08;
-    for (let i = 0; i <= 200; i++) { const u = i / 200, x = x0 + (x1 - x0) * u, seg = (u * 5) % 1; pts.push(new THREE.Vector3(x, y - Math.sin(seg * Math.PI) * 0.05, FRONT + 0.012)); }
-    const wire = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 200, 0.0025, 4), M(0x3a3340)); root.add(wire);
-    for (let i = 0; i < N; i++) { const p = pts[Math.round((i + 0.5) / N * 200)]; const b = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8), bulbMats[i % 3]); b.position.set(p.x, p.y - 0.016, p.z); root.add(b); }
-  }
-  idleAnims.push((t) => { bulbMats.forEach((m2, i) => { m2.emissiveIntensity = 1.0 + 0.35 * Math.sin(t * 1.7 + i * 2.1); }); });
 }
 
 // ---------- 街機(Meshy GLB:arcade.glb,Draco 壓縮 + 貼圖 1024)----------
