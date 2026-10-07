@@ -1,0 +1,163 @@
+// orbit.mjs — 鏡頭飛進電腦螢幕後的畫面:中間一顆顆粒感的銀河球,8 塊半透明玻璃面板(App 各功能介紹)圍成一圈繞著它。
+// 滾輪上 / 下、拖曳、‹ › 按鈕、方向鍵 → 轉到上一塊 / 下一塊;點旁邊的面板會轉到正前方;只有正前方那塊的 widget 會動(省 CPU)。
+// 球和星塵用自己的 WebGL canvas 畫,面板是 CSS3D(真的 HTML,字清楚、widget 可以操作);兩邊共用同一台相機。
+import * as THREE from 'three';
+import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+
+const APP_STORE = 'https://apps.apple.com/app/id6763914049';
+
+export function createOrbit({ host, slides, mountWidget, onExit }) {
+  const N = slides.length, STEP = Math.PI * 2 / N, R = 900, PW = 420, PH = 560, RY = -150;   // 面板圈的半徑、面板大小、面板圈的高度(比球低一點,球才露得出來)
+  // ---------- 外框 ----------
+  const root = document.createElement('div'); root.className = 'orbit'; host.appendChild(root);
+  const canvas = document.createElement('canvas'); canvas.className = 'orbit-gl'; root.appendChild(canvas);
+  const cssLayer = document.createElement('div'); cssLayer.className = 'orbit-css'; root.appendChild(cssLayer);
+  const chrome = document.createElement('div'); chrome.className = 'orbit-ui';
+  chrome.innerHTML = `<div class="ot"><b>CatInsight</b> <span>Stock</span><i>· features</i></div>
+    <div class="ob"><div class="odots">${slides.map((s, i) => `<i data-i="${i}" style="--c:${s.color}"></i>`).join('')}</div>
+    <div class="ohint">Scroll or drag to explore · 滾動或拖曳瀏覽</div></div>`;
+  root.appendChild(chrome);
+  const dots = [...chrome.querySelectorAll('.odots i')];
+  dots.forEach((d) => d.addEventListener('click', (e) => { e.stopPropagation(); goTo(+d.dataset.i); }));
+
+  // ---------- 三維:相機、銀河球、星塵、背景星空 ----------
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setClearColor(0x05060f, 1);
+  const css = new CSS3DRenderer({ element: cssLayer });
+  const scene = new THREE.Scene(), cssScene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, 1, 10, 20000);
+  const glow = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+  const pointsMat = (sizeScale) => new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uMap: { value: glow }, uScale: { value: sizeScale }, uPR: { value: 1 } },
+    vertexShader: `attribute float aSize; attribute float aPh; attribute vec3 aCol; uniform float uTime, uScale, uPR; varying vec3 vCol; varying float vA;
+      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv;
+        float tw = 0.55 + 0.45 * sin(uTime * (0.8 + fract(aPh * 7.3) * 2.2) + aPh * 6.28);
+        gl_PointSize = aSize * uScale * uPR * (900.0 / -mv.z) * (0.75 + 0.25 * tw); vCol = aCol; vA = tw; }`,
+    fragmentShader: `uniform sampler2D uMap; varying vec3 vCol; varying float vA;
+      void main() { float a = texture2D(uMap, gl_PointCoord).a; gl_FragColor = vec4(vCol * (0.6 + 0.6 * vA), a * (0.55 + 0.45 * vA)); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const PAL = [new THREE.Color(0x5fd8ff), new THREE.Color(0x8b7cff), new THREE.Color(0xff6fb5), new THREE.Color(0xffffff), new THREE.Color(0x4be07a)];
+  const makePoints = (count, place, sizeScale) => {
+    const pos = new Float32Array(count * 3), col = new Float32Array(count * 3), size = new Float32Array(count), ph = new Float32Array(count);
+    const v = new THREE.Vector3(), c = new THREE.Color();
+    for (let i = 0; i < count; i++) { const s = place(i, v, c); pos.set([v.x, v.y, v.z], i * 3); col.set([c.r, c.g, c.b], i * 3); size[i] = s; ph[i] = Math.random(); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('aSize', new THREE.BufferAttribute(size, 1)); g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1));
+    const p = new THREE.Points(g, pointsMat(sizeScale)); p.frustumCulled = false; return p;
+  };
+  const SR = 300;                                                                          // 球半徑
+  const galaxy = new THREE.Group(); scene.add(galaxy);
+  // 球殼:上萬顆粒子,顏色依位置在青 → 紫 → 粉之間流動,偶爾一點白和綠
+  const sphere = makePoints(14000, (i, v, c) => {
+    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = SR * (0.92 + Math.pow(Math.random(), 3) * 0.16);
+    v.set(Math.sqrt(1 - u * u) * Math.cos(a) * r, u * r, Math.sqrt(1 - u * u) * Math.sin(a) * r);
+    const k = 0.5 + 0.5 * Math.sin(v.y * 0.012 + Math.cos(v.x * 0.01) * 1.6);
+    c.copy(PAL[0]).lerp(PAL[1], k).lerp(PAL[2], Math.max(0, Math.sin(v.z * 0.013 + v.x * 0.004)) * 0.6);
+    if (Math.random() < 0.05) c.copy(PAL[3]); if (Math.random() < 0.012) c.copy(PAL[4]);
+    return 1.2 + Math.random() * 2.2;
+  }, 1.9);
+  galaxy.add(sphere);
+  // 球裡面:一團比較稀的核心光點
+  const core = makePoints(2500, (i, v, c) => { const r = SR * Math.pow(Math.random(), 1.6) * 0.8, u = Math.random() * 2 - 1, a = Math.random() * 6.283;
+    v.set(Math.sqrt(1 - u * u) * Math.cos(a) * r, u * r, Math.sqrt(1 - u * u) * Math.sin(a) * r); c.copy(PAL[1]).lerp(PAL[3], Math.random() * 0.6); return 1 + Math.random() * 2; }, 1.6);
+  galaxy.add(core);
+  const coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0x8b7cff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+  coreGlow.scale.setScalar(SR * 3.4); galaxy.add(coreGlow);
+  // 傾斜的螺旋星塵盤(銀河感)
+  const disk = makePoints(9000, (i, v, c) => { const arm = i % 3, t = Math.random(), r = SR * 1.25 + t * 520, a = arm * 2.094 + t * 4.2 + (Math.random() - 0.5) * 0.7 * (1 - t * 0.5);
+    v.set(Math.cos(a) * r, (Math.random() - 0.5) * 22 * (1 - t), Math.sin(a) * r); c.copy(PAL[0]).lerp(PAL[2], t).lerp(PAL[3], Math.random() * 0.25); return 0.8 + Math.random() * 1.8 * (1 - t * 0.6); }, 1.6);
+  const diskG = new THREE.Group(); diskG.rotation.set(0.42, 0, 0.18); diskG.add(disk); galaxy.add(diskG);
+  // 遠方星空
+  const stars = makePoints(2600, (i, v, c) => { const u = Math.random() * 2 - 1, a = Math.random() * 6.283, r = 5000 + Math.random() * 4000;
+    v.set(Math.sqrt(1 - u * u) * Math.cos(a) * r, u * r, Math.sqrt(1 - u * u) * Math.sin(a) * r); c.setHSL(0.6 + Math.random() * 0.2, 0.4, 0.75 + Math.random() * 0.25); return 1.5 + Math.random() * 3; }, 1);
+  scene.add(stars);
+  // 面板走的軌道:一圈很淡的光環
+  const ringLine = new THREE.Mesh(new THREE.TorusGeometry(R, 1.2, 6, 256), new THREE.MeshBasicMaterial({ color: 0x8b7cff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ringLine.rotation.x = Math.PI / 2; ringLine.position.y = RY - PH / 2 - 30; scene.add(ringLine);
+
+  // ---------- 面板(CSS3D)----------
+  const ring = new THREE.Group(); cssScene.add(ring);
+  const panels = slides.map((sl, i) => {
+    const el = document.createElement('div'); el.className = `opanel op-${sl.key}`; el.style.setProperty('--c', sl.color); el.style.width = PW + 'px'; el.style.height = PH + 'px';
+    const head = sl.key === 'hero'
+      ? `<div class="oph"><img class="opicon" src="/assets/icon-180.png" alt=""><div class="eyebrow">WELCOME</div><h3>${sl.title}</h3><p>${sl.text}</p><div class="zh">${sl.zh}</div></div>`
+      : `<div class="oph"><div class="eyebrow">${String(i).padStart(2, '0')} · ${sl.eyebrow}</div><h3>${sl.title}</h3><p>${sl.text}</p><div class="zh">${sl.zh}</div>` +
+        (sl.cta ? `<a class="store" href="${APP_STORE}"> Download on the App Store</a>` : '') + `</div>`;
+    el.innerHTML = `${head}<div class="opw"><div class="wgin"></div></div><div class="opshine"></div>`;
+    el.addEventListener('click', () => { if (i !== cur()) goTo(i); });
+    const obj = new CSS3DObject(el); const a = i * STEP;
+    obj.position.set(Math.sin(a) * R, RY, Math.cos(a) * R); obj.rotation.y = a; ring.add(obj);
+    return { el, obj, key: sl.key, host: el.querySelector('.wgin'), stop: null };
+  });
+
+  // ---------- 狀態 / 互動 ----------
+  let open = false, angle = 0, target = 0, active = -1, t0 = performance.now(), last = t0, raf = 0, covering = false;
+  const mouse = { x: 0, y: 0, sx: 0, sy: 0 };
+  const cur = () => ((Math.round(-target / STEP) % N) + N) % N;
+  function goTo(i) { const k = Math.round(-target / STEP); let d = ((i - ((k % N) + N) % N) % N + N) % N; if (d > N / 2) d -= N; target = -(k + d) * STEP; }
+  function step(dir) { target = (Math.round(target / STEP) - dir) * STEP; }
+  function setActive(i) {
+    if (i === active) return;
+    if (active >= 0 && panels[active].stop) { panels[active].stop(); panels[active].stop = null; panels[active].host.innerHTML = ''; }
+    active = i; const p = panels[i];
+    if (p.key !== 'hero' && p.key !== 'app') p.stop = mountWidget(p.key, p.host);
+    else if (p.key === 'app') p.host.innerHTML = `<div class="qr"><img src="/assets/icon-180.png" alt=""><span>App Store · free</span></div>`;
+    panels.forEach((q, k) => q.el.classList.toggle('front', k === i)); dots.forEach((d, k) => d.classList.toggle('on', k === i));
+  }
+  // 滾輪:累積成角度,停下來 160ms 後對齊最近一塊
+  let snapTimer = 0;
+  root.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    target -= Math.max(-90, Math.min(90, d)) * 0.0032; clearTimeout(snapTimer); snapTimer = setTimeout(() => { target = Math.round(target / STEP) * STEP; }, 160); }, { passive: false });
+  // 拖曳:左右拖轉圈(手機上下滑也可以)
+  let drag = null;
+  root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs')) return; drag = { x: e.clientX, y: e.clientY, t: target, moved: false }; });
+  window.addEventListener('pointermove', (e) => {
+    mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1;
+    if (!drag || !open) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
+    const d = Math.abs(dx) > Math.abs(dy) * 0.8 || e.pointerType !== 'touch' ? dx : -dy;
+    if (drag.moved) target = drag.t + d * 0.0042;
+  });
+  window.addEventListener('pointerup', () => { if (drag) { if (drag.moved) target = Math.round(target / STEP) * STEP; drag = null; } });
+  root.addEventListener('click', (e) => { if (drag && drag.moved) e.stopPropagation(); }, true);
+
+  function resize() {
+    const w = innerWidth, h = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); css.setSize(w, h);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    [sphere, core, disk, stars].forEach((p) => { p.material.uniforms.uPR.value = dpr; });
+  }
+  addEventListener('resize', () => { if (open) resize(); });
+
+  function frame(now) {
+    if (!open) return; raf = requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now;
+    angle += (target - angle) * Math.min(1, dt * 6);
+    ring.rotation.y = angle;
+    setActive(cur());
+    // 每塊面板:越靠正前方越亮越清楚,轉到球後面就淡出(CSS 層在 WebGL 上面,不淡掉會蓋住球)
+    panels.forEach((p, i) => { const a = i * STEP + angle, f = Math.cos(a);
+      const op = f > -0.1 ? 0.35 + 0.65 * Math.pow((f + 0.1) / 1.1, 1.6) : Math.max(0, (f + 0.45) / 0.35) * 0.35;
+      p.el.style.opacity = op.toFixed(3); p.el.style.pointerEvents = op > 0.3 ? 'auto' : 'none'; p.obj.position.y = RY + Math.sin(t * 0.8 + i * 1.3) * 8; });
+    // 相機:依畫面比例拉遠(直式手機要退比較多),跟著滑鼠一點點視差
+    // 從比較高的地方往下看:球在畫面中上,正前方的面板在下半部,旁邊的面板沿著橢圓繞
+    // 直式手機:鏡頭拉近,讓正前方的面板佔畫面寬度約 86%(兩旁的面板會露一點邊),球在面板上方
+    const aspect = innerWidth / innerHeight, portrait = aspect < 0.8;
+    const dist = portrait ? R + PW / (0.86 * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect) : 2150 * Math.max(1, 1.3 / aspect);
+    mouse.sx += (mouse.x - mouse.sx) * 0.05; mouse.sy += (mouse.y - mouse.sy) * 0.05;
+    if (portrait) { camera.position.set(mouse.sx * 40, 200, dist); camera.lookAt(0, RY - 70, 0); }
+    else { camera.position.set(mouse.sx * 110, 400 - mouse.sy * 70, dist); camera.lookAt(0, -165, 0); }
+    galaxy.rotation.y = t * 0.06; diskG.rotation.y = t * 0.03; core.rotation.y = -t * 0.1; stars.rotation.y = t * 0.004;
+    [sphere, core, disk, stars].forEach((p) => { p.material.uniforms.uTime.value = t; });
+    coreGlow.material.opacity = 0.7 + 0.12 * Math.sin(t * 1.3);
+    renderer.render(scene, camera); css.render(cssScene, camera);
+  }
+  return {
+    get open() { return open; }, get covering() { return covering; },
+    show() { if (open) return; open = true; root.classList.add('on'); resize(); target = angle = Math.round(angle / STEP) * STEP; active = -1; last = t0 = performance.now(); raf = requestAnimationFrame(frame); setTimeout(() => { if (open) covering = true; }, 700); },
+    hide() { open = false; covering = false; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((p) => { if (p.stop) { p.stop(); p.stop = null; } p.host.innerHTML = ''; }); active = -1; },
+    step, goTo, exit: onExit,
+  };
+}

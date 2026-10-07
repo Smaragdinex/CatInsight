@@ -96,6 +96,49 @@
     background-size: 64px 64px;
   }
   #screen-ui.on { opacity: 1; pointer-events: auto; }
+  /* 銀河球 + 環繞的功能面板(orbit.mjs);舊的一頁一頁版本用 ?slides */
+  #screen-ui.orbit-mode { background: #05060f; background-image: none; }
+  #screen-ui.orbit-mode .track, #screen-ui.orbit-mode .num, #screen-ui.orbit-mode .dots { display: none; }
+  #screen-ui .orbit { position: absolute; inset: 0; opacity: 0; transition: opacity .7s ease; }
+  #screen-ui .orbit.on { opacity: 1; }
+  #screen-ui .orbit-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #screen-ui .orbit-css { position: absolute; inset: 0; }
+  #screen-ui .opanel { -webkit-backface-visibility: hidden; backface-visibility: hidden; box-sizing: border-box; position: relative; display: flex; flex-direction: column; gap: 14px; padding: 28px 26px 24px; border-radius: 30px; color: #fff; cursor: pointer; overflow: hidden;
+    background: linear-gradient(160deg, rgba(255,255,255,.11), rgba(255,255,255,.025) 55%, rgba(255,255,255,.06)); border: 1px solid rgba(255,255,255,.2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 30px 80px rgba(0,0,0,.45), 0 0 50px color-mix(in srgb, var(--c) 18%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); transition: border-color .4s, box-shadow .4s; }
+  #screen-ui .opanel.front { cursor: default; border-color: color-mix(in srgb, var(--c) 65%, white);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 30px 90px rgba(0,0,0,.5), 0 0 90px color-mix(in srgb, var(--c) 40%, transparent); }
+  /* 科幻感的四角框 + 上緣一條光 */
+  #screen-ui .opanel::before { content: ''; position: absolute; inset: 10px; border-radius: 22px; pointer-events: none;
+    background: linear-gradient(var(--c), var(--c)) 0 0 / 22px 2px, linear-gradient(var(--c), var(--c)) 0 0 / 2px 22px,
+                linear-gradient(var(--c), var(--c)) 100% 0 / 22px 2px, linear-gradient(var(--c), var(--c)) 100% 0 / 2px 22px,
+                linear-gradient(var(--c), var(--c)) 0 100% / 22px 2px, linear-gradient(var(--c), var(--c)) 0 100% / 2px 22px,
+                linear-gradient(var(--c), var(--c)) 100% 100% / 22px 2px, linear-gradient(var(--c), var(--c)) 100% 100% / 2px 22px;
+    background-repeat: no-repeat; opacity: .75; }
+  #screen-ui .opshine { position: absolute; left: 12%; right: 12%; top: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--c), transparent); opacity: .9; pointer-events: none; }
+  #screen-ui .opanel h3 { font-size: 32px; font-weight: 800; letter-spacing: -.4px; line-height: 1.05; margin: 0 0 10px; }
+  #screen-ui .opanel p { font-size: 15px; line-height: 1.5; opacity: .8; margin: 0; }
+  #screen-ui .opanel .zh { margin-top: 8px; font-size: 13px; }
+  #screen-ui .opanel .eyebrow { margin-bottom: 10px; }
+  #screen-ui .opw { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #screen-ui .opw .wgin { width: 100%; }
+  #screen-ui .opw .card { width: 100%; }
+  #screen-ui .op-hero .oph { margin: auto 0; text-align: center; }
+  #screen-ui .op-hero .opw { display: none; }
+  #screen-ui .opicon { width: 96px; height: 96px; border-radius: 26px; display: block; margin: 0 auto 22px; box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+  #screen-ui .op-hero h3 { font-size: 40px; }
+  #screen-ui .opanel .store { margin-top: 16px; padding: 12px 22px; font-size: 15px; }
+  #screen-ui .qr { display: grid; place-items: center; gap: 10px; font-size: 13px; opacity: .8; }
+  #screen-ui .qr img { width: 120px; height: 120px; border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+  #screen-ui .orbit-ui { position: absolute; inset: 0; pointer-events: none; }
+  #screen-ui .orbit-ui .ot { position: absolute; top: calc(22px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: .8; white-space: nowrap; }
+  #screen-ui .orbit-ui .ot span { color: #4be07a; } #screen-ui .orbit-ui .ot i { font-style: normal; opacity: .55; }
+  #screen-ui .orbit-ui .ob { position: absolute; left: 50%; top: calc(52px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 10px; }
+  #screen-ui .odots { display: flex; gap: 8px; pointer-events: auto; }
+  #screen-ui .odots i { width: 8px; height: 8px; border-radius: 99px; background: rgba(255,255,255,.3); cursor: pointer; transition: width .3s, background .3s; }
+  #screen-ui .odots i.on { width: 26px; background: var(--c); box-shadow: 0 0 12px var(--c); }
+  #screen-ui .ohint { font-size: 12px; letter-spacing: 1px; opacity: .5; white-space: nowrap; }
   #screen-ui .track { position: absolute; inset: 0; transition: transform .75s cubic-bezier(.65,0,.25,1); will-change: transform; }
   #screen-ui .slide { position: absolute; left: 0; right: 0; height: 100%; display: grid; place-items: center; padding: 0 24px; }
   /* 兩欄:左文字、右 widget */
@@ -245,6 +288,6 @@
   <button id="next" aria-label="forward">›</button>
 </div>
 <div id="loading">building the room…</div>
-<script type="module" src="./room.mjs?v=466"></script>
+<script type="module" src="./room.mjs?v=471"></script>
 </body>
 </html>
