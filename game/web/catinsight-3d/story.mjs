@@ -105,7 +105,7 @@ export function initStory({ THREE, scene, camera, controls, renderer, canvas, de
   // ---------- 鏡頭 / 手機的位置 ----------
   desk.updateWorldMatrix(true, false);
   const deskQ = desk.getWorldQuaternion(new THREE.Quaternion());
-  const restPos = desk.localToWorld(new THREE.Vector3(0.62, 1.41 + PD / 2, 0.3));
+  const restPos = desk.localToWorld(new THREE.Vector3(1.0, 1.41 + PD / 2, 0.22));   // 桌面右前方(滑鼠在 0.56,不要疊在一起)
   const restQ = deskQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.4)).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2));
   const camLook = desk.localToWorld(new THREE.Vector3(0.1, 1.95, -0.3));
   const camDir = new THREE.Vector3(0.38, 0.14, 1).normalize();
