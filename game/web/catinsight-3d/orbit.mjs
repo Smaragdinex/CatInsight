@@ -7,7 +7,7 @@ import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
 
 export function createOrbit({ host, slides, mountWidget, onExit }) {
-  const N = slides.length, STEP = Math.PI * 2 / N, R = 900, PW = 420, PH = 560, RY = -150;   // 面板圈的半徑、面板大小、面板圈的高度(比球低一點,球才露得出來)
+  const N = slides.length, STEP = Math.PI * 2 / N, R = 1080, PW = 540, PH = 720, RY = -170;   // 面板圈的半徑、面板大小、面板圈的高度(比球低一點,球才露得出來)
   // ---------- 外框 ----------
   const root = document.createElement('div'); root.className = 'orbit'; host.appendChild(root);
   const canvas = document.createElement('canvas'); canvas.className = 'orbit-gl'; root.appendChild(canvas);
@@ -47,7 +47,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     g.setAttribute('aSize', new THREE.BufferAttribute(size, 1)); g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1));
     const p = new THREE.Points(g, pointsMat(sizeScale)); p.frustumCulled = false; return p;
   };
-  const SR = 300;                                                                          // 球半徑
+  const SR = 340;                                                                          // 球半徑
   const galaxy = new THREE.Group(); scene.add(galaxy);
   // 球殼:上萬顆粒子,顏色依位置在青 → 紫 → 粉之間流動,偶爾一點白和綠
   const sphere = makePoints(14000, (i, v, c) => {
@@ -145,10 +145,12 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     // 從比較高的地方往下看:球在畫面中上,正前方的面板在下半部,旁邊的面板沿著橢圓繞
     // 直式手機:鏡頭拉近,讓正前方的面板佔畫面寬度約 86%(兩旁的面板會露一點邊),球在面板上方
     const aspect = innerWidth / innerHeight, portrait = aspect < 0.8;
-    const dist = portrait ? R + PW / (0.86 * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect) : 2150 * Math.max(1, 1.3 / aspect);
+    // 桌機:正前方面板佔畫面高度約 66%(寬度不超過約 46%);手機:佔寬度約 88%
+    const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const dist = R + (portrait ? PW / (0.88 * 2 * tanH * aspect) : Math.max(PH / (0.66 * 2 * tanH), PW / (0.44 * 2 * tanH * aspect)));
     mouse.sx += (mouse.x - mouse.sx) * 0.05; mouse.sy += (mouse.y - mouse.sy) * 0.05;
-    if (portrait) { camera.position.set(mouse.sx * 40, 200, dist); camera.lookAt(0, RY - 70, 0); }
-    else { camera.position.set(mouse.sx * 110, 400 - mouse.sy * 70, dist); camera.lookAt(0, -165, 0); }
+    if (portrait) { camera.position.set(mouse.sx * 40, 200, dist); camera.lookAt(0, RY - 90, 0); }
+    else { camera.position.set(mouse.sx * 90, 330 - mouse.sy * 50, dist); camera.lookAt(0, RY - 110, 0); }
     galaxy.rotation.y = t * 0.06; diskG.rotation.y = t * 0.03; core.rotation.y = -t * 0.1; stars.rotation.y = t * 0.004;
     [sphere, core, disk, stars].forEach((p) => { p.material.uniforms.uTime.value = t; });
     coreGlow.material.opacity = 0.7 + 0.12 * Math.sin(t * 1.3);

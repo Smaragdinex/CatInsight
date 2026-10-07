@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=5';
+import { createOrbit } from './orbit.mjs?v=8';
 import { makeRadio } from './radio.mjs?v=1';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
@@ -1815,44 +1815,47 @@ const PX_MIN = 220, PX_MAX = 300, PX_MID = 260;
 const stepPrice = (v, amp) => Math.max(PX_MIN, Math.min(PX_MAX, v + (Math.random() - 0.5) * amp + (PX_MID - v) * 0.02));
 let px = 250;
 for (let i = 0; i < 120; i++) { px = stepPrice(px, 3.2); series.push(px); }
+// 電腦螢幕:一顆慢慢轉的銀河粒子球(和飛進去之後的畫面同一顆),外圍一圈傾斜的螺旋星塵,背景零星星點
+const GAL = (() => {
+  const P = [], pal = [[95, 216, 255], [139, 124, 255], [255, 111, 181], [255, 255, 255], [75, 224, 122]];
+  const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+  for (let i = 0; i < 2600; i++) {                                        // 球殼
+    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = 1 + Math.pow(Math.random(), 3) * 0.16;
+    const x = Math.sqrt(1 - u * u) * Math.cos(a) * r, y = u * r, z = Math.sqrt(1 - u * u) * Math.sin(a) * r;
+    let c = mix(mix(pal[0], pal[1], 0.5 + 0.5 * Math.sin(y * 3.4 + Math.cos(x * 2.8) * 1.6)), pal[2], Math.max(0, Math.sin(z * 3.6 + x)) * 0.6);
+    if (Math.random() < 0.05) c = pal[3]; if (Math.random() < 0.012) c = pal[4];
+    P.push({ x, y, z, c, s: 0.8 + Math.random() * 1.4, ph: Math.random() * 6.28, disk: false });
+  }
+  for (let i = 0; i < 1400; i++) {                                        // 螺旋星塵盤
+    const arm = i % 3, t = Math.random(), r = 1.3 + t * 1.6, a = arm * 2.094 + t * 4.2 + (Math.random() - 0.5) * 0.7;
+    P.push({ x: Math.cos(a) * r, y: (Math.random() - 0.5) * 0.06, z: Math.sin(a) * r, c: mix(pal[0], pal[2], t), s: 0.6 + Math.random() * 1.1 * (1 - t * 0.5), ph: Math.random() * 6.28, disk: true });
+  }
+  const bg = Array.from({ length: 140 }, () => [Math.random(), Math.random(), Math.random() * 6.28]);
+  return { P, bg };
+})();
 function drawScreen(t) {
   const g = screenCanvas.getContext('2d');
-  const W = screenCanvas.width, Hh = screenCanvas.height;
-  g.fillStyle = '#1a1a1f'; g.fillRect(0, 0, W, Hh);
-  // 頂部
-  g.fillStyle = '#fff'; g.font = '700 30px -apple-system, Helvetica, Arial'; g.fillText('NVDA', 28, 46);
-  g.fillStyle = '#9a9aa8'; g.font = '500 18px -apple-system, Helvetica, Arial'; g.fillText('NVIDIA Corporation', 28, 72);
-  const last = series[series.length - 1], first = series[0];
-  const up = last >= first;
-  g.fillStyle = up ? '#ff453a' : '#30d158'; g.font = '800 40px -apple-system, Helvetica, Arial';
-  g.fillText('$' + last.toFixed(2), W - 190, 52);
-  g.font = '600 18px -apple-system, Helvetica, Arial';
-  g.fillText((up ? '+' : '') + (last - first).toFixed(2) + ' (' + ((last / first - 1) * 100).toFixed(2) + '%)', W - 190, 78);
-  // 圖
-  const x0 = 28, y0 = 100, w = W - 56, h = Hh - 140;
-  const min = Math.min(...series), max = Math.max(...series), pad = (max - min) * 0.15 + 0.01;
-  const X = (i) => x0 + i / (series.length - 1) * w;
-  const Y = (v) => y0 + (1 - (v - (min - pad)) / (max - min + pad * 2)) * h;
-  g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 1;
-  for (let k = 0; k < 4; k++) { const y = y0 + k * h / 3; g.beginPath(); g.moveTo(x0, y); g.lineTo(x0 + w, y); g.stroke(); }
-  const col = up ? '#ff453a' : '#30d158';
-  const grad = g.createLinearGradient(0, y0, 0, y0 + h); grad.addColorStop(0, col + '55'); grad.addColorStop(1, col + '00');
-  g.beginPath(); g.moveTo(X(0), y0 + h);
-  series.forEach((v, i) => g.lineTo(X(i), Y(v)));
-  g.lineTo(X(series.length - 1), y0 + h); g.closePath(); g.fillStyle = grad; g.fill();
-  g.beginPath(); series.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v)));
-  g.strokeStyle = col; g.lineWidth = 3; g.lineJoin = 'round'; g.stroke();
-  // 即時點
-  const lx = X(series.length - 1), ly = Y(last);
-  g.fillStyle = col; g.beginPath(); g.arc(lx, ly, 6, 0, Math.PI * 2); g.fill();
-  g.fillStyle = col + '44'; g.beginPath(); g.arc(lx, ly, 10 + 4 * Math.sin(t * 4), 0, Math.PI * 2); g.fill();
-  // 底部期間列
-  g.fillStyle = '#9a9aa8'; g.font = '600 16px -apple-system, Helvetica, Arial';
-  ['1D', '1W', '1M', '3M', 'YTD', '1Y'].forEach((s, i) => {
-    const x = 40 + i * 92;
-    if (i === 2) { g.fillStyle = '#0a84ff'; g.beginPath(); g.roundRect(x - 12, Hh - 34, 52, 26, 8); g.fill(); g.fillStyle = '#fff'; }
-    g.fillText(s, x, Hh - 15); g.fillStyle = '#9a9aa8';
-  });
+  const W = screenCanvas.width, Hh = screenCanvas.height, cx = W / 2, cy = Hh / 2 - 6, S = 138;
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = '#05060f'; g.fillRect(0, 0, W, Hh);
+  for (const [bx, by, ph] of GAL.bg) { g.fillStyle = `rgba(200,210,255,${0.25 + 0.25 * Math.sin(t * 1.3 + ph)})`; g.fillRect(bx * W, by * Hh, 1.5, 1.5); }
+  // 核心的光暈
+  const gr = g.createRadialGradient(cx, cy, 0, cx, cy, S * 1.7); gr.addColorStop(0, 'rgba(160,140,255,.55)'); gr.addColorStop(0.35, 'rgba(110,90,230,.22)'); gr.addColorStop(1, 'rgba(60,40,160,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
+  g.globalCompositeOperation = 'lighter';
+  const ry = t * 0.25, cr = Math.cos(ry), sr = Math.sin(ry), dr = t * 0.12, cd = Math.cos(dr), sd = Math.sin(dr);
+  const tx = 0.42, ctx = Math.cos(tx), stx = Math.sin(tx);                // 盤面往前傾
+  for (const p of GAL.P) {
+    let x, y, z;
+    if (p.disk) { const x1 = p.x * cd - p.z * sd, z1 = p.x * sd + p.z * cd; x = x1; y = p.y * ctx - z1 * stx; z = p.y * stx + z1 * ctx; }
+    else { x = p.x * cr - p.z * sr; z = p.x * sr + p.z * cr; y = p.y; }
+    const k = 3.2 / (3.2 - z * 0.6), px = cx + x * S * k, py = cy - y * S * k;
+    const tw = 0.55 + 0.45 * Math.sin(t * 2 + p.ph), front = 0.45 + 0.55 * (z + 1) / 2;
+    const a = Math.min(1, tw * front * (p.disk ? 0.85 : 1.1)), sz = p.s * 1.25 * k * (0.7 + 0.3 * tw);
+    g.fillStyle = `rgba(${p.c[0] | 0},${p.c[1] | 0},${p.c[2] | 0},${a.toFixed(3)})`; g.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+  }
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '600 13px -apple-system, Helvetica, Arial'; g.textAlign = 'center';
+  g.fillText('CATINSIGHT  ·  EXPLORE', cx, Hh - 18); g.textAlign = 'left';
   screenTex.needsUpdate = true;
 }
 let lastTick = 0;
