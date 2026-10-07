@@ -672,7 +672,7 @@ for (const y of [2.55, 1.65]) {
 
 // ---------- 街機(Meshy GLB:arcade.glb,Draco 壓縮 + 貼圖 1024)----------
 const ARCADE_H = 2.5;                                            // 機台高度
-let arcadeModel = null, arcadeAnchor = null, playTag = null, arcadeScreen = null, arcadeScreenTex = null;
+let arcadeModel = null, arcadeAnchor = null, playTag = null, arcadeScreen = null, arcadeScreenTex = null, arcadeMarquee = null;
 const arcadeCanvas = document.createElement('canvas'); arcadeCanvas.width = 520; arcadeCanvas.height = 385;
 // 共用的 GLB 載入器:Draco 解碼器只載一次並預先載入;載入狀態顯示在開頭的 loading 文字,失敗時印出原因(不然模型不見了也不知道為什麼)
 const loadingEl = document.getElementById('loading');
@@ -694,45 +694,113 @@ function loadGLB(name, url, onLoad) {
   const P = { parent: m };
   const W = 1.3, D = 1.36, IN = 1.12;                             // 外寬、下半身深度、兩片側板之間的寬度
   const DARK = 0x2a2140, RED = 0xe2553d, PURPLE = 0x7b5cf5;
-  // 兩片側板(薰衣草紫):照參考模型量出來的街機側面輪廓 —— 下半身較淺、操作檯那段往前凸、
-  // 螢幕那段往後斜收、最上面招牌再往前凸。座標是(深度 z, 高度 y),用 Shape 擠出厚度
+  // 小工具:canvas 貼圖
+  const canvasTex = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+  const planeOn = (parent, w, h, tex, x, y, z, rx = 0, ex = {}) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, ...ex })); p.position.set(x, y, z); p.rotation.x = rx; parent.add(p); return p; };
+  // 兩片側板(薰衣草紫):街機側面輪廓 —— 下半身較淺、操作檯那段往前凸、螢幕那段往後斜收、最上面招牌再往前凸。座標是(深度 z, 高度 y),用 Shape 擠出厚度。
+  // 側面印側板圖(珊瑚 / 橘 / 黃的大斜紋、小 K 棒、星星、大貓掌),邊緣包一圈粉紅色 T 型飾條
+  const prof = [[0, 0], [1.36, 0], [1.36, 0.62], [1.62, 0.76], [1.62, 1.34], [1.50, 1.46], [1.24, 1.53], [1.08, 2.18], [1.36, 2.23], [1.36, ARCADE_H], [0, ARCADE_H]];
   {
-    const prof = [[0, 0], [1.36, 0], [1.36, 0.62], [1.62, 0.76], [1.62, 1.34], [1.50, 1.46], [1.24, 1.53], [1.08, 2.18], [1.36, 2.23], [1.36, ARCADE_H], [0, ARCADE_H]];
     const shape = new THREE.Shape(); prof.forEach(([z, y], i) => (i ? shape.lineTo(z, y) : shape.moveTo(z, y))); shape.closePath();
     const TH = 0.09, BV = 0.014;
     const geo = new THREE.ExtrudeGeometry(shape, { depth: TH - BV * 2, bevelEnabled: true, bevelThickness: BV, bevelSize: BV, bevelSegments: 2, curveSegments: 4 });
+    const art = canvasTex(512, 790, (g, w, h) => {                   // u = 深度 z / 1.62、v = 高度 / 2.5(canvas 的 y 往下,所以畫的時候上下顛倒想)
+      g.fillStyle = '#b89ad3'; g.fillRect(0, 0, w, h);
+      const Y = (y) => h - y / ARCADE_H * h, Z = (z) => z / 1.62 * w;
+      [['#ffd36a', 0], ['#ff9a5a', 46], ['#f25f7a', 92]].forEach(([c, o]) => {   // 從前下往後上的大斜紋
+        g.fillStyle = c; g.beginPath(); g.moveTo(Z(1.62), Y(0.35 + o / 200)); g.bezierCurveTo(Z(1.1), Y(0.9 + o / 200), Z(0.6), Y(1.4 + o / 200), Z(0), Y(2.05 + o / 200));
+        g.lineTo(Z(0), Y(2.25 + o / 200)); g.bezierCurveTo(Z(0.7), Y(1.6 + o / 200), Z(1.15), Y(1.12 + o / 200), Z(1.62), Y(0.6 + o / 200)); g.closePath(); g.fill(); });
+      [[0.35, 1.72, 1], [0.55, 1.62, 0], [0.75, 1.42, 1], [0.95, 1.3, 1], [1.15, 1.08, 0], [1.35, 0.95, 1]].forEach(([z, y, up]) => {   // 斜紋上的小 K 棒
+        g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(Z(z), Y(y + 0.12)); g.lineTo(Z(z), Y(y - 0.12)); g.stroke();
+        g.fillStyle = up ? '#3fc98a' : '#e2553d'; g.fillRect(Z(z) - 8, Y(y + 0.07), 16, 0.14 / ARCADE_H * h); });
+      g.fillStyle = 'rgba(255,255,255,.9)'; for (let i = 0; i < 26; i++) { const x = (i * 137) % w, y = (i * 211) % h, r = 2 + (i % 3) * 2; g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, rr = k % 2 ? r * 0.4 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.fill(); }
+      g.fillStyle = 'rgba(255,255,255,.85)'; const px = Z(0.62), py = Y(0.55);                   // 大貓掌
+      g.beginPath(); g.ellipse(px, py, 62, 52, 0, 0, Math.PI * 2); g.fill();
+      for (const [dx, dy, r] of [[-62, -70, 22], [-22, -96, 24], [24, -96, 24], [62, -70, 22]]) { g.beginPath(); g.ellipse(px + dx, py + dy, r, r * 1.2, 0, 0, Math.PI * 2); g.fill(); }
+    });
+    art.repeat.set(1 / 1.62, 1 / ARCADE_H);
+    const sideArt = new THREE.MeshStandardMaterial({ map: art, roughness: 0.7 }), edge = mat(C.arcade);
     for (const sx of [-1, 1]) {
-      const sp = new THREE.Mesh(geo, mat(C.arcade)); sp.rotation.y = -Math.PI / 2;      // Shape 的 x → 世界 +z,擠出方向 → 世界 -x
+      const sp = new THREE.Mesh(geo, [sideArt, edge]); sp.rotation.y = -Math.PI / 2;      // Shape 的 x → 世界 +z,擠出方向 → 世界 -x;第 0 組是兩面(印圖)、第 1 組是邊
       sp.position.set(sx > 0 ? W / 2 - BV : -W / 2 + TH - BV, 0, 0);
       sp.castShadow = true; sp.receiveShadow = true; m.add(sp);
+      // T 型飾條:沿著側板正面那條輪廓(不含底部和貼牆的背面)
+      const cx = sx > 0 ? W / 2 - TH / 2 : -W / 2 + TH / 2;
+      const pts = prof.slice(1, 10).map(([z, y]) => new THREE.Vector3(cx, y, z));
+      const path = new THREE.CurvePath(); for (let i = 0; i < pts.length - 1; i++) path.add(new THREE.LineCurve3(pts[i], pts[i + 1]));
+      const trim = new THREE.Mesh(new THREE.TubeGeometry(path, 160, 0.03, 8, false), mat(0xff6fa8, { roughness: 0.35 })); trim.castShadow = true; m.add(trim);
     }
   }
-  // 下半身(橘)+ 中央白條 + 投幣門
+  // 下半身(橘)+ 中央白條
   box(IN, 0.74, 1.3, C.arcadeTop, { ...P, y: 0.37, z: 0.65, r: 0.03 });
   box(0.24, 0.72, 0.02, C.arcadeStripe, { ...P, y: 0.37, z: 1.305, r: 0.008 });
-  box(0.34, 0.38, 0.03, C.arcade, { ...P, y: 0.38, z: 1.31, r: 0.02 });
-  box(0.05, 0.14, 0.02, DARK, { ...P, x: -0.06, y: 0.42, z: 1.328, r: 0.008 });
-  box(0.1, 0.1, 0.02, C.arcadeTop, { ...P, x: 0.08, y: 0.46, z: 1.328, r: 0.01 });
+  // 投幣門(金屬):兩個投幣口(紅色投幣燈會輪流亮)、退幣鈕、鑰匙孔;最下面一條金屬踢腳板;四個調整腳
+  const steel = new THREE.MeshStandardMaterial({ color: 0xb9b4c4, metalness: 0.75, roughness: 0.35 });
+  { const door = new THREE.Mesh(new RoundedBoxGeometry(0.38, 0.4, 0.03, 2, 0.015), steel); door.position.set(0, 0.4, 1.315); door.castShadow = true; m.add(door); }
+  const coinLights = [];
+  for (const x of [-0.08, 0.08]) {
+    box(0.07, 0.11, 0.012, DARK, { ...P, x, y: 0.48, z: 1.334, r: 0.006 });
+    const cl = new THREE.Mesh(new RoundedBoxGeometry(0.045, 0.06, 0.008, 1, 0.004), new THREE.MeshStandardMaterial({ color: 0xff6a4a, emissive: 0xff3a1a, emissiveIntensity: 0.9 }));
+    cl.position.set(x, 0.49, 1.342); m.add(cl); coinLights.push(cl);
+    cyl(0.014, 0.014, 0.012, DARK, { ...P, x, y: 0.4, z: 1.336, rx: Math.PI / 2 });                 // 退幣鈕
+  }
+  cyl(0.012, 0.012, 0.01, 0x555060, { ...P, x: 0, y: 0.3, z: 1.334, rx: Math.PI / 2 });            // 鑰匙孔
+  { const kick = new THREE.Mesh(new RoundedBoxGeometry(IN, 0.11, 0.02, 1, 0.006), steel); kick.position.set(0, 0.075, 1.31); m.add(kick); }
+  for (const [x, z] of [[-0.55, 0.12], [0.55, 0.12], [-0.55, 1.25], [0.55, 1.25]]) cyl(0.035, 0.04, 0.03, DARK, { ...P, x, y: 0.015, z });
   // 操作檯底下往前凸的那一段(跟著側板的凸出)
   box(IN, 0.34, 1.52, C.arcadeTop, { ...P, y: 0.86, z: 0.76, r: 0.03 });
-  // 操作檯:略往玩家這邊斜。搖桿在左、三顆按鈕在右,都比螢幕下緣低,不會撞在一起
+  // 操作檯:略往玩家這邊斜。上面貼一層印刷面板(按鈕 / 搖桿周圍白框、斜紋),搖桿在左、三顆大鈕在右,1P / 2P 小開始鈕在中間後面
   const deck = new THREE.Group(); deck.position.set(0, 1.05, 1.2); deck.rotation.x = 0.13; m.add(deck);
   const DP = { parent: deck };
   box(IN, 0.12, 0.78, C.arcadeTop, { ...DP, r: 0.03 });
-  cyl(0.09, 0.11, 0.035, C.arcade, { ...DP, x: -0.26, y: 0.075, z: 0.12 });
-  cyl(0.02, 0.02, 0.14, 0xffffff, { ...DP, x: -0.26, y: 0.16, z: 0.12 });
-  { const ball = new THREE.Mesh(new THREE.SphereGeometry(0.062, 24, 18), mat(RED, { roughness: 0.45 })); ball.position.set(-0.26, 0.26, 0.12); ball.castShadow = true; deck.add(ball); }
-  [[0.08, PURPLE], [0.25, C.arcadeTop], [0.42, C.plant]].forEach(([x, c]) => { cyl(0.078, 0.078, 0.025, C.arcadeStripe, { ...DP, x, y: 0.07, z: 0.12 }); cyl(0.058, 0.064, 0.045, c, { ...DP, x, y: 0.095, z: 0.12 }); });
+  { const cp = canvasTex(560, 390, (g, w, h) => {                   // 面板的 x 對應 canvas 橫向(-0.54 → 0.54),z 對應縱向(前緣在下)
+      const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#2a2140'); gr.addColorStop(1, '#4a2f8f'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.fillStyle = 'rgba(255,111,168,.35)'; for (let i = -4; i < 10; i++) { g.beginPath(); g.moveTo(i * 70, h); g.lineTo(i * 70 + 40, h); g.lineTo(i * 70 + 240, 0); g.lineTo(i * 70 + 200, 0); g.fill(); }
+      const X = (x) => (x + 0.54) / 1.08 * w, Zc = (z) => (z + 0.38) / 0.76 * h;
+      g.strokeStyle = '#fff'; g.lineWidth = 4;
+      g.beginPath(); g.arc(X(-0.26), Zc(0.12), 62, 0, Math.PI * 2); g.stroke();
+      for (const x of [0.08, 0.25, 0.42]) { g.beginPath(); g.arc(X(x), Zc(0.12), 46, 0, Math.PI * 2); g.stroke(); }
+      g.fillStyle = '#fff'; g.font = 'bold 18px monospace'; g.textAlign = 'center'; g.fillText('1P', X(-0.06), Zc(-0.27)); g.fillText('2P', X(0.06), Zc(-0.27));
+    });
+    planeOn(deck, IN - 0.04, 0.74, cp, 0, 0.0605, 0, -Math.PI / 2); }
+  cyl(0.1, 0.1, 0.01, 0xd8d4e2, { ...DP, x: -0.26, y: 0.064, z: 0.12 });                             // 搖桿:金屬底座 + 黑色防塵片 + 白桿 + 紅球
+  cyl(0.07, 0.07, 0.012, DARK, { ...DP, x: -0.26, y: 0.072, z: 0.12 });
+  cyl(0.018, 0.02, 0.15, 0xffffff, { ...DP, x: -0.26, y: 0.15, z: 0.12 });
+  { const ball = new THREE.Mesh(new THREE.SphereGeometry(0.062, 24, 18), mat(RED, { roughness: 0.35 })); ball.position.set(-0.26, 0.26, 0.12); ball.castShadow = true; deck.add(ball); }
+  [[0.08, PURPLE], [0.25, C.arcadeTop], [0.42, C.plant]].forEach(([x, c]) => { cyl(0.074, 0.074, 0.02, 0xd8d4e2, { ...DP, x, y: 0.068, z: 0.12 }); cyl(0.058, 0.062, 0.045, c, { ...DP, x, y: 0.092, z: 0.12 });
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.058, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(c, { roughness: 0.3 })); cap.scale.y = 0.28; cap.position.set(x, 0.114, 0.12); deck.add(cap); });   // 圓凸的按鈕頂
+  for (const x of [-0.06, 0.06]) box(0.05, 0.025, 0.035, 0xfff2f5, { ...DP, x, y: 0.072, z: -0.22, r: 0.008 });   // 1P / 2P 開始鈕
   // 上半身(深紫機身)。螢幕下方多一塊凸出的「下巴」:把往後仰的螢幕邊框底下那個空隙補實,上面有三條喇叭孔
   box(IN, 1.26, 0.8, C.arcadeScreen, { ...P, y: 1.6, z: 0.4, r: 0.03 });
   box(IN, 0.42, 1.04, C.arcadeScreen, { ...P, y: 1.28, z: 0.52, r: 0.03 });
   for (let i = 0; i < 3; i++) box(0.34, 0.022, 0.012, DARK, { ...P, y: 1.24 + i * 0.055, z: 1.043, r: 0.004 });
-  // 往後仰 20° 的螢幕邊框(比螢幕大一圈),螢幕那片 canvas 貼在它前面
+  // 往後仰 20° 的螢幕邊框:深藍底 + 霓虹粉的內框線、角落 1P / 2P、下面 INSERT COIN(螢幕本身那片 canvas 蓋在正中間,位置不變)
   box(IN, 0.9, 0.09, DARK, { ...P, y: 1.82, z: 0.97, rx: -0.35, r: 0.03 });
-  // 招牌(橘 + 發亮的燈箱):往前凸出到和側板上緣齊。底面要高過 y=2.24,鏡頭正對螢幕時才不會擋到螢幕最上面一排
+  { const bz = canvasTex(560, 450, (g, w, h) => {
+      g.fillStyle = '#161233'; g.fillRect(0, 0, w, h);
+      const sx = (1.12 - 0.98) / 2 / 1.12 * w, sy = (0.9 - 0.72) / 2 / 0.9 * h;
+      g.strokeStyle = '#ff6fa8'; g.lineWidth = 5; g.shadowColor = '#ff6fa8'; g.shadowBlur = 10; g.beginPath(); g.roundRect(sx - 9, sy - 9, w - (sx - 9) * 2, h - (sy - 9) * 2, 14); g.stroke(); g.shadowBlur = 0;
+      g.fillStyle = '#ffd36a'; g.font = 'bold 15px monospace'; g.textAlign = 'center'; g.fillText('1P', sx / 2 + 6, 22); g.fillText('2P', w - sx / 2 - 6, 22);
+      g.fillStyle = '#7fe0ff'; g.font = 'bold 13px monospace'; g.fillText('INSERT COIN', w / 2, h - 6);
+    });
+    const bezel = new THREE.Group(); bezel.position.set(0, 1.82, 0.97); bezel.rotation.x = -0.35; m.add(bezel);
+    planeOn(bezel, IN - 0.02, 0.88, bz, 0, 0, 0.0465); }
+  // 招牌(橘框 + 背光燈箱):一整片「CAT STREET STOCKS」,貓掌、金幣、K 棒小圖示;底面要高過 y=2.24,鏡頭正對螢幕時才不會擋到螢幕最上面一排
   box(IN, 0.25, 1.3, C.arcadeTop, { ...P, y: ARCADE_H - 0.125, z: 0.65, r: 0.03 });
-  for (const sx of [-1, 1]) { const l = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.15, 0.03, 2, 0.012), new THREE.MeshStandardMaterial({ color: 0xfff2c8, emissive: 0xffd76a, emissiveIntensity: 0.6, roughness: 0.6 }));   // 0.75 → 0.6:加了光暈之後太亮,調暗 20%
-    l.position.set(sx * 0.28, ARCADE_H - 0.125, 1.305); m.add(l); }
+  { const mq = canvasTex(800, 150, (g, w, h) => {
+      const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#3a1f7a'); gr.addColorStop(1, '#1a1240'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.fillStyle = 'rgba(255,255,255,.75)'; for (let i = 0; i < 40; i++) g.fillRect((i * 97) % w, (i * 53) % h, 2, 2);
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '900 64px "Avenir Next", "Arial Black", Impact, sans-serif';
+      g.lineWidth = 10; g.strokeStyle = '#ff6fa8'; g.strokeText('CAT STREET STOCKS', w / 2, h / 2 + 4); g.fillStyle = '#ffd36a'; g.fillText('CAT STREET STOCKS', w / 2, h / 2 + 4);
+      const paw = (x, y, r) => { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, y, r, r * 0.85, 0, 0, Math.PI * 2); g.fill(); for (const [dx, dy] of [[-1, -1.2], [-0.35, -1.6], [0.35, -1.6], [1, -1.2]]) { g.beginPath(); g.arc(x + dx * r, y + dy * r * 0.9, r * 0.38, 0, Math.PI * 2); g.fill(); } };
+      paw(46, 92, 16); paw(w - 46, 92, 16);
+      for (const [x, up] of [[100, 1], [116, 0], [w - 116, 1], [w - 100, 1]]) { g.fillStyle = up ? '#3fc98a' : '#e2553d'; g.fillRect(x - 4, 40, 8, 26); g.fillRect(x - 1, 34, 2, 38); }
+    });
+    arcadeMarquee = planeOn(m, IN - 0.08, 0.19, mq, 0, ARCADE_H - 0.125, 1.306, 0, { emissive: 0xffffff, emissiveMap: mq, emissiveIntensity: 0.6 }); }
+  idleAnims.push((t) => {                                          // 招牌輕輕呼吸、兩個投幣燈輪流亮
+    arcadeMarquee.material.emissiveIntensity = 0.55 + 0.08 * Math.sin(t * 1.3);
+    coinLights.forEach((cl, i) => { cl.material.emissiveIntensity = Math.sin(t * 2.2 + i * Math.PI) > 0 ? 0.9 : 0.25; });
+  });
 
   // 街機上方的漂浮標記:白色「▶ PLAY」牌子 + 橘色倒三角,會上下漂浮並永遠面向鏡頭;點它等於點街機
   playTag = new THREE.Group(); playTag.position.set(0, ARCADE_H + 0.55, 0.7); playTag.visible = false; a.add(playTag);   // 標記已拿掉(不顯示、不擋點擊),點街機本體就能進
@@ -1649,7 +1717,7 @@ if (FX) {
   //    直接對整張畫面做光暈的話,被桌燈照得很亮的桌面也會暈成一片白
   // 貓咪模型有一點金黃自發光(0.3)只是為了顏色,不算發光物;很亮的大螢幕(街機、電腦)暈開要弱一點
   const glows = (m) => m && m.colorWrite !== false && (m.isMeshBasicMaterial || (m.emissive && m.emissiveIntensity >= 0.5 && m.emissive.getHex() !== 0));
-  const gainOf = (o) => (o === arcadeScreen ? 0.18 : o === screenMesh ? 0.3 : 1);
+  const gainOf = (o) => (o === arcadeScreen ? 0.18 : o === screenMesh ? 0.3 : o === arcadeMarquee ? 0.35 : 1);
   const black = new THREE.MeshBasicMaterial({ color: 0x000000 }), swapped = [], hidden = [], glowMats = new Map();
   const glowMat = (m, g) => {          // 發光圖用的版本:只留自發光(表面被燈照亮的部分不算),再乘上強度
     const key = m.uuid + g; let c = glowMats.get(key);
