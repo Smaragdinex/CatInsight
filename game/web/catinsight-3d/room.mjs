@@ -1635,7 +1635,7 @@ let catModel = null;
     const ell = (c, r) => (p) => { const q = p.clone().sub(c).divide(r); return (q.length() - 1) * Math.min(r.x, r.y, r.z); };
     const cap = (a2, b2, r1, r2) => (p) => { const pa = p.clone().sub(a2), ba = b2.clone().sub(a2), h = Math.max(0, Math.min(1, pa.dot(ba) / ba.dot(ba))); return pa.addScaledVector(ba, -h).length() - (r1 + (r2 - r1) * h); };
     const earF = (sx) => { const base = V3(sx * 0.2, 0.84, 0.0), tip = V3(sx * 0.3, 1.08, 0.03); return (p) => { const q = p.clone(); q.z = (q.z - 0.0) * 1.9; return cap(base, tip, 0.12, 0.012)(q); }; };
-    const TAIL = [V3(0.14, 0.1, -0.26), V3(0.26, 0.17, -0.36), V3(0.33, 0.32, -0.38), V3(0.33, 0.48, -0.32), V3(0.27, 0.58, -0.25)];   // 從屁股右後方往後、再往上捲
+    const TAIL = [V3(0.13, 0.11, -0.25), V3(0.23, 0.2, -0.33), V3(0.28, 0.33, -0.32), V3(0.27, 0.42, -0.28)];   // 短短一小節:從屁股右後方往後、往上翹,尾巴尖胖胖圓圓的
     const parts = [
       ell(V3(0, 0.27, -0.03), V3(0.26, 0.245, 0.27)),               // 胖胖的小身體
       ell(V3(0, 0.66, 0.05), V3(0.37, 0.31, 0.3)),                   // 大圓頭
@@ -1645,7 +1645,7 @@ let catModel = null;
       cap(V3(-0.12, 0.24, 0.13), V3(-0.12, 0.05, 0.19), 0.075, 0.07), cap(V3(0.12, 0.24, 0.13), V3(0.12, 0.05, 0.19), 0.075, 0.07),   // 前腳
       ell(V3(-0.12, 0.04, 0.22), V3(0.08, 0.045, 0.09)), ell(V3(0.12, 0.04, 0.22), V3(0.08, 0.045, 0.09)),   // 腳掌
       ell(V3(-0.2, 0.15, -0.08), V3(0.13, 0.13, 0.17)), ell(V3(0.2, 0.15, -0.08), V3(0.13, 0.13, 0.17)),     // 後腿
-      ...TAIL.slice(0, -1).map((a2, i) => cap(a2, TAIL[i + 1], 0.048 + i * 0.006, 0.054 + i * 0.006)),       // 尾巴(細一點,越往尾端越蓬)
+      ...TAIL.slice(0, -1).map((a2, i) => cap(a2, TAIL[i + 1], 0.055 + i * 0.01, 0.065 + i * 0.01)),          // 尾巴(越往尾端越蓬)
     ];
     const smin = (a2, b2, k2) => { const h = Math.max(k2 - Math.abs(a2 - b2), 0) / k2; return Math.min(a2, b2) - h * h * k2 * 0.25; };
     const sdf = (p) => parts.reduce((d, f, i) => smin(d, f(p), i >= 8 && i < 12 ? 0.03 : 0.05), 9);
@@ -1669,11 +1669,11 @@ let catModel = null;
       const muzzle = sm(0.17, 0.09, Math.hypot(x / 1.3, (y - 0.57) * 1.2, (z - 0.33) * 0.8));
       const chest = sm(0.05, 0.25, z) * sm(0.24, 0.1, Math.abs(x)) * sm(0.52, 0.42, y) * sm(0.06, 0.16, y);
       const paws = sm(0.1, 0.05, y) * sm(0.08, 0.16, z);
-      const tailTip = sm(0.48, 0.58, y) * sm(0.2, 0.26, x) * sm(-0.18, -0.26, z);
+      const tailTip = sm(0.33, 0.42, y) * sm(0.18, 0.24, x) * sm(-0.18, -0.24, z);
       const face = sm(0.2, 0.32, z) * sm(0.62, 0.7, y) * sm(0.14, 0.05, Math.abs(x));      // 眼睛中間往上的一條淺色
       c.lerp(CREAM, Math.min(1, muzzle + chest + paws + tailTip + face * 0.5));
       const forehead = sm(0.82, 0.9, y) * sm(0.05, 0.22, z) * sm(0.2, 0.06, Math.abs(x)) * (Math.sin(x * 70) > 0.35 ? 1 : 0);
-      const tailBand = sm(0.16, 0.24, x) * sm(-0.2, -0.28, z) * (Math.sin(y * 34) > 0.5 ? 1 : 0) * (1 - tailTip);
+      const tailBand = sm(0.16, 0.24, x) * sm(-0.2, -0.28, z) * (Math.sin(y * 40) > 0.55 ? 1 : 0) * (1 - tailTip) * sm(0.36, 0.3, y);
       c.lerp(DEEP, Math.min(0.85, forehead + tailBand * 0.6));
       const ear = sm(0.86, 0.93, y) * sm(0.13, 0.19, Math.abs(x)) * sm(0.0, 0.5, nz);
       c.lerp(PINK, ear * 0.9);
