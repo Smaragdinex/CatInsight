@@ -1590,7 +1590,8 @@ let catModel = null;
     for (let i = 0; i < 7; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.0045, 6, 40), yarnM); t.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); yg.add(t); }
     const tail = [[0.04, -0.045, 0.03], [0.1, -0.058, 0.07], [0.17, -0.058, 0.05], [0.22, -0.058, 0.1]].map(([x, y, z]) => new THREE.Vector3(x, y, z));
     yg.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tail), 30, 0.004, 6), yarnM)); }
-  const cat = new THREE.Group(); cat.position.y = 0.24; cat.rotation.y = -Math.PI * 0.7 + Math.PI / 6; b.add(cat);   // 再往牠的左邊轉 30°
+  // 坐進軟墊裡一點點(坐墊上緣約 0.22;腳掌、屁股底部離模型原點還有一點高度);再往牠的左邊轉 30°
+  const cat = new THREE.Group(); cat.position.y = 0.205; cat.rotation.y = -Math.PI * 0.7 + Math.PI / 6; b.add(cat);
   // 可愛版橘貓(照參考圖:大圓頭、蓬蓬的臉頰、短短胖胖的身體、白色小腳掌、往上捲的蓬鬆尾巴、水汪汪的大眼睛、粉紅小鼻子、ω 嘴、腮紅)。
   // 整隻用程式做:幾個橢球 / 圓錐 / 膠囊用 smooth-min 融成一個距離函數 → MarchingCubes 變成平滑網格 → 依位置算頂點色(橘、奶油色、粉紅)→
   // 疊 8 層毛絨外層(手機 5 層)。眼睛、鼻子、嘴是另外的小零件,和身體一起吃頭轉 / 甩尾的變形
