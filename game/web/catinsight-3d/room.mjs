@@ -716,86 +716,9 @@ for (const y of [2.55, 1.65]) {
     { const l = new THREE.PointLight(0xdfe4ff, 1.4, 2.4, 2); l.position.set(0.15, 0.8, 0.35); sh.add(l); }
     idleAnims.push((t) => { st.rotation.y = 0.5 + t * (Math.PI * 2 / 50); ringM.emissiveIntensity = 0.75 + 0.25 * Math.sin(t * 1.3); });
   }
-  // 流體沙畫(像照片那種會流動的沙漏畫):黑框 + 弧形黑腳架 + 金色轉軸。配色「夜景城市的夕陽」:靛藍、紫、洋紅、珊瑚、少許金砂,泡在桃色→淡紫的液體裡。
-  // 上面那團沙慢慢變薄、沙從幾個地方細細往下流、底下堆出沙丘;約 40 秒流完,整個畫框沿轉軸翻一圈,重新開始
-  { const g3 = group(1.1, 2.61, L.z + 0.15);
-    const PW = 0.56, PH = 0.38, FB = 0.035, CY = 0.29;                     // 畫面寬高、框條寬、轉軸高度
-    const CW = 384, CH = 260, cv = document.createElement('canvas'); cv.width = CW; cv.height = CH; const g = cv.getContext('2d');
-    const PAL = ['#2b1d5c', '#4a2f8f', '#7b3fa8', '#c2387a', '#e8567e', '#ff7a6b', '#ffb08a', '#fff0e6'];
-    // 沙的分層(帶顆粒):上面那團、下面沙丘各一張,用畫的時候再依形狀切出來
-    const strata = (seed) => { const c = document.createElement('canvas'); c.width = CW; c.height = CH; const x2 = c.getContext('2d'); let r = seed;
-      const rnd = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
-      const ph = [rnd() * 6, rnd() * 6, rnd() * 6];
-      for (let y = 0; y < CH; y += 2) for (let x = 0; x < CW; x += 2) {
-        const v = y + 14 * Math.sin(x * 0.018 + ph[0]) + 7 * Math.sin(x * 0.051 + ph[1] + y * 0.02) + 4 * Math.sin(x * 0.13 + ph[2]);
-        const band = Math.floor(v / 22), col = PAL[((band % PAL.length) + PAL.length) % PAL.length];
-        x2.fillStyle = col; x2.fillRect(x, y, 2, 2);
-        if (rnd() < 0.18) { x2.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.18)'; x2.fillRect(x, y, 1, 1); }   // 顆粒
-        if (rnd() < 0.004) { x2.fillStyle = '#f3c873'; x2.fillRect(x, y, 2, 2); }                                                  // 金砂
-      }
-      return c; };
-    let top = strata(7), bot = strata(19), streams = [], cycle = 0;
-    const newStreams = () => { streams = [0.2, 0.47, 0.78].map((p) => ({ x: (p + (Math.random() - 0.5) * 0.08) * CW, w: 3 + Math.random() * 3, rate: 0.7 + Math.random() * 0.6 })); };
-    newStreams();
-    const bump = (x, k) => 6 * Math.sin(x * 0.07 + k) + 4 * Math.sin(x * 0.19 + k * 2) + 3 * Math.abs(Math.sin(x * 0.045 + k));
-    const dune = (x, a) => 8 + a * streams.reduce((s2, st) => s2 + 70 * st.rate * Math.exp(-(((x - st.x) / 46) ** 2)), 0) + a * 10;
-    // 液體:桃色 → 粉 → 淡紫(太淡會變白,沙的顏色跳不出來)
-    const draw = (t, a) => {                       // a:這一輪流了多少(0 → 1)
-      const lg = g.createLinearGradient(0, 0, 0, CH); lg.addColorStop(0, '#f7b99c'); lg.addColorStop(0.55, '#f1b3bf'); lg.addColorStop(1, '#cdb4ee'); g.fillStyle = lg; g.fillRect(0, 0, CW, CH);
-      // 上面那團沙:底邊有圓圓的凸起,越流越往上縮
-      const edge = (x) => CH * 0.46 - a * CH * 0.3 + bump(x, cycle);
-      for (let x = 0; x < CW; x += 2) { const e = Math.max(4, edge(x)); g.drawImage(top, x, CH - e, 2, e, x, 0, 2, e); }
-      // 沙丘:分層跟著沙丘的形狀彎
-      for (let x = 0; x < CW; x += 2) { const h = dune(x, a); g.drawImage(bot, x, 0, 2, h, x, CH - h, 2, h); }
-      // 細細的沙流(一顆顆往下掉)
-      for (const st of streams) {
-        const y0 = Math.max(4, edge(st.x)), y1 = CH - dune(st.x, a); if (y1 <= y0) continue;
-        for (let i = 0; i < 70; i++) { const fy = y0 + ((i * 37 + t * 90 * st.rate) % (y1 - y0)); g.fillStyle = PAL[(i + Math.floor(st.x)) % PAL.length]; g.globalAlpha = 0.55; g.fillRect(st.x + (Math.sin(i * 12.9) * st.w), fy, 1.6, 2.2); }
-        g.globalAlpha = 1;
-      }
-      // 金砂閃一閃
-      for (let i = 0; i < 10; i++) { const x = (i * 97 + 31) % CW, y = ((i * 53) % 60) + 8; if (y < edge(x) - 4) { g.fillStyle = `rgba(255,224,150,${0.4 + 0.6 * Math.abs(Math.sin(t * 2 + i))})`; g.fillRect(x, y, 2, 2); } }
-      tex.needsUpdate = true;
-    };
-    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    const picMat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.22, roughness: 0.35 });   // 自發光 < 0.5:不會被當成發光物
-    const pic = new THREE.Group(); pic.position.y = CY; g3.add(pic);           // 畫框本體(會繞 x 軸翻)
-    const front = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), picMat); front.position.z = 0.006; pic.add(front);
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), picMat); back.position.z = -0.006; back.rotation.x = Math.PI; pic.add(back);   // 翻過來時這面朝前,畫面一樣是正的
-    const frameMat = mat(0x1c1a1f, { roughness: 0.45 });
-    for (const [w, h, x, y] of [[PW + FB * 2, FB, 0, PH / 2 + FB / 2], [PW + FB * 2, FB, 0, -PH / 2 - FB / 2], [FB, PH, PW / 2 + FB / 2, 0], [FB, PH, -PW / 2 - FB / 2, 0]]) {
-      const bar = new THREE.Mesh(new RoundedBoxGeometry(w, h, 0.03, 2, 0.008), frameMat); bar.position.set(x, y, 0); bar.castShadow = true; pic.add(bar); }
-    const glassF = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, transparent: true, opacity: 0.08, clearcoat: 1 }));
-    glassF.position.z = 0.012; pic.add(glassF);
-    // 腳架:弧形底座 + 兩支立柱 + 金色轉軸
-    const standMat = mat(0x1c1a1f, { roughness: 0.4 }), goldM = new THREE.MeshStandardMaterial({ color: 0xe2b84f, metalness: 0.85, roughness: 0.3 });
-    const SX = PW / 2 + FB + 0.03;
-    const arc = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-SX, 0.03, 0), new THREE.Vector3(0, -0.01, 0), new THREE.Vector3(SX, 0.03, 0)), 30, 0.013, 8), standMat);
-    arc.scale.z = 2.2; arc.castShadow = true; g3.add(arc);
-    for (const sx of [-1, 1]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.022, CY - 0.02, 0.03), standMat); post.position.set(sx * SX, (CY + 0.02) / 2, 0); post.rotation.z = sx * 0.06; post.castShadow = true; g3.add(post);
-      const pv = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 16), goldM); pv.rotation.z = Math.PI / 2; pv.position.set(sx * (SX - 0.018), CY, 0); g3.add(pv);
-    }
-    // 動畫:10 fps 重畫;流完就翻面(1.2 秒,翻到一半時重設,看起來就是翻過去重新開始)
-    const RUN = 40, FLIP = 1.2; let lastF = -1, startT = null, flipping = false, flipStart = 0, baseRot = 0, swapped = false;
-    idleAnims.push((t) => {
-      if (startT === null) startT = t;
-      let a = Math.min(1, (t - startT) / RUN);
-      if (!flipping && a >= 1) { flipping = true; flipStart = t; baseRot = pic.rotation.x; swapped = false; }
-      if (flipping) {
-        const p = Math.min(1, (t - flipStart) / FLIP);
-        pic.rotation.x = baseRot + p * p * (3 - 2 * p) * Math.PI;
-        if (p >= 0.5 && !swapped) { swapped = true; cycle++; top = strata(7 + cycle * 13); bot = strata(19 + cycle * 7); newStreams(); lastF = -1; }
-        a = swapped ? 0 : 1;
-        if (p >= 1) { flipping = false; startT = t; pic.rotation.x = baseRot + Math.PI; }
-      }
-      const f = Math.floor(t * 10); if (f === lastF) return; lastF = f;
-      draw(t, a);
-    });
-  }
 }
 
-// ---------- 窗前層架的小東西(原本太空):上層熔岩燈、書堆 + 復古鬧鐘(指針照真實時間走);下層跑車模型、
+// ---------- 窗前層架的小東西(原本太空):上層熔岩燈、大圓柱水母缸;下層跑車模型、
 //            藍色電鍍氣球狗、三盆多肉(串燈拿掉了)----------
 {
   const TOP = 2.61, LOW = 1.71, ZC = L.z + 0.12, FRONT = L.z + 0.15 + 0.35;
@@ -813,22 +736,85 @@ for (const y of [2.55, 1.65]) {
     const blobs = [0, 1, 2, 3].map((i) => { const b = put(new THREE.SphereGeometry(0.022 + (i % 2) * 0.008, 16, 12), new THREE.MeshStandardMaterial({ color: 0xffa060, emissive: 0xff7a3c, emissiveIntensity: 1.1 }), 0, 0.17, 0, g); return { b, ph: i * 1.7, sp: 0.18 + i * 0.05 }; });
     idleAnims.push((t) => { for (const { b, ph, sp } of blobs) { const u = 0.5 + 0.5 * Math.sin(t * sp + ph), y = 0.15 + u * 0.2, r = 0.06 - Math.abs(y - 0.24) * 0.12;
       b.position.set(Math.sin(t * 0.3 + ph) * r * 0.4, y, Math.cos(t * 0.27 + ph) * r * 0.4); b.scale.set(1 + 0.15 * Math.sin(t * 0.9 + ph), 1.2 + 0.3 * Math.sin(t * 0.7 + ph * 2), 1); } }); }
-  // 書堆 + 復古雙鈴鬧鐘(上層,沙畫右邊):指針跟著真實時間
-  { const g = group(1.66, TOP, ZC + 0.04);   // 右邊的窗柱從 x≈1.88 開始,東西要放在它左邊,不然會陷進牆裡
-    [[0.34, 0.05, 0.24, 0x7b5cf5, 0.05], [0.3, 0.045, 0.22, 0x46bfcf, -0.08], [0.32, 0.04, 0.23, 0xf5c451, 0.12]].reduce((y, [w, h, d, c, ry]) => { put(new RoundedBoxGeometry(w, h, d, 2, 0.006), M(c), 0, y + h / 2, 0, g, [0, ry, 0]); return y + h; }, 0);
-    const ck = new THREE.Group(); ck.position.set(0, 0.135, 0.02); ck.rotation.y = -0.25; g.add(ck);
-    const red = M(0xf27a5a, { roughness: 0.35 });
-    put(new THREE.CylinderGeometry(0.075, 0.075, 0.045, 32), red, 0, 0.09, 0, ck, [Math.PI / 2, 0, 0]);
-    const fc = document.createElement('canvas'); fc.width = fc.height = 128; const fg = fc.getContext('2d');
-    fg.fillStyle = '#fff8ec'; fg.beginPath(); fg.arc(64, 64, 62, 0, 7); fg.fill(); fg.fillStyle = '#3b2f2a';
-    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; fg.fillRect(64 + Math.sin(a) * 50 - 2, 64 - Math.cos(a) * 50 - (i % 3 ? 2 : 5), 4, i % 3 ? 4 : 10); }
-    const ft = new THREE.CanvasTexture(fc); ft.colorSpace = THREE.SRGBColorSpace;
-    put(new THREE.CircleGeometry(0.063, 32), new THREE.MeshStandardMaterial({ map: ft, roughness: 0.5 }), 0, 0.09, 0.0235, ck);
-    const hand = (len, w) => { const h = new THREE.Group(); h.position.set(0, 0.09, 0.026); ck.add(h); const m2 = new THREE.Mesh(new THREE.BoxGeometry(w, len, 0.002), M(0x3b2f2a)); m2.position.y = len / 2; h.add(m2); return h; };
-    const hh = hand(0.035, 0.006), mh = hand(0.052, 0.004);
-    for (const sx of [-1, 1]) { put(new THREE.SphereGeometry(0.03, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), gold, sx * 0.05, 0.16, -0.005, ck, [0, 0, -sx * 0.5]); put(new THREE.CylinderGeometry(0.005, 0.005, 0.05, 6), gold, sx * 0.05, 0.03, 0, ck, [0, 0, sx * 0.35]); }
-    put(new THREE.SphereGeometry(0.01, 8, 6), gold, 0, 0.17, 0, ck);
-    idleAnims.push(() => { const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60; mh.rotation.z = -m / 60 * Math.PI * 2; hh.rotation.z = -h / 12 * Math.PI * 2; }); }
+  // 大圓柱水族箱(上層右邊,原本沙畫和鬧鐘的位置):像精品飯店那種發光水母缸。
+  // 深色圓座 + 一圈藍色燈條、透明玻璃筒、整缸發光的藍色海水(上亮下深)、水面一圈會動的波光、底下白砂 + 幾顆石頭、一串串往上冒的小氣泡,
+  // 裡面七隻粉紅發光水母:半透明的傘(會一縮一縮地游)+ 傘緣一圈亮邊、下面一團團雲霧般的口腕慢慢飄、幾條細觸手;水母在缸裡慢慢上下、繞圈
+  { const AX = 1.2, AR = 0.3, AH = 0.92, BASE = 0.07;
+    const g = group(AX, TOP, ZC);
+    const mkTex = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+    // 圓座 + 燈條
+    put(new THREE.CylinderGeometry(AR + 0.035, AR + 0.05, BASE, 64), M(0x15131c, { roughness: 0.3, metalness: 0.4 }), 0, BASE / 2, 0, g);
+    const ledM = new THREE.MeshStandardMaterial({ color: 0x9fe6ff, emissive: 0x3fb8ff, emissiveIntensity: 1.4 });
+    put(new THREE.TorusGeometry(AR + 0.04, 0.004, 8, 96), ledM, 0, BASE * 0.7, 0, g, [Math.PI / 2, 0, 0]);
+    put(new THREE.CylinderGeometry(AR + 0.025, AR + 0.025, 0.035, 64), M(0x15131c, { roughness: 0.3, metalness: 0.4 }), 0, BASE + AH + 0.0175, 0, g);   // 上蓋
+    // 海水:畫在圓筒內側(背面)的漸層,看起來像整缸在發光;再一層很淡的正面
+    const waterTex = mkTex(64, 256, (c, w, h) => { const gr = c.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#6fd8ff'); gr.addColorStop(0.12, '#1f8fe6'); gr.addColorStop(0.5, '#0d4cb0'); gr.addColorStop(1, '#06185a'); c.fillStyle = gr; c.fillRect(0, 0, w, h);
+      for (let i = 0; i < 260; i++) { c.fillStyle = `rgba(200,240,255,${Math.random() * 0.25})`; c.fillRect(Math.random() * w, Math.random() * h, 1, 1 + Math.random() * 2); } });
+    const back = new THREE.Mesh(new THREE.CylinderGeometry(AR - 0.004, AR - 0.004, AH, 64, 1, true), new THREE.MeshBasicMaterial({ map: waterTex, side: THREE.BackSide, transparent: true, opacity: 0.92, depthWrite: false }));
+    back.position.y = BASE + AH / 2; back.userData.bloomGain = 0.22; g.add(back);
+    const front = new THREE.Mesh(new THREE.CylinderGeometry(AR - 0.002, AR - 0.002, AH, 64, 1, true), new THREE.MeshBasicMaterial({ map: waterTex, side: THREE.FrontSide, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending }));
+    front.position.y = BASE + AH / 2; front.userData.bloomGain = 0.12; front.renderOrder = 3; g.add(front);
+    // 玻璃:很淡、很亮的邊(fresnel 感靠上下兩圈亮邊)
+    const glassM = new THREE.MeshPhysicalMaterial({ color: 0xdff4ff, transparent: true, opacity: 0.1, roughness: 0.05, metalness: 0, clearcoat: 1, depthWrite: false });
+    const gl = new THREE.Mesh(new THREE.CylinderGeometry(AR + 0.006, AR + 0.006, AH, 64, 1, true), glassM); gl.position.y = BASE + AH / 2; gl.renderOrder = 4; g.add(gl);
+    // 水面波光:會轉、會閃的光紋
+    const surfTex = mkTex(256, 256, (c, w, h) => { c.fillStyle = '#000'; c.fillRect(0, 0, w, h); c.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 70; i++) { c.strokeStyle = `rgba(150,230,255,${0.15 + Math.random() * 0.35})`; c.lineWidth = 1 + Math.random() * 2.5; c.beginPath(); const x = Math.random() * w, y = Math.random() * h, r = 8 + Math.random() * 26; c.ellipse(x, y, r, r * (0.4 + Math.random() * 0.5), Math.random() * 3, 0, Math.PI * (1 + Math.random())); c.stroke(); } });
+    const surf = new THREE.Mesh(new THREE.CircleGeometry(AR - 0.006, 64), new THREE.MeshBasicMaterial({ map: surfTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
+    surf.rotation.x = -Math.PI / 2; surf.position.y = BASE + AH - 0.05; surf.userData.bloomGain = 0.5; g.add(surf);
+    // 底部白砂 + 石頭
+    const sandTex = mkTex(256, 256, (c, w, h) => { c.fillStyle = '#c9d6e6'; c.fillRect(0, 0, w, h); for (let i = 0; i < 5000; i++) { const v = 170 + Math.random() * 85; c.fillStyle = `rgb(${v},${v + 5},${v + 12})`; c.beginPath(); c.arc(Math.random() * w, Math.random() * h, 0.6 + Math.random() * 1.6, 0, 7); c.fill(); } });
+    put(new THREE.CylinderGeometry(AR - 0.008, AR - 0.008, 0.03, 64), new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95 }), 0, BASE + 0.015, 0, g);
+    const rockM = M(0x58688a, { roughness: 0.85 });
+    for (const [x, z, r] of [[-0.12, 0.05, 0.075], [0.1, 0.1, 0.06], [0.03, -0.12, 0.085], [0.17, -0.06, 0.05], [-0.16, -0.1, 0.055]]) {
+      const geo = new THREE.IcosahedronGeometry(r, 3), pa = geo.attributes.position; for (let i = 0; i < pa.count; i++) { const n = 1 + 0.12 * Math.sin(pa.getX(i) * 60) * Math.cos(pa.getZ(i) * 55); pa.setXYZ(i, pa.getX(i) * n, pa.getY(i) * n * 0.65, pa.getZ(i) * n); } geo.computeVertexNormals();
+      put(geo, rockM, x, BASE + 0.03 + r * 0.3, z, g, [0, Math.random() * 3, 0]); }
+    // 燈:缸頂往下打的藍光(把石頭、砂照成藍色,也微微染到窗框)+ 一點點粉紅
+    { const l = new THREE.PointLight(0x55c4ff, 2.2, 1.6, 2); l.position.set(0, BASE + AH - 0.08, 0); g.add(l);
+      const l2 = new THREE.PointLight(0xff6fc0, 0.9, 1.2, 2); l2.position.set(0, BASE + 0.45, 0.1); g.add(l2); }
+    // 氣泡:幾串從砂裡往上冒
+    const NB = 90, bpos = new Float32Array(NB * 3), bseed = [];
+    for (let i = 0; i < NB; i++) { const col = i % 5, a0 = col * 1.3 + 0.4, rr = 0.08 + (col % 3) * 0.07; bseed.push({ x: Math.cos(a0) * rr, z: Math.sin(a0) * rr, ph: Math.random(), sp: 0.08 + Math.random() * 0.05 }); }
+    const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.BufferAttribute(bpos, 3));
+    const bubbles = new THREE.Points(bgeo, new THREE.PointsMaterial({ color: 0xd8f6ff, size: 0.012, transparent: true, opacity: 0.7, depthWrite: false })); g.add(bubbles);
+    // 水母
+    const jellyTex = mkTex(128, 128, (c, w, h) => { const gr = c.createRadialGradient(64, 40, 4, 64, 64, 64); gr.addColorStop(0, 'rgba(255,230,245,1)'); gr.addColorStop(0.5, 'rgba(255,140,210,.75)'); gr.addColorStop(1, 'rgba(230,80,190,.35)'); c.fillStyle = gr; c.fillRect(0, 0, w, h); });
+    const bellM = new THREE.MeshBasicMaterial({ map: jellyTex, color: 0xff9ad6, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const rimM = new THREE.MeshBasicMaterial({ color: 0xffc2ea, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
+    const puffM = new THREE.MeshBasicMaterial({ color: 0xe8509e, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
+    const tentM = new THREE.LineBasicMaterial({ color: 0xff9fdc, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
+    const bellGeo = new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.55), puffGeo = new THREE.SphereGeometry(1, 12, 10), rimGeo = new THREE.TorusGeometry(1, 0.035, 6, 40);
+    // 每隻水母:繞圈半徑 0.1–0.19、起始角度錯開(不會擠在中間),高度從缸底到缸頂平均分布
+    const jellies = [];
+    for (let j = 0; j < 7; j++) {
+      const R = 0.042 + Math.random() * 0.028, jg = new THREE.Group(); g.add(jg);
+      const bell = new THREE.Mesh(bellGeo, bellM); bell.scale.set(R, R * 0.72, R); bell.userData.bloomGain = 0.7; jg.add(bell);
+      const inner = new THREE.Mesh(bellGeo, bellM); inner.scale.set(R * 0.6, R * 0.5, R * 0.6); inner.userData.bloomGain = 0.7; jg.add(inner);
+      const rim = new THREE.Mesh(rimGeo, rimM); rim.rotation.x = Math.PI / 2; rim.scale.setScalar(R * 0.98); rim.position.y = R * 0.72 * Math.cos(Math.PI * 0.55); rim.userData.bloomGain = 0.6; jg.add(rim);
+      // 口腕:沿著往下飄的路徑排一團團半透明的雲霧
+      const puffs = []; const NP = 22;                                                 // 口腕:很多顆淡淡的、互相重疊 → 雲霧感
+      for (let i = 0; i < NP; i++) { const k = i / (NP - 1), m2 = new THREE.Mesh(puffGeo, puffM); const pr = R * (0.62 - 0.32 * k) * (0.7 + Math.random() * 0.6); m2.scale.setScalar(pr); m2.userData.bloomGain = 0.45; jg.add(m2);
+        puffs.push({ m: m2, k, ox: (Math.random() - 0.5) * R * 0.9, oz: (Math.random() - 0.5) * R * 0.9 }); }
+      // 細觸手:傘緣垂下來的幾條細線
+      const tents = []; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(10 * 3), 3)); const ln = new THREE.Line(geo, tentM); jg.add(ln); tents.push({ ln, a }); }
+      jellies.push({ jg, bell, inner, rim, puffs, tents, R, len: R * (3.2 + Math.random() * 1.6), ph: Math.random() * 6.28, orbit: 0.1 + Math.random() * 0.09, oa: j / 7 * Math.PI * 2 * 3 + Math.random() * 0.5, osp: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.06),
+        y0: BASE + 0.32 + (j / 6) * (AH - 0.42), bob: 0.04 + Math.random() * 0.05 });
+    }
+    idleAnims.push((t) => {
+      surfTex.offset.set(t * 0.01, t * 0.006); surf.rotation.z = t * 0.03; surf.material.opacity = 0.75 + 0.15 * Math.sin(t * 1.3);
+      for (let i = 0; i < NB; i++) { const b = bseed[i], u = (t * b.sp + b.ph + i * 0.137) % 1; bpos[i * 3] = b.x + Math.sin(u * 20 + i) * 0.006; bpos[i * 3 + 1] = BASE + 0.04 + u * (AH - 0.1); bpos[i * 3 + 2] = b.z; }
+      bgeo.attributes.position.needsUpdate = true;
+      for (const J of jellies) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 1.6 + J.ph), sq = 1 - 0.14 * pulse;                 // 一縮一放
+        const ang = J.oa + t * J.osp, x = Math.cos(ang) * J.orbit, z = Math.sin(ang) * J.orbit;
+        const y = J.y0 + Math.sin(t * 0.35 + J.ph) * J.bob + pulse * 0.012;
+        J.jg.position.set(x, Math.min(BASE + AH - 0.09 - J.R * 0.7, y), z); J.jg.rotation.set(Math.sin(t * 0.4 + J.ph) * 0.18, ang, Math.cos(t * 0.33 + J.ph) * 0.15);
+        J.bell.scale.set(J.R * sq * 1.04, J.R * 0.72 * (1 + 0.16 * pulse), J.R * sq * 1.04); J.inner.scale.set(J.R * 0.6 * sq, J.R * 0.5, J.R * 0.6 * sq); J.rim.scale.setScalar(J.R * 0.98 * sq);
+        for (const P of J.puffs) { const yy = -J.R * 0.1 - P.k * J.len * 0.75, sw = Math.sin(t * 0.9 + J.ph - P.k * 3) * J.R * 0.6 * P.k; P.m.position.set(P.ox + sw, yy, P.oz + Math.cos(t * 0.7 + J.ph - P.k * 2.5) * J.R * 0.4 * P.k); }
+        for (const T of J.tents) { const pa = T.ln.geometry.attributes.position; for (let k = 0; k < 10; k++) { const u = k / 9; pa.setXYZ(k, Math.cos(T.a) * J.R * 0.9 * sq + Math.sin(t * 1.1 + J.ph + u * 4 + T.a) * J.R * 0.5 * u, -J.R * 0.05 - u * J.len, Math.sin(T.a) * J.R * 0.9 * sq + Math.cos(t * 0.9 + J.ph + u * 3) * J.R * 0.4 * u); } pa.needsUpdate = true; }
+      }
+    });
+  }
   // 經典後置引擎跑車模型(下層左邊,像 1:18 的收藏模型;沒有任何廠牌標誌):
   // 側面輪廓擠出成車身(倒角做出圓潤的邊)、往上隆起的前葉子板 + 圓形大燈、寬的後輪拱、一路斜到車尾的溜背車頂、深色車窗、
   // 鴨尾擾流、橫貫車尾的紅色尾燈條、五爪輪圈、後照鏡、雙出排氣;放在黑色壓克力展示座上(前面一塊銘牌)
@@ -2238,7 +2224,7 @@ if (FX) {
   //    直接對整張畫面做光暈的話,被桌燈照得很亮的桌面也會暈成一片白
   // 貓咪模型有一點金黃自發光(0.3)只是為了顏色,不算發光物;很亮的大螢幕(街機、電腦)暈開要弱一點
   const glows = (m) => m && m.colorWrite !== false && (m.isMeshBasicMaterial || (m.emissive && m.emissiveIntensity >= 0.5 && m.emissive.getHex() !== 0));
-  const gainOf = (o) => (o === arcadeScreen ? 0.18 : o === screenMesh ? 0.3 : o === arcadeMarquee ? 0.35 : 1);
+  const gainOf = (o) => (o.userData.bloomGain !== undefined ? o.userData.bloomGain : o === arcadeScreen ? 0.18 : o === screenMesh ? 0.3 : o === arcadeMarquee ? 0.35 : 1);   // 物件可以自己用 userData.bloomGain 指定
   const black = new THREE.MeshBasicMaterial({ color: 0x000000 }), swapped = [], hidden = [], glowMats = new Map();
   const glowMat = (m, g) => {          // 發光圖用的版本:只留自發光(表面被燈照亮的部分不算),再乘上強度
     const key = m.uuid + g; let c = glowMats.get(key);
