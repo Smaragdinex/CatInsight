@@ -886,34 +886,43 @@ for (const y of [2.55, 1.65]) {
       put(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 14), chrome, 0, sz * 0.023, 0, w);
     }
   }
-  // 氣球狗(下層中間,像照片那種電鍍亮面氣球狗):每一段都是兩頭被扭緊、中間鼓起來的長氣球,
-  // 四條粗腿、身體、脖子、兩片往上的耳朵、往前伸的長口鼻(尖端有個小打結)、往上翹的尾巴;電鍍藍
-  { const g = group(0.82, LOW, ZC + 0.02); g.rotation.y = -0.55; g.scale.setScalar(0.4);   // 口鼻(本地 +x)斜斜朝向房間
-    const blue = new THREE.MeshPhysicalMaterial({ color: 0x2f8cff, metalness: 1, roughness: 0.07, clearcoat: 1, clearcoatRoughness: 0.03, envMap: reflectEnv(), envMapIntensity: 1.25 });
-    // 一段氣球:沿 a → b,半徑 R。扭結那一端收成細細的(sin 曲線的 0.55 次方 → 中間很圓、尾端急收);
-    // 沒扭的自由端(腳、耳朵尖、口鼻、尾巴)是圓圓的蛋形。free:'a' / 'b' 指出哪一端是自由端
+  // 氣球狗(下層中間):造型模仿扭氣球狗,但材質是鏡面拋光的電鍍金屬(像不鏽鋼氣球狗雕塑)。
+  // 金屬看起來像金屬,靠的是「反射出真實周圍」:開場後用 CubeCamera 從狗的位置把整個房間拍成環境貼圖(粉牆、窗外夜景、層板都會映在身上),
+  // 拍好之前先用共用的室內環境貼圖。沒有透明漆(clearcoat 會多一層白白的塑膠感)。
+  // 每一段都是兩頭扭緊、中間鼓起來的長氣球;各段在扭結處互相重疊(不會有縫),腿兩兩靠在一起;自由端(腳、耳朵、口鼻、尾巴)是圓的
+  { const g = group(0.82, LOW, ZC + 0.02); g.rotation.y = -0.55; g.scale.setScalar(0.38);   // 口鼻(本地 +x)斜斜朝向房間
+    const blue = new THREE.MeshStandardMaterial({ color: 0x6fb2ff, metalness: 1, roughness: 0.04, envMap: reflectEnv(), envMapIntensity: 1.0 });
     const balloon = (a2, b2, R, free = null, taper = 0) => {
       const dv = b2.clone().sub(a2), L2 = dv.length(), pts = [];
-      for (let i = 0; i <= 32; i++) { const u = i / 32, round = (free === 'a' && u < 0.5) || (free === 'b' && u > 0.5);
-        const r = round ? R * Math.pow(Math.max(0, 1 - ((u - 0.5) / 0.5) ** 2), 0.5) : R * Math.pow(Math.sin(Math.PI * u), 0.55);
+      for (let i = 0; i <= 40; i++) { const u = i / 40, round = (free === 'a' && u < 0.5) || (free === 'b' && u > 0.5);
+        const r = round ? R * Math.pow(Math.max(0, 1 - ((u - 0.5) / 0.5) ** 2), 0.5) : R * Math.pow(Math.sin(Math.PI * u), 0.5);
         pts.push(new THREE.Vector2(Math.max(0.0008, r * (1 - taper * u)), u * L2)); }
-      const o = new THREE.Mesh(new THREE.LatheGeometry(pts, 36), blue); o.position.copy(a2); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
-    const knot = (p2, r2) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r2, 20, 14), blue); o.position.copy(p2); o.castShadow = true; g.add(o); };
+      const o = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), blue); o.position.copy(a2); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
+    const knot = (p2, r2) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r2, 24, 16), blue); o.position.copy(p2); g.add(o); };
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const CH = V(0.3, 0.46, 0), HP = V(-0.38, 0.46, 0), HD = V(0.36, 0.8, 0);      // 胸口、屁股、頭的扭結點
     for (const sz of [-1, 1]) {
-      balloon(V(0.31, -0.015, sz * 0.12), V(0.3, 0.44, sz * 0.035), 0.11, 'a');            // 前腿
-      balloon(V(-0.39, -0.015, sz * 0.12), V(-0.38, 0.44, sz * 0.035), 0.11, 'a');         // 後腿
-      balloon(V(0.35, 0.82, sz * 0.03), V(0.27, 1.1, sz * 0.085), 0.1, 'b');             // 耳朵
+      balloon(V(0.32, -0.02, sz * 0.105), V(0.31, 0.5, sz * 0.03), 0.13, 'a');      // 前腿(兩條靠在一起)
+      balloon(V(-0.4, -0.02, sz * 0.105), V(-0.39, 0.5, sz * 0.03), 0.13, 'a');     // 後腿
+      balloon(V(0.37, 0.8, sz * 0.025), V(0.25, 1.13, sz * 0.095), 0.118, 'b');      // 耳朵(大大圓圓往上)
     }
-    balloon(V(0.28, 0.47, 0), V(-0.36, 0.47, 0), 0.095);                            // 身體
-    balloon(V(0.3, 0.48, 0), V(0.36, 0.79, 0), 0.085);                               // 脖子
-    balloon(V(0.38, 0.8, 0), V(0.74, 0.86, 0), 0.088, 'b', 0.3);                         // 口鼻
-    balloon(V(-0.38, 0.48, 0), V(-0.47, 0.78, 0), 0.06, 'b', 0.3);                       // 尾巴
-    knot(CH, 0.05); knot(HP, 0.05); knot(HD, 0.05);
-    for (const [p2, d] of [[V(0.745, 0.861, 0), V(1, 0.17, 0)], [V(-0.472, 0.785, 0), V(-0.29, 1, 0)]]) {   // 口鼻和尾巴尖端的小打結
-      const n = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.016, 0.05, 12), blue); n.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); n.position.copy(p2).addScaledVector(d, 0.022); g.add(n);
-      const k = new THREE.Mesh(new THREE.SphereGeometry(0.018, 14, 10), blue); k.position.copy(p2).addScaledVector(d, 0.05); g.add(k); }
+    balloon(V(0.36, 0.47, 0), V(-0.44, 0.47, 0), 0.105);                              // 身體(兩頭伸進扭結裡)
+    balloon(V(0.29, 0.42, 0), V(0.38, 0.84, 0), 0.098);                               // 脖子
+    balloon(V(0.33, 0.8, 0), V(0.8, 0.88, 0), 0.098, 'b', 0.35);                      // 口鼻(往前漸細)
+    balloon(V(-0.37, 0.44, 0), V(-0.49, 0.8, 0), 0.07, 'b', 0.3);                     // 尾巴
+    knot(V(0.31, 0.47, 0), 0.055); knot(V(-0.39, 0.47, 0), 0.055); knot(V(0.36, 0.81, 0), 0.055);
+    for (const [p2, d] of [[V(0.8, 0.88, 0), V(1, 0.17, 0)], [V(-0.49, 0.8, 0), V(-0.3, 1, 0)]]) {   // 口鼻和尾巴尖端的小打結
+      const n = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.018, 0.05, 16), blue); n.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); n.position.copy(p2).addScaledVector(d, 0.018); g.add(n);
+      const k = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 12), blue); k.position.copy(p2).addScaledVector(d, 0.047); g.add(k); }
+    // 從狗的位置拍真實房間當反射(開場動畫和 GLB 載完後各拍一次;拍的時候先把狗藏起來,才不會映到自己)
+    const cubeRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+    const cubeCam = new THREE.CubeCamera(0.03, 40, cubeRT); scene.add(cubeCam);
+    const shots = [3.5, 9];
+    idleAnims.push((t) => {
+      if (!shots.length || t < shots[0]) return; shots.shift();
+      g.updateWorldMatrix(true, false); g.localToWorld(cubeCam.position.set(0, 0.55, 0));
+      g.visible = false; cubeCam.update(renderer, scene); g.visible = true;
+      if (blue.envMap !== cubeRT.texture) { blue.envMap = cubeRT.texture; blue.envMapIntensity = 2.3; blue.needsUpdate = true; }
+    });
   }
   // 三盆多肉(下層右邊):粉彩小盆 + 一圈圈尖葉
   [[1.42, 0xf3c9db, 0x6fbf8a], [1.58, 0xcbb8f0, 0x8fd1a0], [1.74, 0xfde2a7, 0x5aa87a]].forEach(([x, pc, lc], k) => {   // 都在右邊窗柱(x≈1.88)的左邊
