@@ -912,32 +912,86 @@ let camHead = null, camRig = null, camGreet = null;
   });
 }
 
-// ---------- 地毯 / 滑板 ----------
-box(3.6, 0.05, 2.7, C.rug, { x: -1.1, y: 0.075, z: 0.9, r: 0.02, seg: 1 });   // 地毯往左移 0.6
-{ // 地毯上的貓臉圖案:畫在 canvas 上貼一片薄面(耳朵、眼睛、鼻子、鬍鬚,淺一號的青色)
-  const cv = document.createElement('canvas'); cv.width = 720; cv.height = 540; const g = cv.getContext('2d');
-  g.fillStyle = '#46bfcf'; g.fillRect(0, 0, 720, 540);
-  g.strokeStyle = '#7fdbe6'; g.lineWidth = 14; g.lineCap = 'round'; g.lineJoin = 'round';
-  g.beginPath(); g.roundRect(26, 26, 668, 488, 40); g.stroke();                       // 外框
-  g.fillStyle = '#7fdbe6';
-  g.beginPath(); g.moveTo(250, 250); g.lineTo(295, 130); g.lineTo(360, 230); g.closePath(); g.fill();   // 耳朵
-  g.beginPath(); g.moveTo(470, 250); g.lineTo(425, 130); g.lineTo(360, 230); g.closePath(); g.fill();
-  g.beginPath(); g.ellipse(360, 300, 125, 105, 0, 0, Math.PI * 2); g.fill();          // 臉
-  g.fillStyle = '#46bfcf';
-  g.beginPath(); g.ellipse(318, 290, 14, 20, 0, 0, Math.PI * 2); g.ellipse(402, 290, 14, 20, 0, 0, Math.PI * 2); g.fill();   // 眼睛
-  g.beginPath(); g.moveTo(348, 322); g.lineTo(372, 322); g.lineTo(360, 336); g.closePath(); g.fill();                        // 鼻子
-  g.strokeStyle = '#46bfcf'; g.lineWidth = 8;
-  for (const sx of [-1, 1]) for (const dy of [-10, 12]) { g.beginPath(); g.moveTo(360 + sx * 60, 325 + dy); g.lineTo(360 + sx * 128, 318 + dy * 1.8); g.stroke(); }   // 鬍鬚
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 2.6), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
-  face.rotation.x = -Math.PI / 2; face.position.set(-1.1, 0.102, 0.9); face.receiveShadow = true; root.add(face); }
+// ---------- 地毯 / 遙控車 ----------
+// 地毯:奶油色編織毯(像 kilim):青 / 珊瑚 / 紫 / 芥末黃的幾何菱形和邊框,細細的編織紋,兩短邊各一排流蘇
 {
-  const s = group(-1.55, 0.08, 1.75);   // 靠左邊
-  s.rotation.y = 0.5;
-  box(1.5, 0.06, 0.42, C.board, { y: 0.19, r: 0.03, parent: s });
-  for (const [x, z] of [[-0.5, 0.18], [-0.5, -0.18], [0.5, 0.18], [0.5, -0.18]]) {
-    cyl(0.07, 0.07, 0.06, C.wheel, { x, y: 0.08, z, parent: s, rx: Math.PI / 2 });
+  const RX = -1.1, RZ = 0.9, RW = 3.6, RD = 2.7;
+  const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 810; const g = cv.getContext('2d');
+  g.fillStyle = '#f3e6d6'; g.fillRect(0, 0, 1080, 810);
+  for (let y = 0; y < 810; y += 3) { g.fillStyle = y % 6 ? 'rgba(160,120,90,.05)' : 'rgba(255,255,255,.12)'; g.fillRect(0, y, 1080, 1); }   // 橫向編織紋
+  for (let i = 0; i < 4000; i++) { g.fillStyle = `rgba(150,110,80,${Math.random() * 0.06})`; g.fillRect(Math.random() * 1080, Math.random() * 810, 2, 1); }
+  const C4 = ['#46bfcf', '#f27a5a', '#7b5cf5', '#f5c451'];
+  // 邊框:兩層色帶 + 一排小三角
+  const band = (inset, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.strokeRect(inset, inset, 1080 - inset * 2, 810 - inset * 2); };
+  band(30, 14, '#7b5cf5'); band(54, 6, '#f27a5a'); band(118, 6, '#f27a5a'); band(140, 12, '#46bfcf');
+  g.fillStyle = '#f5c451';
+  for (let x = 70; x < 1010; x += 30) { g.beginPath(); g.moveTo(x, 66); g.lineTo(x + 15, 100); g.lineTo(x + 30, 66); g.fill(); g.beginPath(); g.moveTo(x, 744); g.lineTo(x + 15, 710); g.lineTo(x + 30, 744); g.fill(); }
+  for (let y = 70; y < 740; y += 30) { g.beginPath(); g.moveTo(66, y); g.lineTo(100, y + 15); g.lineTo(66, y + 30); g.fill(); g.beginPath(); g.moveTo(1014, y); g.lineTo(980, y + 15); g.lineTo(1014, y + 30); g.fill(); }
+  // 中間:一排大菱形(套色)+ 中心小菱形
+  const diamond = (cx, cy, rw, rh, c) => { g.fillStyle = c; g.beginPath(); g.moveTo(cx, cy - rh); g.lineTo(cx + rw, cy); g.lineTo(cx, cy + rh); g.lineTo(cx - rw, cy); g.closePath(); g.fill(); };
+  [270, 540, 810].forEach((cx, i) => { diamond(cx, 405, 150, 190, C4[(i + 2) % 4]); diamond(cx, 405, 112, 142, '#f3e6d6'); diamond(cx, 405, 78, 98, C4[i % 4]); diamond(cx, 405, 40, 50, '#f3e6d6'); diamond(cx, 405, 16, 20, C4[(i + 1) % 4]); });
+  for (const cx of [405, 675]) for (const cy of [250, 560]) diamond(cx, cy, 26, 32, '#f27a5a');
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const side = mat(0xe8d6c2, { roughness: 0.95 });
+  const rug = new THREE.Mesh(new RoundedBoxGeometry(RW, 0.05, RD, 2, 0.015), [side, side, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }), side, side, side]);
+  rug.position.set(RX, 0.075, RZ); rug.receiveShadow = true; root.add(rug);
+  // 流蘇:兩短邊(x 方向的兩端)各一排細繩
+  const N = 90, fr = new THREE.InstancedMesh(new THREE.BoxGeometry(0.11, 0.008, 0.012), mat(0xf6ecdf, { roughness: 0.9 }), N * 2), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (let e = 0; e < 2; e++) for (let i = 0; i < N; i++) {
+    const z = RZ - RD / 2 + 0.06 + i / (N - 1) * (RD - 0.12), sx = e ? 1 : -1;
+    m4.compose(new THREE.Vector3(RX + sx * (RW / 2 + 0.05), 0.058, z + Math.sin(i * 7.1) * 0.004), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(i * 3.3) * 0.18), new THREE.Vector3(1, 1, 1));
+    fr.setMatrixAt(e * N + i, m4);
   }
+  fr.receiveShadow = true; root.add(fr);
+}
+// 遙控車:珊瑚色小越野車(深藍車窗、白色賽車條、尾翼、前後保險桿、會亮的頭燈 / 尾燈、粗輪胎 + 青色輪框、會晃的天線),
+// 自己在地毯上跑 8 字(約 14 秒一圈),輪子會轉、前輪會打方向、轉彎時車身微微側傾
+{
+  const car = new THREE.Group(); root.add(car);
+  const body = new THREE.Group(); car.add(body);                  // 會側傾的車身
+  const CORAL = 0xf27a5a, DARKC = 0x2a2340;
+  const cb = (w, h, d, color, x, y, z, r = 0.012, parent = body, ex) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, r), color.isMaterial ? color : mat(color, ex)); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  cb(0.2, 0.035, 0.36, DARKC, 0, 0.075, 0, 0.01);                                  // 底盤
+  cb(0.25, 0.085, 0.3, CORAL, 0, 0.13, -0.005, 0.03, body, { roughness: 0.35 });     // 車殼
+  cb(0.19, 0.075, 0.15, new THREE.MeshPhysicalMaterial({ color: 0x1d2e66, roughness: 0.08, metalness: 0.2, clearcoat: 1 }), 0, 0.19, -0.03, 0.025);   // 車窗(座艙)
+  cb(0.05, 0.004, 0.3, 0xffffff, 0, 0.174, -0.005, 0.002);                          // 白色賽車條
+  cb(0.26, 0.04, 0.05, DARKC, 0, 0.1, 0.175, 0.015);                                // 前保險桿
+  cb(0.24, 0.035, 0.04, DARKC, 0, 0.1, -0.17, 0.012);                               // 後保險桿
+  for (const sx of [-1, 1]) cb(0.012, 0.05, 0.02, DARKC, sx * 0.08, 0.2, -0.14, 0.004);   // 尾翼支架
+  cb(0.27, 0.012, 0.06, CORAL, 0, 0.228, -0.15, 0.005);                             // 尾翼
+  const glow = (c, i) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i });
+  for (const sx of [-1, 1]) { cb(0.04, 0.025, 0.012, glow(0xfff2c8, 0.9), sx * 0.075, 0.135, 0.15, 0.006); cb(0.04, 0.02, 0.01, glow(0xff3a3a, 0.8), sx * 0.08, 0.14, -0.157, 0.005); }
+  // 天線:從車尾左邊伸出來的細桿 + 頂端小球,會晃
+  const ant = new THREE.Group(); ant.position.set(-0.08, 0.16, -0.12); body.add(ant);
+  { const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.003, 0.22, 6), mat(DARKC)); rod.position.y = 0.11; ant.add(rod);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 8), mat(CORAL)); tip.position.y = 0.225; ant.add(tip); }
+  // 輪子:輪胎 + 青色輪框 + 輪轂;前輪多一層可以轉方向的 group
+  const wheels = [];
+  for (const [x, z, front] of [[-0.135, 0.12, 1], [0.135, 0.12, 1], [-0.135, -0.12, 0], [0.135, -0.12, 0]]) {
+    const steer = new THREE.Group(); steer.position.set(x, 0.06, z); car.add(steer);
+    const spin = new THREE.Group(); steer.add(spin);
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.058, 0.05, 20), mat(0x1c1a22, { roughness: 0.9 })); tire.rotation.z = Math.PI / 2; tire.castShadow = true; spin.add(tire);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.052, 6), mat(0x46bfcf, { roughness: 0.4 })); rim.rotation.z = Math.PI / 2; spin.add(rim);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.056, 8), mat(0xe8e2f0, { metalness: 0.6, roughness: 0.3 })); hub.rotation.z = Math.PI / 2; spin.add(hub);
+    wheels.push({ steer, spin, front });
+  }
+  // 8 字路線(地毯中央;避開椅子、三腳架、街機、桌腳):x = cx + A·sin(u)、z = cz + B·sin(u)·cos(u)
+  const CX = -1.15, CZ = 1.05, A = 1.0, B = 1.5, LAP = 14, Y = 0.1;   // 離桌腳(約 x -0.05、z 0.15)最近也有 0.35 以上
+  const at = (u) => new THREE.Vector3(CX + A * Math.sin(u), Y, CZ + B * Math.sin(u) * Math.cos(u));
+  let prev = null, prevHead = 0, wheelAng = 0, lastT = null;
+  idleAnims.push((t) => {
+    const u = t / LAP * Math.PI * 2, p = at(u), p2 = at(u + 0.02);
+    const head = Math.atan2(p2.x - p.x, p2.z - p.z);                 // 車頭朝前進方向(本地 +z = 車頭)
+    car.position.copy(p); car.rotation.y = head;
+    const dt = lastT === null ? 0 : Math.max(0, Math.min(0.1, t - lastT)); lastT = t;
+    let dh = head - prevHead; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); prevHead = head;
+    const turn = dt > 0 ? dh / dt : 0;                               // 轉向角速度(弧度 / 秒)
+    if (prev) wheelAng += p.distanceTo(prev) / 0.058; prev = p.clone();
+    for (const w of wheels) { w.spin.rotation.x = wheelAng; if (w.front) w.steer.rotation.y += (Math.max(-0.5, Math.min(0.5, turn * 0.35)) - w.steer.rotation.y) * 0.2; }
+    body.rotation.z += (Math.max(-0.12, Math.min(0.12, -turn * 0.05)) - body.rotation.z) * 0.15;   // 轉彎時往外側傾
+    body.position.y = 0.004 * Math.sin(t * 23);                      // 地毯上輕微的顛簸
+    ant.rotation.x = -0.25 + 0.12 * Math.sin(t * 9); ant.rotation.z = 0.1 * Math.sin(t * 7.3) + body.rotation.z * 2;
+  });
 }
 
 // ---------- 書桌 / 螢幕 / 鍵盤 ----------
