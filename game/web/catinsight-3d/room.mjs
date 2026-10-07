@@ -110,13 +110,13 @@ function sphere(rad, color, { x = 0, y = 0, z = 0, parent = root } = {}) {
   return m;
 }
 // 淺色橡木的木紋貼圖(程式畫的):along = 'u' 紋路橫向、'v' 紋路直向;幾個小木節
-function woodTex(w, h, along) {
+function woodTex(w, h, along, base = '#e9cfa6', ink = [150, 105, 60]) {   // base:木頭底色、ink:木紋線的顏色(深一點的木頭用深一點的線)
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d');
-  g.fillStyle = '#e9cfa6'; g.fillRect(0, 0, w, h);
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
   const L = along === 'u' ? w : h, S = along === 'u' ? h : w;
   for (let i = 0; i < 70; i++) {
     const o = Math.random() * S, amp = 2 + Math.random() * 6, fr = 0.004 + Math.random() * 0.01, ph = Math.random() * 6, a = 0.06 + Math.random() * 0.12;
-    g.strokeStyle = `rgba(${150 + Math.random() * 30 | 0},${105 + Math.random() * 25 | 0},${60 + Math.random() * 20 | 0},${a})`; g.lineWidth = 0.6 + Math.random() * 1.6; g.beginPath();
+    g.strokeStyle = `rgba(${ink[0] + Math.random() * 30 | 0},${ink[1] + Math.random() * 25 | 0},${ink[2] + Math.random() * 20 | 0},${a})`; g.lineWidth = 0.6 + Math.random() * 1.6; g.beginPath();
     for (let t = 0; t <= L; t += 8) { const q = o + Math.sin(t * fr + ph) * amp + Math.sin(t * fr * 3.7 + ph) * amp * 0.3; along === 'u' ? (t ? g.lineTo(t, q) : g.moveTo(t, q)) : (t ? g.lineTo(q, t) : g.moveTo(q, t)); }
     g.stroke();
   }
@@ -133,9 +133,26 @@ const T = 0.42;           // 牆厚
 const H = 4.8;            // 牆高
 // 底座(厚厚一塊)
 box(S, 0.55, S, C.slab, { y: -0.275, r: 0.05, seg: 2 });
-// 木地板條
-for (let i = 0; i < 12; i++) {
-  box(S - 0.2, 0.05, (S - 0.2) / 12 - 0.03, i % 2 ? C.plank : C.plankDark, { y: 0.025, z: -S / 2 + 0.1 + (i + 0.5) * ((S - 0.2) / 12), r: 0.01, seg: 1 });
+// 木地板:12 排,每排切成長短不一、接縫錯開的木板(邊緣小倒角看得到縫);蜂蜜色橡木三種深淺隨機混,每塊木紋起點不同
+{
+  const TONES = [['#d9a676', [120, 72, 38]], ['#cf9b6a', [110, 66, 34]], ['#e2b386', [128, 80, 44]]];
+  const bases = TONES.map(([b, ink]) => woodTex(2048, 96, 'u', b, ink));
+  const ROWS = 12, W = S - 0.2, RW = W / ROWS, GAP = 0.012;
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let r = 0; r < ROWS; r++) {
+    const z = -S / 2 + 0.1 + (r + 0.5) * RW;
+    let x = -W / 2 - rnd() * 1.4;                                  // 每排從不同的位置開始,接縫才會錯開
+    while (x < W / 2) {
+      const len = 1.1 + rnd() * 1.5, x0 = Math.max(-W / 2, x), x1 = Math.min(W / 2, x + len);
+      if (x1 - x0 > 0.08) {
+        const tex = bases[Math.floor(rnd() * 3)].clone(); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set((x1 - x0) / 3.2, 1); tex.offset.set(rnd(), 0); tex.needsUpdate = true;
+        const pl = new THREE.Mesh(new RoundedBoxGeometry(x1 - x0 - GAP, 0.05, RW - GAP, 1, 0.006), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.62 }));
+        pl.position.set((x0 + x1) / 2, 0.025, z); pl.receiveShadow = true; root.add(pl);
+      }
+      x += len;
+    }
+  }
 }
 // 右牆(粉紅,實心)
 box(T, H, S, C.wallR, { x: S / 2 - T / 2, y: H / 2, r: 0.04, seg: 2 });
