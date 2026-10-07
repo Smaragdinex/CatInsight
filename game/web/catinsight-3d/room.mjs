@@ -85,7 +85,7 @@ root.rotation.y = Math.PI / 2;   // 讓淡紫框牆在左、粉牆在右(鏡頭�
 scene.add(root);
 const animated = [];   // 進場動畫用:每個物件 scale 從 0 長出來
 let livePoster = null, liveN = 0;   // 牆上會動的照片:每幀重畫的函式
-const plantSway = [];               // 植物隨風輕擺(層板上的黃金葛、角落的龜背芋):每幀呼叫
+const idleAnims = [];               // 每幀呼叫的小動畫:植物隨風輕擺(黃金葛、龜背芋)、水晶球裡的星雲
 
 function box(w, h, d, color, { x = 0, y = 0, z = 0, r = 0.06, parent = root, shadow = true, seg = 3, ry = 0, rz = 0, rx = 0 } = {}) {
   const g = r > 0 ? new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2, h / 2, d / 2)) : new THREE.BoxGeometry(w, h, d);
@@ -251,7 +251,7 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
       leaf.position.copy(top); leaf.scale.setScalar(size); leaf.castShadow = true; pivot.add(leaf);
       sway.push({ pivot, ph: k * 1.7, amp: 0.012 + size * 0.02, ax: dir.z, az: -dir.x });
     });
-    plantSway.push((t) => { for (const v of sway) { const a = v.amp * (Math.sin(t * 0.7 + v.ph) + 0.5 * Math.sin(t * 1.9 + v.ph * 1.3)); v.pivot.rotation.x = v.ax * a; v.pivot.rotation.z = v.az * a; } });
+    idleAnims.push((t) => { for (const v of sway) { const a = v.amp * (Math.sin(t * 0.7 + v.ph) + 0.5 * Math.sin(t * 1.9 + v.ph * 1.3)); v.pivot.rotation.x = v.ax * a; v.pivot.rotation.z = v.az * a; } });
   }
   // 層板右端(貓咪頭上)的黃金葛:陶瓷盆 + 盆裡一叢心形葉 + 五條藤蔓從層板前緣、側緣垂下來,葉子交錯、越往尾端越小,會隨風輕擺
   { const iv = group(WX - 0.2, 2.35 + 0.04, 2.3);
@@ -323,7 +323,7 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
       }
       sway.push({ pivot, axis: front ? 'z' : 'x', dir: front ? 1 : -1, ph: k * 1.3, amp: 0.025 + len * 0.03 });
     });
-    plantSway.push((t) => { for (const v of sway) v.pivot.rotation[v.axis] = v.dir * v.amp * (Math.sin(t * 0.9 + v.ph) + 0.4 * Math.sin(t * 2.1 + v.ph * 2)); });
+    idleAnims.push((t) => { for (const v of sway) v.pivot.rotation[v.axis] = v.dir * v.amp * (Math.sin(t * 0.9 + v.ph) + 0.4 * Math.sin(t * 2.1 + v.ph * 2)); });
   }
   // 上層層板的音響(Marshall 那種復古設計感,不放它的商標):黑色皮紋箱體、米白滾邊、深色布網 + 金色草寫字、上面一條黃銅面板配金色旋鈕和撥桿
   { const sp = group(WX - 0.13, 3.09, 1.72); sp.rotation.y = -Math.PI / 2;          // 本地 +z = 正面(朝房間)
@@ -362,12 +362,58 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
     // 四個小腳
     for (const [x, z] of [[-W / 2 + 0.04, -D / 2 + 0.03], [W / 2 - 0.04, -D / 2 + 0.03], [-W / 2 + 0.04, D / 2 - 0.03], [W / 2 - 0.04, D / 2 - 0.03]]) cyl(0.012, 0.012, Y0, 0x2a2a2e, { x, y: Y0 / 2, z, parent: sp });
   }
-  // 層板上的小東西:幾本書、一個小盆栽、一台玩具貓、掌上遊戲機
-  box(0.22, 0.34, 0.06, 0x8b7cff, { x: WX - 0.21, y: 2.35 + 0.21, z: 0.8, r: 0.01, seg: 1 });
-  box(0.22, 0.30, 0.06, 0xf27a5a, { x: WX - 0.21, y: 2.35 + 0.19, z: 0.88, r: 0.01, seg: 1 });
-  box(0.22, 0.38, 0.06, 0x46bfcf, { x: WX - 0.21, y: 2.35 + 0.23, z: 0.96, r: 0.01, seg: 1 });
-  cyl(0.09, 0.07, 0.14, 0xf3c9db, { x: WX - 0.21, y: 2.35 + 0.11, z: 1.6 });
-  sphere(0.13, 0x3fc9c0, { x: WX - 0.21, y: 2.35 + 0.3, z: 1.6 });
+  // 層板上的小東西:一排書、水晶球、招財貓、掌上遊戲機
+  // 一排書:黃銅書擋 + 七本高矮厚薄不一的書(書背朝房間 -x,有燙金線和書名線,上面和後面看得到米白書頁),最後一本斜靠,旁邊再平放兩本
+  { const SY = 2.39, BX = WX - 0.2;                                   // 層板上緣、書的中心 x
+    const pagesMat = mat(0xf6eedc, { roughness: 0.9 });
+    const spineTex = (hex, h, seed) => {                                // 書背:底色 + 上下燙金線 + 幾條書名線
+      const cv = document.createElement('canvas'); cv.width = 64; cv.height = 256; const g = cv.getContext('2d');
+      g.fillStyle = '#' + hex.toString(16).padStart(6, '0'); g.fillRect(0, 0, 64, 256);
+      g.fillStyle = '#e7c779'; for (const y of [18, 26, 230, 238]) g.fillRect(4, y, 56, 3);
+      g.fillStyle = 'rgba(255,248,230,.85)'; const n = 2 + (seed % 2); for (let i = 0; i < n; i++) g.fillRect(14 + (seed * 7 + i * 11) % 14, 70 + i * 22, 22 - (i * 5 + seed) % 9, 6);
+      g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 0, 5, 256); g.fillRect(59, 0, 5, 256);   // 書背兩側的弧度陰影
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+    };
+    const book = (w, h, d, hex, seed, pos, rot = [0, 0, 0]) => {          // w = 厚度(z)、h = 高、d = 深(x)
+      const cover = mat(hex, { roughness: 0.75 }), spine = new THREE.MeshStandardMaterial({ map: spineTex(hex, h, seed), roughness: 0.7 });
+      const b = new THREE.Mesh(new THREE.BoxGeometry(d, h, w), [pagesMat, spine, pagesMat, cover, cover, cover]);   // +x 書頁、-x 書背、上下書頁、兩面封面
+      b.position.copy(pos); b.rotation.set(...rot); b.castShadow = b.receiveShadow = true; root.add(b); return b;
+    };
+    // 書擋(L 形黃銅)
+    const brassB = new THREE.MeshStandardMaterial({ color: 0xc9a25a, metalness: 0.8, roughness: 0.35 });
+    { const be = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.012), brassB); be.position.set(BX, SY + 0.1, 0.62); be.castShadow = true; root.add(be);
+      const ft = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.008, 0.09), brassB); ft.position.set(BX, SY + 0.004, 0.67); root.add(ft); }
+    const BOOKS = [[0.055, 0.34, 0.22, 0x8b7cff], [0.04, 0.3, 0.2, 0xf27a5a], [0.062, 0.37, 0.23, 0x46bfcf], [0.035, 0.27, 0.19, 0xf5c451],
+      [0.05, 0.32, 0.21, 0xf3ead8], [0.045, 0.35, 0.22, 0x6c4f9e], [0.038, 0.29, 0.2, 0xff8fb8]];
+    let z = 0.632;
+    BOOKS.forEach(([w, h, d, hex], i) => { z += w / 2 + 0.002; book(w, h, d, hex, i, new THREE.Vector3(BX + (0.23 - d) / 2, SY + h / 2, z)); z += w / 2; });
+    // 最後一本斜靠在前一本上
+    { const w = 0.042, h = 0.31, a = 0.32; book(w, h, 0.21, 0x3fae8a, 9, new THREE.Vector3(BX, SY + Math.cos(a) * h / 2 + Math.sin(a) * w / 2, z + Math.sin(a) * h / 2 + 0.004), [-a, 0, 0]); }
+    // 平放的兩本
+    book(0.24, 0.035, 0.17, 0xef7b3a, 11, new THREE.Vector3(BX + 0.02, SY + 0.0175, 1.27), [0, 0.12, 0]);
+    book(0.21, 0.03, 0.15, 0x8fd1c4, 12, new THREE.Vector3(BX + 0.02, SY + 0.05, 1.26), [0, -0.1, 0]);
+  }
+  // 水晶球:胡桃木底座 + 黃銅環、透明玻璃球,裡面一團慢慢轉的紫 / 青 / 粉星雲(會發光)和幾顆閃爍的小星星
+  { const cb = group(WX - 0.2, 2.39, 1.62);
+    cyl(0.085, 0.1, 0.06, 0x6b4430, { y: 0.03, parent: cb });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.008, 8, 40), new THREE.MeshStandardMaterial({ color: 0xc9a25a, metalness: 0.85, roughness: 0.3 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.066; cb.add(ring);
+    const R = 0.115, CY = 0.06 + R * 0.92;
+    // 星雲貼圖:幾團柔和的彩色霧 + 細小亮點
+    const nc = document.createElement('canvas'); nc.width = 512; nc.height = 256; { const g = nc.getContext('2d'); g.fillStyle = '#1a0f3a'; g.fillRect(0, 0, 512, 256);
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 18; i++) { const x = Math.random() * 512, y = 40 + Math.random() * 176, r = 30 + Math.random() * 70, col = ['120,80,255', '70,220,230', '255,110,200', '150,120,255'][i % 4];
+        const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${col},.32)`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+      for (let i = 0; i < 120; i++) { g.fillStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.6})`; g.fillRect(Math.random() * 512, Math.random() * 256, 1.5, 1.5); } }
+    const neb = new THREE.CanvasTexture(nc); neb.colorSpace = THREE.SRGBColorSpace; neb.wrapS = THREE.RepeatWrapping;
+    const core = new THREE.Mesh(new THREE.SphereGeometry(R * 0.78, 32, 20), new THREE.MeshStandardMaterial({ map: neb, emissive: 0xffffff, emissiveMap: neb, emissiveIntensity: 0.55, roughness: 1 }));   // 太亮會整顆暈成白色,看不到顏色
+    core.position.y = CY; cb.add(core);
+    const stars = [];
+    for (let i = 0; i < 7; i++) { const st = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff2c8, emissiveIntensity: 1.5 }));
+      const a = i * 2.3, e = (i % 3 - 1) * 0.5; st.position.set(Math.cos(a) * R * 0.84 * Math.cos(e), CY + Math.sin(e) * R * 0.84, Math.sin(a) * R * 0.84 * Math.cos(e)); cb.add(st); stars.push(st); }
+    const glass = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.03, metalness: 0, transmission: 1, thickness: 0.15, ior: 1.45, clearcoat: 1, transparent: true, opacity: 1 }));
+    glass.position.y = CY; cb.add(glass);
+    idleAnims.push((t) => { core.rotation.y = t * 0.25; core.rotation.z = Math.sin(t * 0.3) * 0.2; stars.forEach((st, i) => { st.scale.setScalar(0.6 + 0.5 * (0.5 + 0.5 * Math.sin(t * (1.7 + i * 0.4) + i))); }); });
+  }
   sphere(0.11, 0xf7f1f2, { x: WX - 0.21, y: 3.05 + 0.15, z: 2.1 }); sphere(0.07, 0xf7f1f2, { x: WX - 0.21, y: 3.05 + 0.3, z: 2.1 });   // 招財貓(簡化)
   box(0.16, 0.26, 0.06, 0xf0a7c8, { x: WX - 0.21, y: 3.05 + 0.17, z: 1.35, r: 0.015, seg: 1 }); box(0.1, 0.09, 0.02, 0x6fd9c2, { x: WX - 0.21, y: 3.05 + 0.22, z: 1.33, r: 0.004, seg: 1 });   // 掌上遊戲機
 }
@@ -1311,7 +1357,7 @@ function loop() {
 
   // 仙人掌彎曲:把時間餵給每根的著色器
   for (const lf of plantLeaves) lf.userData.uni.uTime.value = t;
-  for (const f of plantSway) f(t);
+  for (const f of idleAnims) f(t);
   if (playTag) {                                                          // PLAY 標記:上下漂浮 + 面向鏡頭(只轉 y 軸)
     playTag.position.y = ARCADE_H + 0.55 + 0.08 * Math.sin(t * 2.2);
     playTag.getWorldPosition(tagPos); tagLook.set(camera.position.x, tagPos.y, camera.position.z);
@@ -1351,7 +1397,9 @@ if (FX) {
   };
   const darken = () => scene.traverse((o) => {
     if (!o.visible) return;
-    if (o.isMesh) { const m = Array.isArray(o.material) ? o.material[0] : o.material; swapped.push([o, o.material]); o.material = glows(m) ? glowMat(m, gainOf(o)) : black; }
+    if (o.isMesh) { const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (m.transmission > 0 || (m.transparent && m.opacity < 0.9 && !glows(m))) { hidden.push(o); o.visible = false; return; }   // 玻璃:發光圖裡藏起來,不然會變成黑球擋住裡面發光的東西
+      swapped.push([o, o.material]); o.material = glows(m) ? glowMat(m, gainOf(o)) : black; }
     else if (o.isLine || o.isPoints || o.isSprite) { hidden.push(o); o.visible = false; }
   });
   const restore = () => { for (const [o, m] of swapped) o.material = m; for (const o of hidden) o.visible = true; swapped.length = hidden.length = 0; };
