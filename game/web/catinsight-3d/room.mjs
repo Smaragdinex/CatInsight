@@ -645,41 +645,78 @@ let screenMesh, deskGroup;
 }
 
 // ---------- 植物 ----------
-const plantLeaves = [];
+const plantLeaves = [];   // (舊的彎曲仙人掌用;現在的仙人掌不會動,留著空陣列)
+// 書桌後面、靠窗角落的柱狀仙人掌(像巨柱仙人掌):主幹 + 兩支往上彎的手臂,每根都有直的稜線,稜線上一排排刺座和小刺,頂端開一朵粉紅小花;陶盆 + 白色小石子
 {
   const p = group(1.85, 0, -1.9);
-  cyl(0.28, 0.22, 0.28, C.chairDark, { y: 0.14, parent: p });
-  // 每根葉子:高度方向切 24 段,頂點著色器依高度權重(底 0、頂 1,平方)往側邊推 → 根部不動、越上面彎越多
-  const leaf = (h, x, z, tilt, col, phase) => {
-    const pivot = new THREE.Group(); pivot.position.set(x, 0.28 + 0.1, z); p.add(pivot);
-    pivot.rotation.z = tilt; pivot.rotation.x = tilt * 0.4;
-    const geo = new THREE.CapsuleGeometry(0.17, h, 8, 16, 24);   // capSegments, radialSegments, heightSegments
-    const material = mat(col);
-    const uni = { uTime: { value: 0 }, uPhase: { value: phase }, uAmp: { value: 0.16 * (h / 1.9 + 0.4) }, uYMin: { value: -h / 2 - 0.17 }, uH: { value: h + 0.34 } };
-    material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, uni);
-      shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>
-          uniform float uTime, uPhase, uAmp, uYMin, uH;`)
-        .replace('#include <begin_vertex>', `#include <begin_vertex>
-          float w = clamp((position.y - uYMin) / uH, 0.0, 1.0);
-          w = w * w;                                   // 底部穩、頂端彎
-          float sway = sin(uTime * 1.4 + uPhase) * uAmp;
-          float sway2 = sin(uTime * 0.9 + uPhase * 1.7) * uAmp * 0.45;
-          transformed.x += sway * w;
-          transformed.z += sway2 * w;
-          transformed.y -= (sway * sway + sway2 * sway2) * w * 0.35;   // 彎的時候高度略縮,比較像真的彎
-        `);
-    };
-    material.customProgramCacheKey = () => 'cactus-bend';
-    const m = new THREE.Mesh(geo, material);
-    m.position.y = h / 2 + 0.17; m.castShadow = true; pivot.add(m);
-    pivot.userData = { uni };
-    plantLeaves.push(pivot);
+  const POT_TOP = 0.38;
+  // 陶盆(車床輪廓:捲邊的盆口)+ 土 + 小石子
+  const potPts = [[0, 0.004], [0.22, 0.004], [0.235, 0.02], [0.26, 0.28], [0.29, 0.29], [0.3, 0.31], [0.3, 0.37], [0.29, 0.38], [0.275, 0.36], [0, 0.36]].map(([r, y]) => new THREE.Vector2(r, y));
+  const pot = new THREE.Mesh(new THREE.LatheGeometry(potPts, 48), mat(0xd9784f, { roughness: 0.8 })); pot.castShadow = pot.receiveShadow = true; p.add(pot);
+  cyl(0.276, 0.276, 0.012, 0x4a3426, { y: 0.358, parent: p });
+  { const peb = new THREE.InstancedMesh(new THREE.SphereGeometry(0.022, 8, 6), mat(0xeee6e0, { roughness: 0.9 }), 46), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    for (let i = 0; i < 46; i++) { const a = i * 2.39996, r = 0.22 + 0.05 * ((i * 7) % 5) / 5; m4.compose(new THREE.Vector3(Math.cos(a) * r, 0.366, Math.sin(a) * r), q, new THREE.Vector3(1, 0.6, 1).multiplyScalar(0.8 + ((i * 13) % 7) / 14)); peb.setMatrixAt(i, m4); }
+    peb.receiveShadow = true; p.add(peb); }
+  // 有稜線的圓柱:膠囊形狀,依角度把半徑做成 9 道起伏;溝暗、稜亮、頂端新長的地方偏黃綠
+  const RIBS = 9, DEPTH = 0.13;
+  const cactusMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 });
+  const ribbed = (r, h) => {
+    const g = new THREE.CapsuleGeometry(r, h, 10, RIBS * 8, Math.max(8, Math.round(h * 24))), pos = g.attributes.position, col = [], c = new THREE.Color();
+    const groove = new THREE.Color(0x24784a), ridge = new THREE.Color(0x52b87c), fresh = new THREE.Color(0x9fd96a);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), rib = Math.cos(RIBS * Math.atan2(z, x)), k = 1 + DEPTH * rib;
+      pos.setX(i, x * k); pos.setZ(i, z * k);
+      c.copy(groove).lerp(ridge, (rib + 1) / 2); c.lerp(fresh, Math.max(0, Math.min(1, (y - h / 2 + r * 0.2) / (r * 1.2))) * 0.6);
+      col.push(c.r, c.g, c.b);
+    }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals(); return g;
   };
-  leaf(1.9, 0, 0, 0.05, C.plant, 0);
-  leaf(1.1, -0.28, 0.05, 0.45, C.plantDark, 1.3);
-  leaf(0.9, 0.26, -0.05, -0.5, C.plant, 2.4);
+  // 刺座(奶油色小點)+ 每個 3 根小刺,全部用 InstancedMesh(上千個)
+  const areoles = [], spines = [];
+  const _q = new THREE.Quaternion(), _v = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const column = (r, h, pos, rotZ = 0, dome = true) => {
+    const g = new THREE.Group(); g.position.copy(pos); g.rotation.z = rotZ; p.add(g);
+    const m = new THREE.Mesh(ribbed(r, h), cactusMat); m.castShadow = true; m.receiveShadow = true; g.add(m);
+    g.updateMatrix();
+    const R = r * (1 + DEPTH), rows = Math.round(h / 0.085);
+    for (let j = 0; j < RIBS; j++) {
+      const a = j / RIBS * Math.PI * 2;
+      const add = (y, rad, ny) => {   // 稜線上一點(柱體座標):位置 + 朝外的方向
+        const out = new THREE.Vector3(Math.cos(a), ny, Math.sin(a)).normalize();
+        const at = new THREE.Vector3(Math.cos(a) * rad, y, Math.sin(a) * rad).applyMatrix4(g.matrix);
+        const dir = out.clone().transformDirection(g.matrix);
+        areoles.push(at.clone().addScaledVector(dir, 0.004));
+        for (let s = 0; s < 3; s++) {                                       // 三根刺:往外,上下左右散開一點
+          const d = dir.clone().add(new THREE.Vector3(Math.sin(s * 2.1 + j) * 0.5, (s - 1) * 0.45, Math.cos(s * 2.1 + j) * 0.5)).normalize();
+          spines.push([at.clone().addScaledVector(d, 0.028), d]);
+        }
+      };
+      for (let i = 0; i < rows; i++) { const y = -h / 2 + 0.05 + (i + (j % 2) * 0.5) * (h / rows); if (y < h / 2) add(y, R, 0); }
+      if (dome) for (const ph of [0.45, 0.95]) add(h / 2 + r * Math.sin(ph), R * Math.cos(ph), Math.sin(ph) * 1.6);
+    }
+    return g;
+  };
+  // 主幹 + 左右手臂(橫的一小段 + 手肘 + 往上的一段)
+  const main = { r: 0.2, h: 1.55 };
+  column(main.r, main.h, new THREE.Vector3(0, POT_TOP + main.r + main.h / 2, 0));
+  for (const [sx, y0, hor, ver, r] of [[-1, 0.95, 0.2, 0.55, 0.13], [1, 1.28, 0.14, 0.38, 0.115]]) {
+    const ey = POT_TOP + y0, ex = sx * (main.r + hor);
+    column(r, hor, new THREE.Vector3(sx * (main.r + hor / 2 - 0.02), ey, 0), Math.PI / 2, false);
+    const elbow = new THREE.Mesh(ribbed(r, 0.001), cactusMat);          // 手肘:一顆有稜線的球,和柱子接得起來
+    elbow.position.set(ex, ey, 0); elbow.castShadow = true; p.add(elbow);
+    column(r, ver, new THREE.Vector3(ex, ey + ver / 2, 0));
+  }
+  { const am = new THREE.InstancedMesh(new THREE.SphereGeometry(0.009, 8, 6), mat(0xd9ccae, { roughness: 0.95 }), areoles.length), m4 = new THREE.Matrix4();
+    areoles.forEach((at, i) => { am.setMatrixAt(i, m4.makeTranslation(at.x, at.y, at.z)); }); p.add(am); }
+  { const sg = new THREE.ConeGeometry(0.0035, 0.05, 4); sg.translate(0, 0.025, 0);
+    const sm = new THREE.InstancedMesh(sg, mat(0xfff6dc, { roughness: 0.5 }), spines.length), m4 = new THREE.Matrix4();
+    spines.forEach(([at, d], i) => { _q.setFromUnitVectors(up, d); m4.compose(at, _q, _v.set(1, 1, 1)); sm.setMatrixAt(i, m4); }); p.add(sm); }
+  // 頂端一朵粉紅小花
+  { const fl = new THREE.Group(); fl.position.set(0.02, POT_TOP + main.r * 2 + main.h - 0.01, 0.03); fl.rotation.set(0.2, 0, -0.15); p.add(fl);
+    const petal = mat(0xff8fb8, { roughness: 0.5 });
+    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2, pt = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), petal);
+      pt.scale.set(1, 0.32, 0.55); pt.position.set(Math.cos(a) * 0.045, 0.03, Math.sin(a) * 0.045); pt.rotation.set(0, -a, 0.5); pt.castShadow = true; fl.add(pt); }
+    sphere(0.025, 0xffd36a, { y: 0.045, parent: fl }); }
 }
 
 // ---------- 貓 + 碗 ----------
