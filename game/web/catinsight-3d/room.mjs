@@ -1450,10 +1450,49 @@ canvas.addEventListener('pointermove', (e) => {
     if (hit && hit.uv) hv = arcadeButtonAt(hit.uv.x * 520, (1 - hit.uv.y) * 385);
   }
   if (hv !== arcHover) { arcHover = hv; if (hv) uiSfx('hover'); }
-  let onCam = false;
-  if (!hv && camRig && zoomT === 0 && !(story && story.active)) { ndc.set((e.clientX / canvas.clientWidth) * 2 - 1, -(e.clientY / canvas.clientHeight) * 2 + 1); raycaster.setFromCamera(ndc, camera); onCam = raycaster.intersectObject(camRig, true).length > 0; }
-  canvas.style.cursor = hv || onCam ? 'pointer' : '';
+  // 房間裡(還沒飛進去):滑到攝影機、電腦螢幕、街機上 = 可以點
+  let onCam = false, hot3d = !!hv;
+  if (!hv && zoomT === 0 && !uiOn && !(story && story.active)) {
+    ndc.set((e.clientX / canvas.clientWidth) * 2 - 1, -(e.clientY / canvas.clientHeight) * 2 + 1); raycaster.setFromCamera(ndc, camera);
+    onCam = !!camRig && raycaster.intersectObject(camRig, true).length > 0;
+    hot3d = onCam || (screenMesh && raycaster.intersectObject(screenMesh).length > 0) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length > 0) || (arcadeScreen && raycaster.intersectObject(arcadeScreen).length > 0);
+  }
+  if (ccur) ccur.p.hot3d = hot3d;
+  canvas.style.cursor = hot3d ? 'pointer' : '';
 });
+// ---------- 圓圈游標(只在有滑鼠的電腦上):跟著滑鼠的細圓圈 + 中心小點;滑到能互動的東西上,圓圈縮小變實心 ----------
+const ccur = (() => {
+  if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return null;
+  const st = document.createElement('style');
+  st.textContent = `body.ccur-on, body.ccur-on * { cursor: none !important; }
+    .ccur-ring, .ccur-dot { position: fixed; left: 0; top: 0; z-index: 99; pointer-events: none; border-radius: 50%; mix-blend-mode: difference; opacity: 0; transition: opacity .2s; will-change: transform; }
+    .ccur-ring { width: 36px; height: 36px; margin: -18px 0 0 -18px; border: 1.5px solid #fff; box-sizing: border-box;
+      transition: width .28s cubic-bezier(.2,.8,.2,1), height .28s cubic-bezier(.2,.8,.2,1), margin .28s cubic-bezier(.2,.8,.2,1), background-color .28s, border-width .28s, opacity .2s; }
+    .ccur-ring.hot { width: 14px; height: 14px; margin: -7px 0 0 -7px; background-color: #fff; }
+    .ccur-ring.down { width: 26px; height: 26px; margin: -13px 0 0 -13px; }
+    .ccur-ring.hot.down { width: 10px; height: 10px; margin: -5px 0 0 -5px; }
+    .ccur-dot { width: 4px; height: 4px; margin: -2px 0 0 -2px; background: #fff; }
+    .ccur-dot.hot { opacity: 0 !important; }`;
+  document.head.appendChild(st);
+  const ring = document.createElement('div'), dot = document.createElement('div'); ring.className = 'ccur-ring'; dot.className = 'ccur-dot'; document.body.append(ring, dot);
+  // 頁面上能按的東西:連結、按鈕、捲動版的 K 棒進度、手機螢幕上的分頁、會互動的圖表
+  const SEL = 'a, button, [role=button], input, select, label, .story-prog i, .tabs span, .dots i, .chart canvas';
+  const p = { x: -100, y: -100, rx: -100, ry: -100, hotDom: false, hot3d: false, down: false, inside: false };
+  window.addEventListener('pointermove', (e) => { if (e.pointerType !== 'mouse') return; p.x = e.clientX; p.y = e.clientY; if (!p.inside) { p.rx = p.x; p.ry = p.y; } p.inside = true; p.hotDom = !!(e.target.closest && e.target.closest(SEL)); if (e.target !== canvas) p.hot3d = false; }, true);
+  window.addEventListener('pointerdown', () => { p.down = true; }, true);
+  window.addEventListener('pointerup', () => { p.down = false; }, true);
+  document.documentElement.addEventListener('mouseleave', () => { p.inside = false; });
+  window.addEventListener('blur', () => { p.inside = false; });
+  return { p, step(dt) {
+    const on = !gameOn;                                            // 遊戲(iframe)裡用系統游標,圓圈跟不進去
+    document.body.classList.toggle('ccur-on', on);
+    const k = 1 - Math.exp(-dt * 22); p.rx += (p.x - p.rx) * k; p.ry += (p.y - p.ry) * k;   // 圓圈慢一點點跟上,中心點直接跟著滑鼠
+    ring.style.transform = `translate3d(${p.rx}px, ${p.ry}px, 0)`; dot.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
+    const show = on && p.inside, hot = p.hotDom || p.hot3d;
+    ring.style.opacity = dot.style.opacity = show ? '1' : '0';
+    ring.classList.toggle('hot', hot); ring.classList.toggle('down', p.down); dot.classList.toggle('hot', hot);
+  } };
+})();
 // 遊戲裡的 ♪ 靜音鈕會通知這一頁
 window.addEventListener('message', (e) => { if (e.origin !== location.origin || !e.data || e.data.type !== 'css-sound') return; bgm.on = !!e.data.on; bgmLevel(); });
 // 遊戲裡按「全螢幕」:把整個房間頁放到全螢幕(iframe 裡做不到),狀態變化再回報給遊戲更新按鈕
@@ -1579,6 +1618,7 @@ function loop() {
   // 仙人掌彎曲:把時間餵給每根的著色器
   for (const lf of plantLeaves) lf.userData.uni.uTime.value = t;
   for (const f of idleAnims) f(t);
+  if (ccur) ccur.step(dt);
   if (playTag) {                                                          // PLAY 標記:上下漂浮 + 面向鏡頭(只轉 y 軸)
     playTag.position.y = ARCADE_H + 0.55 + 0.08 * Math.sin(t * 2.2);
     playTag.getWorldPosition(tagPos); tagLook.set(camera.position.x, tagPos.y, camera.position.z);
