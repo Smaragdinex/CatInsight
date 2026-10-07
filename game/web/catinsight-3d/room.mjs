@@ -810,7 +810,7 @@ for (const y of [2.55, 1.65]) {
   }
 }
 
-// ---------- 窗前層架的小東西(原本太空):上層熔岩燈、書堆 + 復古鬧鐘(指針照真實時間走);下層金色公牛、粉紅小豬撲滿 + 金幣、
+// ---------- 窗前層架的小東西(原本太空):上層熔岩燈、書堆 + 復古鬧鐘(指針照真實時間走);下層跑車模型、
 //            黑膠唱盤(唱片會轉)+ 唱片封套、三盆多肉(串燈拿掉了)----------
 {
   const TOP = 2.61, LOW = 1.71, ZC = L.z + 0.12, FRONT = L.z + 0.15 + 0.35;
@@ -844,25 +844,66 @@ for (const y of [2.55, 1.65]) {
     for (const sx of [-1, 1]) { put(new THREE.SphereGeometry(0.03, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), gold, sx * 0.05, 0.16, -0.005, ck, [0, 0, -sx * 0.5]); put(new THREE.CylinderGeometry(0.005, 0.005, 0.05, 6), gold, sx * 0.05, 0.03, 0, ck, [0, 0, sx * 0.35]); }
     put(new THREE.SphereGeometry(0.01, 8, 6), gold, 0, 0.17, 0, ck);
     idleAnims.push(() => { const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60; mh.rotation.z = -m / 60 * Math.PI * 2; hh.rotation.z = -h / 12 * Math.PI * 2; }); }
-  // 金色公牛(下層左邊):往前衝的低多邊形公牛,黑色大理石底座
-  { const g = group(-1.3, LOW, ZC); g.rotation.y = 0.5;
-    put(new RoundedBoxGeometry(0.32, 0.04, 0.16, 2, 0.01), M(0x1e1a24, { roughness: 0.3, metalness: 0.2 }), 0, 0.02, 0, g);
-    const bull = new THREE.Group(); bull.position.y = 0.04; g.add(bull);
-    const body = put(new THREE.SphereGeometry(0.07, 8, 6), gold, 0, 0.1, 0, bull); body.scale.set(1.6, 0.85, 0.75);
-    const head = put(new THREE.SphereGeometry(0.04, 8, 6), gold, 0.115, 0.08, 0, bull); head.scale.set(1.2, 0.9, 0.85);
-    for (const sz of [-1, 1]) { put(new THREE.ConeGeometry(0.01, 0.05, 6), gold, 0.12, 0.125, sz * 0.03, bull, [sz * 0.9, 0, -0.5]);
-      for (const sx of [-1, 1]) { const leg = put(new THREE.CylinderGeometry(0.012, 0.01, 0.07, 6), gold, sx * 0.06, 0.035, sz * 0.03, bull, [0, 0, sx * 0.35]); leg.position.x += sx * 0.01; } }
-    put(new THREE.CylinderGeometry(0.004, 0.003, 0.08, 5), gold, -0.12, 0.13, 0, bull, [0, 0, 0.9]); }
-  // 粉紅小豬撲滿 + 一疊金幣(下層)
-  { const g = group(-0.2, LOW, ZC); g.rotation.y = 0.35;
-    const pink = M(0xffa7c4, { roughness: 0.35 });
-    const body = put(new THREE.SphereGeometry(0.08, 24, 18), pink, 0, 0.09, 0, g); body.scale.set(1.25, 1, 1);
-    put(new THREE.CylinderGeometry(0.03, 0.03, 0.025, 20), pink, 0.1, 0.09, 0, g, [0, 0, Math.PI / 2]);
-    for (const dz of [-0.01, 0.01]) put(new THREE.CircleGeometry(0.006, 10), M(0xd9648a), 0.1135, 0.09, dz, g, [0, Math.PI / 2, 0]);
-    for (const sz of [-1, 1]) { put(new THREE.ConeGeometry(0.02, 0.035, 10), pink, 0.05, 0.165, sz * 0.04, g, [sz * 0.3, 0, -0.3]); put(new THREE.SphereGeometry(0.008, 8, 6), M(0x3b2f2a), 0.085, 0.115, sz * 0.03, g);
-      for (const sx of [-1, 1]) put(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 10), pink, sx * 0.05, 0.015, sz * 0.04, g); }
-    put(new THREE.BoxGeometry(0.035, 0.004, 0.008), M(0x3b2f2a), -0.01, 0.178, 0, g);
-    for (let i = 0; i < 5; i++) put(new THREE.CylinderGeometry(0.022, 0.022, 0.007, 20), gold, 0.0 + (i % 2) * 0.003, 0.0035 + i * 0.0075, 0.13, g); }
+  // 經典後置引擎跑車模型(下層左邊,像 1:18 的收藏模型;沒有任何廠牌標誌):
+  // 側面輪廓擠出成車身(倒角做出圓潤的邊)、往上隆起的前葉子板 + 圓形大燈、寬的後輪拱、一路斜到車尾的溜背車頂、深色車窗、
+  // 鴨尾擾流、橫貫車尾的紅色尾燈條、五爪輪圈、後照鏡、雙出排氣;放在黑色壓克力展示座上(前面一塊銘牌)
+  { const g = group(-0.75, LOW, ZC + 0.02); g.rotation.y = -0.35;                     // 車頭(本地 +x)微微轉向房間
+    const paint = new THREE.MeshPhysicalMaterial({ color: 0xc8202a, metalness: 0.35, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.06 });
+    const glassM = new THREE.MeshPhysicalMaterial({ color: 0x161a26, metalness: 0.4, roughness: 0.06, clearcoat: 1 });
+    const chrome = M(0xdfe3ea, { metalness: 0.95, roughness: 0.18 }), rubber = M(0x17161b, { roughness: 0.85 }), trim = M(0x1d1c22, { roughness: 0.5 });
+    // 展示座 + 銘牌
+    put(new RoundedBoxGeometry(0.74, 0.03, 0.36, 2, 0.01), M(0x121117, { roughness: 0.18, metalness: 0.3 }), 0, 0.015, 0, g);
+    { const c = document.createElement('canvas'); c.width = 320; c.height = 56; const cg = c.getContext('2d');
+      cg.fillStyle = '#d6b36a'; cg.fillRect(0, 0, 320, 56); cg.fillStyle = '#2e2210'; cg.textAlign = 'center'; cg.font = '700 22px "Avenir Next", system-ui, sans-serif'; cg.fillText('CatInsight GT  ·  1:18', 160, 36);
+      const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; const bm = M(0xd6b36a, { metalness: 0.8, roughness: 0.3 });
+      put(new THREE.BoxGeometry(0.2, 0.035, 0.004), [bm, bm, bm, bm, new THREE.MeshStandardMaterial({ map: tx, metalness: 0.5, roughness: 0.35 }), bm], 0, 0.016, 0.181, g); }
+    const car = new THREE.Group(); car.position.y = 0.03; g.add(car);
+    const FX = 0.173, RX = -0.167, WR = 0.05;                                               // 前 / 後輪中心、輪胎半徑
+    const extrude = (shape, depth, bevel, m2, z0 = 0) => { const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.8, bevelSegments: 4, curveSegments: 24 });
+      geo.translate(0, 0, -depth / 2 + z0); const o = new THREE.Mesh(geo, m2); o.castShadow = true; car.add(o); return o; };
+    // 車身側面輪廓(車頭 = +x):下緣挖出兩個輪拱,低矮的引擎蓋、車尾圓潤往下收
+    { const sp = new THREE.Shape(); sp.moveTo(-0.295, 0.055);
+      sp.lineTo(RX - 0.075, 0.05); sp.absarc(RX, 0.05, 0.075, Math.PI, 0, true);
+      sp.lineTo(FX - 0.075, 0.05); sp.absarc(FX, 0.05, 0.075, Math.PI, 0, true);
+      sp.lineTo(0.29, 0.05); sp.quadraticCurveTo(0.312, 0.058, 0.306, 0.082); sp.quadraticCurveTo(0.29, 0.1, 0.22, 0.106); sp.lineTo(0.1, 0.12);
+      sp.lineTo(-0.1, 0.124); sp.quadraticCurveTo(-0.24, 0.122, -0.29, 0.095); sp.quadraticCurveTo(-0.312, 0.08, -0.305, 0.06); sp.lineTo(-0.295, 0.055);
+      extrude(sp, 0.2, 0.022, paint); }
+    // 車艙:整塊深色玻璃(擋風玻璃、側窗、後窗),上面再蓋一條車身色的車頂
+    { const cp = new THREE.Shape(); cp.moveTo(0.11, 0.118); cp.quadraticCurveTo(0.06, 0.168, 0.03, 0.186); cp.lineTo(-0.05, 0.189); cp.quadraticCurveTo(-0.17, 0.176, -0.25, 0.124); cp.lineTo(0.11, 0.118);
+      extrude(cp, 0.15, 0.012, glassM);
+      const rp = new THREE.Shape(); rp.moveTo(0.028, 0.19); rp.lineTo(-0.05, 0.193); rp.quadraticCurveTo(-0.15, 0.182, -0.205, 0.156); rp.lineTo(-0.195, 0.148); rp.quadraticCurveTo(-0.14, 0.17, -0.05, 0.179); rp.lineTo(0.03, 0.177); rp.lineTo(0.028, 0.19);
+      extrude(rp, 0.13, 0.012, paint); }
+    // 葉子板:前面往上隆起(大燈在它的前端)、後面更寬的後輪拱
+    for (const sz of [-1, 1]) {
+      // 只用上半球,車身側面只多鼓出一點點(下半球會跑進輪拱裡、撞到輪胎)
+      const dome = new THREE.SphereGeometry(1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+      const ff = put(dome, paint, FX + 0.012, 0.106, sz * 0.088, car); ff.scale.set(0.112, 0.036, 0.038);
+      const rf = put(dome, paint, RX - 0.012, 0.108, sz * 0.094, car); rf.scale.set(0.135, 0.036, 0.042);
+      // 圓形大燈:鍍鉻燈圈 + 微微發光的燈面(在前葉子板的最前端,稍微往上仰)
+      const hl = new THREE.Group(); hl.position.set(0.268, 0.116, sz * 0.088); hl.rotation.z = -Math.PI / 2 + 0.2; car.add(hl);
+      put(new THREE.CylinderGeometry(0.021, 0.023, 0.012, 24), chrome, 0, 0, 0, hl);
+      put(new THREE.CylinderGeometry(0.018, 0.018, 0.013, 24), new THREE.MeshStandardMaterial({ color: 0xfff6e0, emissive: 0xfff1cc, emissiveIntensity: 0.35, roughness: 0.15 }), 0, 0.001, 0, hl);
+      // 方向燈(保險桿兩角)、後照鏡、門把
+      put(new RoundedBoxGeometry(0.012, 0.01, 0.03, 1, 0.004), M(0xffa53a, { emissive: 0xff8a1a, emissiveIntensity: 0.2 }), 0.3, 0.075, sz * 0.085, car);
+      const mir = put(new RoundedBoxGeometry(0.02, 0.016, 0.026, 2, 0.006), paint, 0.075, 0.148, sz * 0.105, car); mir.rotation.y = sz * 0.2;
+      put(new THREE.BoxGeometry(0.02, 0.004, 0.003), chrome, -0.02, 0.123, sz * 0.123, car);
+    }
+    // 車尾:鴨尾擾流、橫貫的紅色尾燈條、雙出排氣;車頭:黑色進氣口
+    { const dt = new THREE.Shape(); dt.moveTo(-0.27, 0.112); dt.lineTo(-0.315, 0.122); dt.lineTo(-0.312, 0.112); dt.lineTo(-0.28, 0.1); dt.lineTo(-0.27, 0.112);
+      extrude(dt, 0.18, 0.006, paint); }
+    put(new RoundedBoxGeometry(0.008, 0.012, 0.21, 1, 0.003), new THREE.MeshStandardMaterial({ color: 0xff3040, emissive: 0xff1a2a, emissiveIntensity: 0.9, roughness: 0.2 }), -0.318, 0.083, 0, car);
+    for (const sz of [-1, 1]) { const ex = put(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 14), chrome, -0.318, 0.045, sz * 0.03, car); ex.rotation.z = Math.PI / 2; }
+    put(new RoundedBoxGeometry(0.008, 0.016, 0.14, 1, 0.004), trim, 0.317, 0.058, 0, car);
+    // 輪子:輪胎 + 銀色五爪輪圈 + 中心蓋
+    for (const [x, sz] of [[FX, 1], [FX, -1], [RX, 1], [RX, -1]]) {
+      const w = new THREE.Group(); w.position.set(x, WR, sz * (x > 0 ? 0.108 : 0.112)); w.rotation.x = Math.PI / 2; car.add(w);
+      put(new THREE.CylinderGeometry(WR, WR, x > 0 ? 0.034 : 0.042, 28), rubber, 0, 0, 0, w);
+      put(new THREE.CylinderGeometry(0.032, 0.032, 0.002, 24), M(0x2b2a31, { metalness: 0.5, roughness: 0.4 }), 0, sz * 0.02, 0, w);
+      for (let i = 0; i < 5; i++) { const sk = put(new THREE.BoxGeometry(0.009, 0.004, 0.03), chrome, 0, sz * 0.022, 0, w); sk.rotation.y = i / 5 * Math.PI * 2; sk.translateZ(0.014); }
+      put(new THREE.CylinderGeometry(0.034, 0.034, 0.002, 28, 1, true), chrome, 0, sz * 0.021, 0, w);
+      put(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 14), chrome, 0, sz * 0.023, 0, w);
+    }
+  }
   // 黑膠唱盤(下層中間):木頭底座、轉動的唱片(紋路 + 彩色圓標)、唱臂;旁邊斜靠兩張唱片封套
   { const g = group(0.85, LOW, ZC); g.rotation.y = -0.15;
     put(new RoundedBoxGeometry(0.42, 0.06, 0.34, 2, 0.015), new THREE.MeshStandardMaterial({ map: woodTex(512, 128, 'u', '#c99566', [110, 66, 34]), roughness: 0.5 }), 0, 0.03, 0, g);
