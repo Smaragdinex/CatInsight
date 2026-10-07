@@ -461,7 +461,7 @@ for (const y of [2.55, 1.65]) {
   // 頭戴式 VR / MR 裝置 + 展示架(取代水晶球;像空間運算頭戴裝置那種造型,沒有任何品牌標誌):
   // 弧形黑色鏡面前罩 + 一圈鋁合金邊框、後面淺灰色遮光軟墊、兩側鋁製接頭、繞到後腦的針織頭帶(直條紋),
   // 戴在展示架的布面頭型上(霧白圓座 + 細立柱);左邊一條細線接到層板上的鋁製電池
-  { const vr = group(WX - 0.2, 2.39, 1.66); vr.rotation.y = -Math.PI / 2 + 0.35;            // 本地 +z = 正面(朝房間)
+  { const vr = group(WX - 0.22, 2.39, 1.68); vr.rotation.y = -Math.PI / 2 + 0.35; vr.scale.setScalar(1.6);   // 本地 +z = 正面(朝房間);放大 1.6 倍
     const white = mat(0xf1eef4, { roughness: 0.4 }), alu = new THREE.MeshStandardMaterial({ color: 0xd9dbe2, metalness: 0.9, roughness: 0.22, envMap: reflectEnv(), envMapIntensity: 0.9 });
     const seal = mat(0xb9b6bd, { roughness: 1 });
     const add = (geo, m2, x, y, z, parent = vr) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
