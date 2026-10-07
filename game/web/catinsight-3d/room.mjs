@@ -461,16 +461,18 @@ for (const y of [2.55, 1.65]) {
   // 頭戴式 VR / MR 裝置 + 展示架(取代水晶球;像空間運算頭戴裝置那種造型,沒有任何品牌標誌):
   // 弧形黑色鏡面前罩 + 一圈鋁合金邊框、後面淺灰色遮光軟墊、兩側鋁製接頭、繞到後腦的針織頭帶(直條紋),
   // 戴在展示架的布面頭型上(霧白圓座 + 細立柱);左邊一條細線接到層板上的鋁製電池
-  { const vr = group(WX - 0.22, 2.39, 1.68); vr.rotation.y = -Math.PI / 2 + 0.35; vr.scale.setScalar(1.6);   // 本地 +z = 正面(朝房間);放大 1.6 倍
+  // 展示架維持原尺寸、矮一點;頭戴裝置本身放大 1.6 倍(HS)
+  { const vr = group(WX - 0.21, 2.39, 1.68); vr.rotation.y = -Math.PI / 2 + 0.35;            // 本地 +z = 正面(朝房間)
     const white = mat(0xf1eef4, { roughness: 0.4 }), alu = new THREE.MeshStandardMaterial({ color: 0xd9dbe2, metalness: 0.9, roughness: 0.22, envMap: reflectEnv(), envMapIntensity: 0.9 });
     const seal = mat(0xb9b6bd, { roughness: 1 });
     const add = (geo, m2, x, y, z, parent = vr) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
     // 展示架
-    add(new THREE.CylinderGeometry(0.075, 0.08, 0.014, 48), white, 0, 0.007, 0);
-    add(new THREE.CylinderGeometry(0.008, 0.008, 0.25, 16), white, 0, 0.13, -0.03); // 立柱一路接到托頭裡面
-    const head = add(new THREE.SphereGeometry(1, 40, 28), white, 0, 0.272, -0.058); head.scale.set(0.05, 0.046, 0.054);   // 展示架頂端的托頭:縮在頭帶圈裡面,和架子同色
-    // 頭戴裝置(中心在頭型前面)
-    const hs = new THREE.Group(); hs.position.set(0, 0.28, 0.0); vr.add(hs);
+    const HS = 1.6, HY = 0.2;                                                                  // 頭戴裝置的放大倍數、中心高度
+    add(new THREE.CylinderGeometry(0.075, 0.08, 0.014, 48), white, 0, 0.007, -0.06);
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 16), white, 0, 0.09, -0.09);
+    // 頭戴裝置(中心在托頭前面);托頭跟著裝置一起放大,才會剛好在頭帶圈裡面
+    const hs = new THREE.Group(); hs.position.set(0, HY, 0.0); hs.scale.setScalar(HS); vr.add(hs);
+    const head = add(new THREE.SphereGeometry(1, 40, 28), white, 0, -0.008, -0.058, hs); head.scale.set(0.05, 0.046, 0.054);   // 展示架頂端的托頭:縮在頭帶圈裡面,和架子同色
     // 弧形前罩:橢球的前面一片(左右各約 63°、上下修掉一點,像護目鏡)
     const P0 = Math.PI / 2 - 1.1, PL = 2.2, T0 = 0.62, TL = Math.PI - 1.24, SX = 0.104, SY = 0.058, SZ = 0.048;   // 前罩是淺淺的弧面玻璃,不是一顆球
     const glassM = new THREE.MeshPhysicalMaterial({ color: 0x07080d, metalness: 0.25, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, envMap: reflectEnv(), envMapIntensity: 1.4 });
@@ -494,8 +496,8 @@ for (const y of [2.55, 1.65]) {
       const band = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.009, 12, 72, Math.PI + 0.64), new THREE.MeshStandardMaterial({ map: kt, roughness: 0.95 }));
       band.rotation.x = Math.PI / 2; band.scale.set(0.97, 0.8, 2.6); band.castShadow = true; bandG.add(band); }
     // 電池 + 線
-    const bat = add(new RoundedBoxGeometry(0.06, 0.016, 0.1, 3, 0.007), alu, -0.15, 0.008, 0.02); bat.rotation.y = 0.3;
-    { const a0 = new THREE.Vector3(-0.097, 0.28, -0.04), pts = [a0, new THREE.Vector3(-0.125, 0.2, -0.03), new THREE.Vector3(-0.14, 0.06, 0.0), new THREE.Vector3(-0.15, 0.02, 0.03), new THREE.Vector3(-0.15, 0.017, 0.06)];
+    const bat = add(new RoundedBoxGeometry(0.06, 0.016, 0.1, 3, 0.007), alu, -0.22, 0.008, 0.02); bat.rotation.y = 0.3;
+    { const a0 = new THREE.Vector3(-0.097 * HS, HY, -0.04 * HS), pts = [a0, new THREE.Vector3(-0.185, 0.14, -0.05), new THREE.Vector3(-0.21, 0.05, -0.01), new THREE.Vector3(-0.22, 0.02, 0.03), new THREE.Vector3(-0.22, 0.017, 0.06)];
       add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.0028, 8), mat(0xe9e7ee, { roughness: 0.5 }), 0, 0, 0); }
   }
   // 兔子擺飾(像照片那種陶瓷兔):坐在上層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
