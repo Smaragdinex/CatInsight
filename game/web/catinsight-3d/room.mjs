@@ -1528,6 +1528,42 @@ canvas.addEventListener('pointermove', (e) => {
   if (ccur) ccur.p.hot3d = hot3d;
   canvas.style.cursor = hot3d ? 'pointer' : '';
 });
+// ---------- 可以互動的物件上的提示點(很多遊戲那種):白色小點 + 一圈往外擴散的光圈,輕輕上下浮;滑上去跳出小標籤,點它等於點那個物件 ----------
+const hints = (() => {
+  // class 叫 ihint:index.html 裡已經有一個舊的 .hint(捲動提示),手機上會被 display: none
+  const st = document.createElement('style');
+  st.textContent = `.ihint { position: fixed; left: 0; top: 0; z-index: 7; width: 36px; height: 36px; margin: -18px 0 0 -18px; padding: 0; border: 0; background: none; cursor: pointer; transition: opacity .35s; will-change: transform; -webkit-tap-highlight-color: transparent; }
+    .ihint.off { opacity: 0; pointer-events: none; }
+    .ihint .core { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28), 0 0 14px rgba(255,255,255,.95); transition: transform .2s; }
+    .ihint .ring { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.9); animation: hintPulse 1.9s ease-out infinite; }
+    .ihint .ring + .ring { animation-delay: .95s; }
+    @keyframes hintPulse { 0% { transform: scale(.55); opacity: .95; } 100% { transform: scale(2.1); opacity: 0; } }
+    .ihint .lbl { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, 2px); padding: 6px 11px; border-radius: 999px; background: rgba(24,18,48,.85); color: #fff; font: 700 12px/1 -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; letter-spacing: .02em; white-space: nowrap; opacity: 0; transition: opacity .2s, transform .25s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+    @media (hover: hover) { .ihint:hover .lbl { opacity: 1; transform: translate(-50%, -6px); } .ihint:hover .core { transform: scale(1.25); } }`;
+  document.head.appendChild(st);
+  const list = [];
+  const add = (parent, x, y, z, label, act) => {
+    const anchor = new THREE.Object3D(); anchor.position.set(x, y, z); parent.add(anchor);
+    const el = document.createElement('button'); el.className = 'ihint off'; el.type = 'button'; el.setAttribute('aria-label', label);
+    el.innerHTML = `<span class="ring"></span><span class="ring"></span><span class="core"></span><span class="lbl">${label}</span>`;
+    el.addEventListener('click', (e) => { e.stopPropagation(); act(); });
+    document.body.appendChild(el); list.push({ anchor, el, ph: list.length * 1.7 });
+  };
+  add(arcadeModel, 0, ARCADE_H + 0.16, 1.22, 'Play', () => { focusArcade = true; zoomGoal = 1; });
+  add(screenMesh, 0.62, 0.36, 0.03, 'Explore', () => { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } });
+  add(camHead, 0, 0.4, 0, 'Say hi', () => { camGreet.start(); uiSfx('hover'); });
+  const v = new THREE.Vector3();
+  return { step(t) {
+    const show = zoomT === 0 && !uiOn && !gameOn && !(story && story.active) && loadingEl.classList.contains('done');
+    for (const h of list) {
+      h.anchor.getWorldPosition(v);
+      // 在鏡頭後面、或跑出畫面外就藏起來
+      const p = v.clone().project(camera), off = !show || p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05;
+      h.el.classList.toggle('off', off);
+      if (!off) h.el.style.transform = `translate3d(${((p.x + 1) / 2 * innerWidth).toFixed(1)}px, ${((1 - p.y) / 2 * innerHeight - 4 * Math.sin(t * 2 + h.ph)).toFixed(1)}px, 0)`;
+    }
+  } };
+})();
 // ---------- 圓圈游標(只在有滑鼠的電腦上):跟著滑鼠的細圓圈 + 中心小點;滑到能互動的東西上,圓圈縮小變實心 ----------
 const ccur = (() => {
   if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return null;
@@ -1687,6 +1723,7 @@ function loop() {
   for (const lf of plantLeaves) lf.userData.uni.uTime.value = t;
   for (const f of idleAnims) f(t);
   if (ccur) ccur.step(dt);
+  hints.step(t);
   if (playTag) {                                                          // PLAY 標記:上下漂浮 + 面向鏡頭(只轉 y 軸)
     playTag.position.y = ARCADE_H + 0.55 + 0.08 * Math.sin(t * 2.2);
     playTag.getWorldPosition(tagPos); tagLook.set(camera.position.x, tagPos.y, camera.position.z);
