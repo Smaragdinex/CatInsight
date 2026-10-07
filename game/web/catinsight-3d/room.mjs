@@ -6,6 +6,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildSlides, activateSlide, deactivate } from './intro.mjs?v=12';
 import { makeRadio } from './radio.mjs?v=1';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -375,7 +376,7 @@ for (const y of [2.55, 1.65]) {
     idleAnims.push((t) => { for (const v of sway) v.pivot.rotation[v.axis] = v.dir * v.amp * (Math.sin(t * 0.9 + v.ph) + 0.4 * Math.sin(t * 2.1 + v.ph * 2)); });
   }
   // 上層層板的音響(Marshall 那種復古設計感,不放它的商標):黑色皮紋箱體、米白滾邊、深色布網 + 金色草寫字、上面一條黃銅面板配金色旋鈕和撥桿
-  { const sp = group(WX - 0.13, 3.09, 1.72); sp.rotation.y = -Math.PI / 2; speaker.group = sp;          // 本地 +z = 正面(朝房間)
+  { const sp = group(WX - 0.16, 3.09, 1.3); sp.rotation.y = -Math.PI / 2; sp.scale.setScalar(1.35); speaker.group = sp;   // 放大 1.35 倍、往左移,右邊留給兩隻兔子          // 本地 +z = 正面(朝房間)
     const W = 0.46, H = 0.3, D = 0.17, Y0 = 0.012;
     // 皮紋貼圖(細細的顆粒)
     const tc = document.createElement('canvas'); tc.width = tc.height = 256; { const g = tc.getContext('2d'); g.fillStyle = '#1b1a1c'; g.fillRect(0, 0, 256, 256);
@@ -420,7 +421,7 @@ for (const y of [2.55, 1.65]) {
     const notes = []; for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[i % 3], transparent: true, opacity: 0, depthWrite: false })); s.scale.setScalar(0.07); s.visible = false; sp.add(s); notes.push({ s, t0: -99, x: 0 }); }
     speaker.notes = notes;
   }
-  // 層板上的小東西:一排書、水晶球、招財貓、掌上遊戲機
+  // 層板上的小東西:一排書、水晶球;上層兩隻坐在層板邊緣、腳垂下來的兔子擺飾
   // 一排書:黃銅書擋 + 七本高矮厚薄不一的書(書背朝房間 -x,有燙金線和書名線,上面和後面看得到米白書頁),最後一本斜靠,旁邊再平放兩本
   { const SY = 2.39, BX = WX - 0.2;                                   // 層板上緣、書的中心 x
     const pagesMat = mat(0xf6eedc, { roughness: 0.9 });
@@ -472,64 +473,42 @@ for (const y of [2.55, 1.65]) {
     glass.position.y = CY; cb.add(glass);
     idleAnims.push((t) => { core.rotation.y = t * 0.25; core.rotation.z = Math.sin(t * 0.3) * 0.2; stars.forEach((st, i) => { st.scale.setScalar(0.6 + 0.5 * (0.5 + 0.5 * Math.sin(t * (1.7 + i * 0.4) + i))); }); });
   }
-  // 招財貓:白色陶瓷、紅坐墊、紅項圈 + 金鈴鐺、抱著金幣,舉起來的那隻手慢慢招手(本地 +z 朝房間)
-  { const mk = group(WX - 0.2, 3.09, 2.13); mk.rotation.y = -Math.PI / 2;
-    const porcelain = mat(0xfbf7f2, { roughness: 0.28 }), red = mat(0xe0453a, { roughness: 0.45 }), gold = new THREE.MeshStandardMaterial({ color: 0xe2b84f, metalness: 0.85, roughness: 0.3 }), pink = mat(0xff9fb5, { roughness: 0.5 }), ink = mat(0x2b2228, { roughness: 0.6 });
-    const add = (geo, m, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0, parent = mk) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.rotation.set(rx, ry, rz); o.castShadow = true; parent.add(o); return o; };
-    add(new RoundedBoxGeometry(0.17, 0.03, 0.15, 3, 0.012), red, 0, 0.015, 0);                                   // 坐墊
-    add(new THREE.SphereGeometry(0.075, 32, 20), porcelain, 0, 0.1, 0, 1, 1.12, 0.92);                           // 身體
-    add(new THREE.SphereGeometry(0.066, 32, 20), porcelain, 0, 0.215, 0.005, 1.12, 0.95, 1);                     // 頭
-    for (const sx of [-1, 1]) {                                                                                   // 耳朵(外白內粉)
-      add(new THREE.ConeGeometry(0.026, 0.05, 16), porcelain, sx * 0.042, 0.272, 0, 1, 1, 0.7, 0, 0, -sx * 0.32);
-      add(new THREE.ConeGeometry(0.016, 0.034, 16), pink, sx * 0.041, 0.268, 0.01, 1, 1, 0.5, 0, 0, -sx * 0.32);
-      const eye = add(new THREE.TorusGeometry(0.011, 0.0028, 6, 16, Math.PI), ink, sx * 0.026, 0.222, 0.064, 1, 1, 1, 0, 0, Math.PI);   // 瞇瞇眼(向下彎的弧)
-      add(new THREE.SphereGeometry(0.012, 12, 8), pink, sx * 0.045, 0.2, 0.055, 1, 0.6, 0.4);                   // 腮紅
-      for (const k of [-1, 1]) add(new THREE.CylinderGeometry(0.0012, 0.0012, 0.045, 4), ink, sx * 0.07, 0.2 + k * 0.008, 0.045, 1, 1, 1, 0, 0, Math.PI / 2 + k * sx * 0.15);   // 鬍鬚
-    }
-    add(new THREE.SphereGeometry(0.007, 10, 8), pink, 0, 0.205, 0.07);                                           // 鼻子
-    add(new THREE.TorusGeometry(0.052, 0.008, 8, 32), red, 0, 0.162, 0.004, 1, 1, 1, Math.PI / 2 - 0.12);        // 項圈
-    add(new THREE.SphereGeometry(0.013, 16, 12), gold, 0, 0.152, 0.058);                                         // 鈴鐺
-    add(new THREE.CylinderGeometry(0.028, 0.028, 0.008, 24), gold, -0.02, 0.095, 0.07, 1, 1, 1.5, Math.PI / 2 - 0.2);   // 抱著的金幣
-    add(new THREE.SphereGeometry(0.02, 16, 12), porcelain, -0.035, 0.085, 0.06);                                 // 抱金幣的手
-    add(new THREE.TorusGeometry(0.03, 0.009, 8, 20, Math.PI * 1.2), porcelain, 0.05, 0.05, -0.05, 1, 1, 1, 0, 0.6, 0.4);   // 尾巴
-    const arm = new THREE.Group(); arm.position.set(0.055, 0.15, 0.01); mk.add(arm);                              // 舉起來招手的手(軸心在肩膀)
-    add(new THREE.CylinderGeometry(0.017, 0.02, 0.065, 16), porcelain, 0, 0.03, 0, 1, 1, 1, 0, 0, -0.15, arm);
-    add(new THREE.SphereGeometry(0.023, 16, 12), porcelain, 0.004, 0.068, 0, 1, 1, 1, 0, 0, 0, arm);
-    add(new THREE.SphereGeometry(0.009, 10, 8), pink, 0.004, 0.068, 0.02, 1, 1, 0.5, 0, 0, 0, arm);            // 肉球
-    idleAnims.push((t) => { arm.rotation.x = -0.15 - 0.45 * Math.max(0, Math.sin(t * 1.6)); });
-  }
-  // 掌上遊戲機(復古掌機的感覺,不放任何品牌):粉色機身斜靠在小架子上,淡綠色螢幕跑一隻跳起來吃金幣的像素貓
-  { const gb = group(WX - 0.19, 3.09, 1.3); gb.rotation.y = -Math.PI / 2;
-    const stand = mat(0xf6eef8, { roughness: 0.5 });
-    const st = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.012, 0.06, 2, 0.004), stand); st.position.y = 0.006; gb.add(st);
-    const lean = new THREE.Mesh(new RoundedBoxGeometry(0.09, 0.08, 0.008, 2, 0.003), stand); lean.position.set(0, 0.045, -0.022); lean.rotation.x = -0.32; gb.add(lean);
-    const dev = new THREE.Group(); dev.position.set(0, 0.098, 0.006); dev.rotation.x = -0.28; gb.add(dev);
-    const body = new THREE.Mesh(new RoundedBoxGeometry(0.105, 0.17, 0.024, 3, 0.012), mat(0xf6a9c8, { roughness: 0.45 })); body.castShadow = true; dev.add(body);
-    const bezel = new THREE.Mesh(new RoundedBoxGeometry(0.084, 0.072, 0.004, 2, 0.006), mat(0x5b4a6b, { roughness: 0.5 })); bezel.position.set(0, 0.035, 0.012); dev.add(bezel);
-    const sc = document.createElement('canvas'); sc.width = 80; sc.height = 64; const sg = sc.getContext('2d');
-    const scrTex = new THREE.CanvasTexture(sc); scrTex.colorSpace = THREE.SRGBColorSpace; scrTex.magFilter = THREE.NearestFilter; scrTex.minFilter = THREE.NearestFilter; scrTex.generateMipmaps = false;
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.066, 0.053), new THREE.MeshStandardMaterial({ map: scrTex, emissive: 0xffffff, emissiveMap: scrTex, emissiveIntensity: 0.3, roughness: 0.4 })   /* 低於光暈門檻:太亮會暈成一片白、看不到像素貓 */);
-    scr.position.set(0, 0.035, 0.0145); dev.add(scr);
-    const CAT = ['..#...#.', '..##.##.', '..#####.', '..#.#.#.', '.#######', '#.#####.', '..#...#.'];   // 8×7 像素貓
-    let lastF = -1;
-    const drawScr = (t) => {
-      const f = Math.floor(t * 8); if (f === lastF) return; lastF = f;
-      sg.fillStyle = '#c9e8b8'; sg.fillRect(0, 0, 80, 64);
-      sg.fillStyle = '#7fb48a'; sg.fillRect(0, 52, 80, 12); for (let x = (-(f * 2) % 8 + 8) % 8; x < 80; x += 8) sg.fillRect(x, 50, 4, 2);   // 地面往後捲
-      const ph = (f % 24) / 24, jump = ph < 0.4 ? Math.sin(ph / 0.4 * Math.PI) * 16 : 0, cy = 43 - Math.round(jump);
-      sg.fillStyle = '#2f5b46'; CAT.forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') sg.fillRect(20 + x, cy + y, 1, 1); }));
-      const coinX = 70 - ((f * 3) % 70); if (!(coinX > 18 && coinX < 30 && jump > 8)) { sg.fillStyle = '#e2b84f'; sg.fillRect(coinX, 26, 4, 4); sg.fillStyle = '#fff3c4'; sg.fillRect(coinX + 1, 27, 1, 1); }
-      sg.fillStyle = '#2f5b46'; sg.font = '7px monospace'; sg.fillText('$' + (120 + Math.floor(f / 24) * 10), 4, 9);
-      scrTex.needsUpdate = true;
+  // 兔子擺飾(像照片那種陶瓷兔):坐在上層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
+  // 一隻亮金、一隻珍珠白(帶彩虹光澤),稍微轉向彼此。金屬 / 珍珠需要有東西可以反射,所以只給這兩種材質一張小的室內環境貼圖(不影響房間其他東西)
+  { const pm = new THREE.PMREMGenerator(renderer), env = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose();
+    const goldM = new THREE.MeshPhysicalMaterial({ color: 0xe8b64e, metalness: 1, roughness: 0.13, clearcoat: 0.5, envMap: env, envMapIntensity: 1.1 });
+    const pearlM = new THREE.MeshPhysicalMaterial({ color: 0xfbf0f4, metalness: 0.05, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05,
+      iridescence: 1, iridescenceIOR: 1.45, iridescenceThicknessRange: [200, 900], envMap: env, envMapIntensity: 0.9 });
+    const EDGE = WX - 0.42;                                                         // 上層層板前緣的 x
+    const rabbit = (m2, z, sc, turn) => {
+      const g = group(EDGE + 0.012, 3.09, z); g.rotation.y = -Math.PI / 2 + turn; g.scale.setScalar(sc);   // 本地 +z = 朝房間(腳垂下去的那邊)
+      const add = (geo, x, y, zz, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, zz); o.scale.set(sx, sy, sz); o.castShadow = true; g.add(o); return o; };
+      const limb = (r, a2, b2) => { const dv = b2.clone().sub(a2), o = new THREE.Mesh(new THREE.CapsuleGeometry(r, dv.length(), 6, 14), m2);
+        o.position.copy(a2).add(b2).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
+      const V = (x, y, zz) => new THREE.Vector3(x, y, zz);
+      // 身體:梨形(下寬上窄),前後稍扁
+      const body = new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0], [0.058, 0.0], [0.067, 0.02], [0.066, 0.06], [0.056, 0.11], [0.042, 0.15], [0.033, 0.178], [0.03, 0.2]].map(([r, y]) => new THREE.Vector2(r, y)), 40), m2);
+      body.position.set(0, 0, -0.055); body.scale.z = 0.86; body.castShadow = true; g.add(body);
+      // 頭:蛋形 + 往前凸的口鼻
+      add(new THREE.SphereGeometry(0.042, 32, 24), 0, 0.238, -0.05, 0.86, 1.12, 0.95);
+      add(new THREE.SphereGeometry(0.027, 28, 20), 0, 0.218, -0.018, 0.92, 0.78, 1.15);
+      // 長耳朵:扁長的橢圓,微微往外張、往後仰
+      for (const sx of [-1, 1]) { const ear = add(new THREE.SphereGeometry(1, 28, 20), sx * 0.022, 0.37, -0.062, 0.021, 0.1, 0.009); ear.rotation.set(-0.1, sx * 0.25, -sx * 0.12); }
+      for (const sx of [-1, 1]) {
+        // 手臂沿著身體兩側垂下來,手掌像小鰭一樣平放在層板上
+        limb(0.015, V(sx * 0.036, 0.16, -0.055), V(sx * 0.078, 0.022, -0.04));                      // 從肩膀(身體裡面)開始,才不會像一根分開的棍子
+        add(new THREE.SphereGeometry(0.027, 24, 16), sx * 0.088, 0.008, -0.025, 1, 0.34, 1.35);
+        // 大腿往前伸到層板邊緣,小腿細細長長垂下去,圓圓的腳掌朝前
+        limb(0.021, V(sx * 0.03, 0.026, -0.03), V(sx * 0.031, 0.02, 0.02));
+        limb(0.0115, V(sx * 0.031, 0.012, 0.03), V(sx * 0.031, -0.165, 0.034));
+        add(new THREE.SphereGeometry(0.024, 24, 16), sx * 0.031, -0.18, 0.046, 0.9, 0.82, 1.3);
+      }
+      return g;
     };
-    idleAnims.push(drawScr);
-    const btn = mat(0x8b7cff, { roughness: 0.4 }), dark = mat(0x5b4a6b, { roughness: 0.5 });
-    const dp = new THREE.Group(); dp.position.set(-0.025, -0.032, 0.013); dev.add(dp);                           // 十字鍵
-    dp.add(new THREE.Mesh(new RoundedBoxGeometry(0.03, 0.009, 0.005, 1, 0.002), dark)); dp.add(new THREE.Mesh(new RoundedBoxGeometry(0.009, 0.03, 0.005, 1, 0.002), dark));
-    for (const [x, y] of [[0.022, -0.026], [0.034, -0.036]]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.0065, 0.0065, 0.005, 16), btn); b.rotation.x = Math.PI / 2; b.position.set(x, y, 0.013); dev.add(b); }   // A / B
-    for (const x of [-0.012, 0.008]) { const p = new THREE.Mesh(new THREE.CapsuleGeometry(0.0025, 0.01, 4, 8), dark); p.rotation.z = Math.PI / 2 - 0.4; p.position.set(x, -0.062, 0.0125); dev.add(p); }   // 兩顆小長條鍵
-    for (let i = 0; i < 4; i++) { const sl = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.016, 0.002), dark); sl.position.set(0.026 + i * 0.005, -0.068, 0.0125); sl.rotation.z = 0.5; dev.add(sl); }   // 喇叭孔
+    rabbit(goldM, 1.88, 1.0, 0.18);
+    rabbit(pearlM, 2.2, 0.94, -0.14);
   }
+
 }
 // ---------- 窗外:2.5D 夜景 —— 天空漸層 + 月亮星星、遠 / 近兩層用 BoxGeometry 做的高樓(InstancedMesh,窗戶用 emissive 貼圖),
 //            城市底部一層柔和的橘紫光、開口前一片淡玻璃、再從窗戶打一盞藍紫 RectAreaLight 讓房間吃到夜景的冷光。全部只畫在開口範圍內(stencil)----------
