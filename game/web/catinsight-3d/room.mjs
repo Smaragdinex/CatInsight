@@ -192,9 +192,12 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
     for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + 0.5; const leg = cyl(0.014, 0.012, 0.2, wood, { x: Math.cos(a) * 0.15, y: 0.095, z: Math.sin(a) * 0.15, parent: p }); leg.rotation.set(Math.sin(a) * 0.22, 0, -Math.cos(a) * 0.22); }
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.012, 8, 40), mat(wood)); ring.rotation.x = Math.PI / 2; ring.position.y = 0.17; ring.castShadow = true; p.add(ring);
     // 盆:圓角的直筒(車床輪廓),米白;上面一層土
-    const potPts = [[0, 0.17], [0.15, 0.17], [0.175, 0.19], [0.19, 0.24], [0.2, 0.44], [0.205, 0.47], [0.2, 0.48], [0.188, 0.47], [0.0, 0.47]].map(([r, y]) => new THREE.Vector2(r, y));
+    // 盆口往內凹下去(內壁 + 土面在 0.45),不然最後一段會把盆口封成一片白、看不到土
+    const potPts = [[0, 0.17], [0.15, 0.17], [0.175, 0.19], [0.19, 0.24], [0.2, 0.44], [0.205, 0.47], [0.2, 0.48], [0.188, 0.47], [0.182, 0.42], [0.0, 0.42]].map(([r, y]) => new THREE.Vector2(r, y));
     const pot = new THREE.Mesh(new THREE.LatheGeometry(potPts, 48), mat(0xf7f1f2, { roughness: 0.5 })); pot.castShadow = pot.receiveShadow = true; p.add(pot);
-    cyl(0.19, 0.19, 0.012, 0x4a3426, { y: 0.462, parent: p });
+    cyl(0.183, 0.183, 0.03, 0x4a3426, { y: 0.435, parent: p });                // 土(上面在 0.45)
+    for (let i = 0; i < 14; i++) { const a = i * 2.4, r = 0.04 + (i % 5) * 0.03;  // 幾塊土塊,土面不會是平平一片
+      const clod = sphere(0.018 + (i % 3) * 0.006, i % 2 ? 0x3b2a1f : 0x5a4030, { x: Math.cos(a) * r, y: 0.45, z: Math.sin(a) * r, parent: p }); clod.scale.y = 0.5; clod.castShadow = false; }
     // 龜背芋的葉子:心形外框,兩邊各幾道從邊緣切向中脈的深裂口,中脈旁幾個小洞;往後垂、沿中脈對折一點
     const leafGeo = (seed) => {
       let r = seed * 9301 + 49297; const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
@@ -236,9 +239,9 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
     const sway = [];
     LEAVES.forEach(([ang, h, reach, size], k) => {
       const dir = new THREE.Vector3(-Math.cos(ang), 0, Math.sin(ang));          // 水平往外的方向
-      const pivot = new THREE.Group(); pivot.position.set(0, 0.47, 0); p.add(pivot);
-      const top = dir.clone().multiplyScalar(reach).setY(h - 0.47);
-      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(dir.x * 0.03, 0, dir.z * 0.03), dir.clone().multiplyScalar(reach * 0.25).setY((h - 0.47) * 0.85), top);
+      const pivot = new THREE.Group(); pivot.position.set(0, 0.45, 0); p.add(pivot);   // 葉柄從土面長出來
+      const top = dir.clone().multiplyScalar(reach).setY(h - 0.45);
+      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(dir.x * 0.03, 0, dir.z * 0.03), dir.clone().multiplyScalar(reach * 0.25).setY((h - 0.45) * 0.85), top);
       const pet = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.011, 6), petMat); pet.castShadow = true; pivot.add(pet);
       // 葉子:基部接在葉柄頂端,葉尖沿葉柄的方向繼續往外、往下垂;葉面朝上偏外
       const tan = curve.getTangent(1), tipDir = tan.clone().setY(0).normalize().multiplyScalar(0.9).add(new THREE.Vector3(0, -0.12 - (k % 3) * 0.1, 0));   // 葉尖微微往下(太垂整棵會變矮)
