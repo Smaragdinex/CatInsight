@@ -1091,8 +1091,12 @@ let camHead = null, camRig = null, camGreet = null;
   camHead = new THREE.Group(); camHead.position.y = 1.85; t.add(camHead);
   const hm = (geo, color, x, y, z, ex = {}) => { const m = new THREE.Mesh(geo, color.isMaterial ? color : mat(color, ex)); m.position.set(x, y, z); m.castShadow = true; camHead.add(m); return m; };
   hm(new RoundedBoxGeometry(0.12, 0.05, 0.12, 2, 0.015), DARK, 0, -0.16, 0);                              // 雲台
-  { const bar = hm(new THREE.CylinderGeometry(0.014, 0.012, 0.42, 12), DARK, -0.3, -0.24, 0); bar.rotation.z = Math.PI / 2 - 0.45;   // 搖桿(往後下)
-    hm(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 12), C.tripod, -0.48, -0.33, 0).rotation.z = Math.PI / 2 - 0.45; }
+  // 搖桿:從雲台背面接出來,往後、微微往下;接頭有一顆鎖緊旋鈕,尾端一段握把(原本整支浮在雲台後面,中間有空隙)
+  { const S = new THREE.Vector3(-0.045, -0.165, 0), d = new THREE.Vector3(-0.9, -0.4, 0).normalize(), up = new THREE.Vector3(0, 1, 0);
+    const bar = hm(new THREE.CylinderGeometry(0.014, 0.012, 0.42, 12), DARK, 0, 0, 0); bar.quaternion.setFromUnitVectors(up, d); bar.position.copy(S).addScaledVector(d, 0.21);
+    const grip = hm(new THREE.CylinderGeometry(0.022, 0.022, 0.11, 12), C.tripod, 0, 0, 0); grip.quaternion.setFromUnitVectors(up, d); grip.position.copy(S).addScaledVector(d, 0.355);
+    const knob = hm(new THREE.CylinderGeometry(0.022, 0.022, 0.05, 16), DARK, -0.06, -0.165, 0); knob.rotation.x = Math.PI / 2;
+    hm(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 12), C.tripod, -0.06, -0.165, 0.035).rotation.x = Math.PI / 2; }
   // 機身 + 飾條(鏡頭朝 +x)
   hm(new RoundedBoxGeometry(0.46, 0.28, 0.26, 4, 0.06), CREAM, 0, 0, 0);
   hm(new RoundedBoxGeometry(0.3, 0.07, 0.02, 2, 0.01), CORAL, -0.02, -0.07, 0.13);
