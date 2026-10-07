@@ -1098,7 +1098,8 @@ let camHead = null, camRig = null, camGreet = null;
 // ---------- 地毯 / 遙控車 ----------
 // 地毯:奶油色編織毯(像 kilim):青 / 珊瑚 / 紫 / 芥末黃的幾何菱形和邊框,細細的編織紋,兩短邊各一排流蘇
 {
-  const RX = -1.1, RZ = 0.9, RW = 3.6, RD = 2.7;
+  // 地毯縮小一點、往前移:後緣在桌腳前面(桌腳 z ≈ 0.12)、右緣在椅子左邊,桌腳和椅腳都不會一半壓在地毯上
+  const RX = -1.2, RZ = 1.55, RW = 3.2, RD = 2.4;
   const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 810; const g = cv.getContext('2d');
   g.fillStyle = '#f3e6d6'; g.fillRect(0, 0, 1080, 810);
   for (let y = 0; y < 810; y += 3) { g.fillStyle = y % 6 ? 'rgba(160,120,90,.05)' : 'rgba(255,255,255,.12)'; g.fillRect(0, y, 1080, 1); }   // 橫向編織紋
@@ -1159,7 +1160,7 @@ let camHead = null, camRig = null, camGreet = null;
     wheels.push({ steer, spin, front });
   }
   // 8 字路線(地毯中央;避開椅子、三腳架、街機、桌腳):x = cx + A·sin(u)、z = cz + B·sin(u)·cos(u)
-  const CX = -1.15, CZ = 1.05, A = 1.0, B = 1.5, LAP = 14, Y = 0.1;   // 離桌腳(約 x -0.05、z 0.15)最近也有 0.35 以上
+  const CX = -1.15, CZ = 1.3, A = 1.0, B = 1.5, LAP = 14, Y = 0.1;    // 跟著地毯往前移;離桌腳(約 x -0.05、z 0.15)最近也有 0.4 以上
   const at = (u) => new THREE.Vector3(CX + A * Math.sin(u), Y, CZ + B * Math.sin(u) * Math.cos(u));
   let prev = null, prevHead = 0, wheelAng = 0, lastT = null;
   idleAnims.push((t) => {
@@ -1193,8 +1194,9 @@ let screenMesh, deskGroup;
       const x = sx * 1.28;
       sb(0.05, 0.05, 1.18, x, 1.315, 0);                                               // 上橫桿
       sb(0.05, 1.29, 0.05, x, 0.655, 0.52); sb(0.05, 1.29, 0.05, x, 0.655, -0.52);    // 兩支立柱
-      sb(0.06, 0.04, 1.18, x, 0.03, 0);                                                // 地上的橫桿
-      for (const z of [0.52, -0.52]) box(0.07, 0.012, 0.07, FOOT, { x, y: 0.006, z, r: 0.004, parent: d, seg: 1 });   // 腳墊
+      // 木地板上緣在 y = 0.05:腳墊放在地板上、橫桿再墊在腳墊上(原本橫桿頂面剛好等於地板面,兩個面打架會破圖)
+      sb(0.06, 0.04, 1.18, x, 0.082, 0);                                               // 地上的橫桿
+      for (const z of [0.52, -0.52]) box(0.07, 0.012, 0.07, FOOT, { x, y: 0.056, z, r: 0.004, parent: d, seg: 1 });   // 腳墊
     }
     // 薄抽屜(桌面右下)
     sb(0.62, 0.1, 0.55, 0.85, 1.29, 0.3, 0xf3eff8);
