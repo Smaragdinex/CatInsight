@@ -325,6 +325,43 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
     });
     plantSway.push((t) => { for (const v of sway) v.pivot.rotation[v.axis] = v.dir * v.amp * (Math.sin(t * 0.9 + v.ph) + 0.4 * Math.sin(t * 2.1 + v.ph * 2)); });
   }
+  // 上層層板的音響(Marshall 那種復古設計感,不放它的商標):黑色皮紋箱體、米白滾邊、深色布網 + 金色草寫字、上面一條黃銅面板配金色旋鈕和撥桿
+  { const sp = group(WX - 0.13, 3.09, 1.72); sp.rotation.y = -Math.PI / 2;          // 本地 +z = 正面(朝房間)
+    const W = 0.46, H = 0.3, D = 0.17, Y0 = 0.012;
+    // 皮紋貼圖(細細的顆粒)
+    const tc = document.createElement('canvas'); tc.width = tc.height = 256; { const g = tc.getContext('2d'); g.fillStyle = '#1b1a1c'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 5000; i++) { const v = 22 + Math.random() * 22; g.fillStyle = `rgb(${v},${v},${v + 2})`; g.fillRect(Math.random() * 256, Math.random() * 256, 1.5, 1.5); } }
+    const tolex = new THREE.CanvasTexture(tc); tolex.colorSpace = THREE.SRGBColorSpace; tolex.wrapS = tolex.wrapT = THREE.RepeatWrapping; tolex.repeat.set(2, 2);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(W, H, D, 4, 0.026), new THREE.MeshStandardMaterial({ map: tolex, roughness: 0.82 }));
+    body.position.y = Y0 + H / 2; body.castShadow = body.receiveShadow = true; sp.add(body);
+    // 布網:深灰底 + 很淡的交織紋 + 金色草寫字
+    const gc = document.createElement('canvas'); gc.width = 640; gc.height = 380; { const g = gc.getContext('2d'); g.fillStyle = '#232125'; g.fillRect(0, 0, 640, 380);
+      g.globalAlpha = 0.12; g.strokeStyle = '#9a96a0'; g.lineWidth = 1; for (let x = -380; x < 640; x += 6) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 380, 380); g.stroke(); g.beginPath(); g.moveTo(x + 380, 0); g.lineTo(x, 380); g.stroke(); }
+      g.globalAlpha = 1; g.fillStyle = '#d9b36c'; g.font = 'italic 700 74px "Snell Roundhand", "Brush Script MT", "Segoe Script", cursive'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 4; g.fillText('CatInsight', 320, 120); }
+    const grille = new THREE.CanvasTexture(gc); grille.colorSpace = THREE.SRGBColorSpace; grille.anisotropy = 8;
+    const gw = W - 0.05, gh = H - 0.06;
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh), new THREE.MeshStandardMaterial({ map: grille, roughness: 0.95 }));
+    front.position.set(0, Y0 + H / 2, D / 2 + 0.0015); sp.add(front);
+    // 米白滾邊:沿著布網外框的圓角矩形管子
+    { const r = 0.02, x0 = gw / 2 + 0.004, y0 = gh / 2 + 0.004, pts = [];
+      for (const [cx, cy, a0] of [[x0 - r, y0 - r, 0], [-x0 + r, y0 - r, Math.PI / 2], [-x0 + r, -y0 + r, Math.PI], [x0 - r, -y0 + r, Math.PI * 1.5]])
+        for (let i = 0; i <= 6; i++) { const a = a0 + i / 6 * Math.PI / 2; pts.push(new THREE.Vector3(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 0)); }
+      const pipe = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 120, 0.0045, 6, true), mat(0xf3ead8, { roughness: 0.5 }));
+      pipe.position.set(0, Y0 + H / 2, D / 2 + 0.002); sp.add(pipe); }
+    // 上面:黃銅面板 + 三顆旋鈕(黑底、金色有刻紋的頂蓋)+ 左邊一支撥桿開關
+    const brass = new THREE.MeshStandardMaterial({ color: 0xc9a25a, metalness: 0.85, roughness: 0.32 });
+    const plate = new THREE.Mesh(new RoundedBoxGeometry(W - 0.07, 0.006, 0.05, 2, 0.003), brass); plate.position.set(0, Y0 + H + 0.002, D / 2 - 0.035); sp.add(plate);
+    const knobBase = mat(0x141316, { roughness: 0.5 });
+    [0.05, 0.11, 0.17].forEach((x) => {
+      const kb = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.016, 0.014, 24), knobBase); kb.position.set(x, Y0 + H + 0.012, D / 2 - 0.035); kb.castShadow = true; sp.add(kb);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.006, 16), brass); cap.position.set(x, Y0 + H + 0.021, D / 2 - 0.035); sp.add(cap);   // 16 邊 = 刻紋
+    });
+    const sw = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.006, 16), knobBase); sw.position.set(-0.17, Y0 + H + 0.008, D / 2 - 0.035); sp.add(sw);
+    const lever = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0035, 0.026, 8), brass); lever.position.set(-0.17, Y0 + H + 0.02, D / 2 - 0.03); lever.rotation.x = 0.45; sp.add(lever);
+    // 四個小腳
+    for (const [x, z] of [[-W / 2 + 0.04, -D / 2 + 0.03], [W / 2 - 0.04, -D / 2 + 0.03], [-W / 2 + 0.04, D / 2 - 0.03], [W / 2 - 0.04, D / 2 - 0.03]]) cyl(0.012, 0.012, Y0, 0x2a2a2e, { x, y: Y0 / 2, z, parent: sp });
+  }
   // 層板上的小東西:幾本書、一個小盆栽、一台玩具貓、掌上遊戲機
   box(0.22, 0.34, 0.06, 0x8b7cff, { x: WX - 0.21, y: 2.35 + 0.21, z: 0.8, r: 0.01, seg: 1 });
   box(0.22, 0.30, 0.06, 0xf27a5a, { x: WX - 0.21, y: 2.35 + 0.19, z: 0.88, r: 0.01, seg: 1 });
@@ -587,24 +624,6 @@ let screenMesh, deskGroup;
   screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.42, 0.86), new THREE.MeshBasicMaterial({ map: screenTex }));
   screenMesh.position.set(0, 0.9, 0.045);
   m.add(screenMesh);
-  // 耳機架:桌面右側,圓底座 + 立桿 + 頂端橫桿;耳機頭帶掛在橫桿上,兩個耳罩垂在立桿兩側
-  const st = group(1.15, 1.41, -0.2, d);
-  cyl(0.15, 0.16, 0.03, C.stand, { y: 0.015, parent: st });
-  cyl(0.025, 0.025, 0.60, C.stand, { y: 0.30, parent: st });
-  cyl(0.03, 0.03, 0.18, C.stand, { y: 0.60, parent: st, rx: Math.PI / 2 });
-  // 耳機:米白色粗弧形頭帶,兩個橘色圓耳罩,內側淺色耳墊
-  const hp = group(0, 0.42, 0, st);
-  const CREAM = 0xf7f1f2, CUP = 0xf08262, PAD = 0xfbe3d8;
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.032, 12, 40, Math.PI), mat(CREAM));
-  band.castShadow = true; hp.add(band);
-  for (const sx of [-1, 1]) {
-    // 頭帶末端往下一小段
-    cyl(0.032, 0.032, 0.12, CREAM, { x: sx * 0.21, y: -0.06, parent: hp });
-    // 耳罩:橘色圓盤,軸向 x(面朝內),外側再一片淺色耳墊
-    cyl(0.09, 0.09, 0.06, CUP, { x: sx * 0.21, y: -0.13, parent: hp, rz: Math.PI / 2 });
-    cyl(0.07, 0.07, 0.015, PAD, { x: sx * (0.21 - 0.035), y: -0.13, parent: hp, rz: Math.PI / 2 });
-    cyl(0.035, 0.035, 0.02, CREAM, { x: sx * 0.21, y: -0.06, parent: hp });
-  }
   // 鍵盤、滑鼠、滑鼠墊
   box(0.95, 0.03, 0.34, 0xd9c9ef, { x: 0, y: 1.42, z: 0.28, r: 0.01, parent: d, seg: 1, shadow: false });
   box(0.75, 0.05, 0.28, 0xf6eef8, { x: 0, y: 1.44, z: 0.28, r: 0.02, parent: d });
