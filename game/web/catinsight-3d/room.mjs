@@ -7,6 +7,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { buildSlides, activateSlide, deactivate } from './intro.mjs?v=12';
+import { makeRadio } from './radio.mjs?v=1';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
 // 畫面濾鏡:發光物的光暈、調色、暗角、底片顆粒(預設開;網址加 ?nofx 看沒有濾鏡的樣子)
@@ -85,6 +86,7 @@ root.rotation.y = Math.PI / 2;   // 讓淡紫框牆在左、粉牆在右(鏡頭�
 scene.add(root);
 const animated = [];   // 進場動畫用:每個物件 scale 從 0 長出來
 let livePoster = null, liveN = 0;   // 牆上會動的照片:每幀重畫的函式
+const speaker = { group: null, led: null, front: null, knobs: [], notes: null };   // 書架上的音響:點它播放 / 暫停音樂(radio.mjs)
 const idleAnims = [];               // 每幀呼叫的小動畫:植物隨風輕擺(黃金葛、龜背芋)、水晶球裡的星雲
 
 function box(w, h, d, color, { x = 0, y = 0, z = 0, r = 0.06, parent = root, shadow = true, seg = 3, ry = 0, rz = 0, rx = 0 } = {}) {
@@ -373,7 +375,7 @@ for (const y of [2.55, 1.65]) {
     idleAnims.push((t) => { for (const v of sway) v.pivot.rotation[v.axis] = v.dir * v.amp * (Math.sin(t * 0.9 + v.ph) + 0.4 * Math.sin(t * 2.1 + v.ph * 2)); });
   }
   // 上層層板的音響(Marshall 那種復古設計感,不放它的商標):黑色皮紋箱體、米白滾邊、深色布網 + 金色草寫字、上面一條黃銅面板配金色旋鈕和撥桿
-  { const sp = group(WX - 0.13, 3.09, 1.72); sp.rotation.y = -Math.PI / 2;          // 本地 +z = 正面(朝房間)
+  { const sp = group(WX - 0.13, 3.09, 1.72); sp.rotation.y = -Math.PI / 2; speaker.group = sp;          // 本地 +z = 正面(朝房間)
     const W = 0.46, H = 0.3, D = 0.17, Y0 = 0.012;
     // 皮紋貼圖(細細的顆粒)
     const tc = document.createElement('canvas'); tc.width = tc.height = 256; { const g = tc.getContext('2d'); g.fillStyle = '#1b1a1c'; g.fillRect(0, 0, 256, 256);
@@ -389,7 +391,7 @@ for (const y of [2.55, 1.65]) {
     const grille = new THREE.CanvasTexture(gc); grille.colorSpace = THREE.SRGBColorSpace; grille.anisotropy = 8;
     const gw = W - 0.05, gh = H - 0.06;
     const front = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh), new THREE.MeshStandardMaterial({ map: grille, roughness: 0.95 }));
-    front.position.set(0, Y0 + H / 2, D / 2 + 0.0015); sp.add(front);
+    front.position.set(0, Y0 + H / 2, D / 2 + 0.0015); sp.add(front); speaker.front = front;
     // 米白滾邊:沿著布網外框的圓角矩形管子
     { const r = 0.02, x0 = gw / 2 + 0.004, y0 = gh / 2 + 0.004, pts = [];
       for (const [cx, cy, a0] of [[x0 - r, y0 - r, 0], [-x0 + r, y0 - r, Math.PI / 2], [-x0 + r, -y0 + r, Math.PI], [x0 - r, -y0 + r, Math.PI * 1.5]])
@@ -402,12 +404,21 @@ for (const y of [2.55, 1.65]) {
     const knobBase = mat(0x141316, { roughness: 0.5 });
     [0.05, 0.11, 0.17].forEach((x) => {
       const kb = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.016, 0.014, 24), knobBase); kb.position.set(x, Y0 + H + 0.012, D / 2 - 0.035); kb.castShadow = true; sp.add(kb);
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.006, 16), brass); cap.position.set(x, Y0 + H + 0.021, D / 2 - 0.035); sp.add(cap);   // 16 邊 = 刻紋
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.006, 16), brass); cap.position.set(x, Y0 + H + 0.021, D / 2 - 0.035); sp.add(cap); speaker.knobs.push(cap);   // 16 邊 = 刻紋
     });
     const sw = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.006, 16), knobBase); sw.position.set(-0.17, Y0 + H + 0.008, D / 2 - 0.035); sp.add(sw);
     const lever = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0035, 0.026, 8), brass); lever.position.set(-0.17, Y0 + H + 0.02, D / 2 - 0.03); lever.rotation.x = 0.45; sp.add(lever);
     // 四個小腳
     for (const [x, z] of [[-W / 2 + 0.04, -D / 2 + 0.03], [W / 2 - 0.04, -D / 2 + 0.03], [-W / 2 + 0.04, D / 2 - 0.03], [W / 2 - 0.04, D / 2 - 0.03]]) cyl(0.012, 0.012, Y0, 0x2a2a2e, { x, y: Y0 / 2, z, parent: sp });
+    // 電源小燈(撥桿旁邊):停著是暗紅,播放時亮琥珀色、跟著音樂微微閃
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 12, 8), new THREE.MeshStandardMaterial({ color: 0x3a1408, emissive: 0xff8a2a, emissiveIntensity: 0.05, roughness: 0.3 }));
+    led.position.set(-0.13, Y0 + H + 0.006, D / 2 - 0.035); sp.add(led); speaker.led = led;
+    // 播放時從音響飄出來的小音符(canvas 貼圖的 sprite,往上飄、左右晃、慢慢淡掉)
+    const noteTex = ['♪', '♫', '♩'].map((ch) => { const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d');
+      g.fillStyle = '#ffe2b0'; g.font = '700 72px "Apple Symbols", "Segoe UI Symbol", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = 'rgba(255,170,90,.9)'; g.shadowBlur = 10; g.fillText(ch, 48, 52);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; });
+    const notes = []; for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[i % 3], transparent: true, opacity: 0, depthWrite: false })); s.scale.setScalar(0.07); s.visible = false; sp.add(s); notes.push({ s, t0: -99, x: 0 }); }
+    speaker.notes = notes;
   }
   // 層板上的小東西:一排書、水晶球、招財貓、掌上遊戲機
   // 一排書:黃銅書擋 + 七本高矮厚薄不一的書(書背朝房間 -x,有燙金線和書名線,上面和後面看得到米白書頁),最後一本斜靠,旁邊再平放兩本
@@ -1776,6 +1787,7 @@ canvas.addEventListener('pointerup', (e) => {
     }
   }
   if (camRig && zoomT === 0 && raycaster.intersectObject(camRig, true).length) { camGreet.start(); uiSfx('hover'); return; }   // 點攝影機:打招呼
+  if (speaker.group && zoomT === 0 && raycaster.intersectObject(speaker.group, true).length) { radio.toggle(); return; }       // 點音響:播放 / 暫停
   if (raycaster.intersectObject(screenMesh).length) { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } }
   else if ((arcadeScreen && raycaster.intersectObject(arcadeScreen).length) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length)) { focusArcade = true; zoomGoal = 1; }
 });
@@ -1821,8 +1833,72 @@ function setBgm(want) {
   if (want === bgmLast && (bgm.ctx || !want)) return;
   if (!bgm.ctx) return;                                   // 還沒有任何操作 → 等 bgmUnlock 之後下一幀再來
   bgmLast = want; bgmLevel();
+  // 街機的音樂一響就先把音響停掉(淡出),離開街機再自動接回來
+  if (want && radio.playing) radio.pause(true); else if (!want && radio.autoPaused) radio.play();
 }
-document.addEventListener('visibilitychange', () => { if (!bgm.ctx) return; if (document.hidden) bgm.ctx.suspend(); else if (bgm.want) bgm.ctx.resume(); });
+document.addEventListener('visibilitychange', () => { if (!bgm.ctx) return; if (document.hidden) bgm.ctx.suspend(); else if (bgm.want || radio.playing) bgm.ctx.resume(); });
+// ---------- 音響:播放清單(radio.mjs 即時合成的音樂,跟街機共用同一個 AudioContext)+ 左下角的「正在播放」小膠囊 ----------
+const radio = makeRadio(() => { bgmUnlock(); return bgm.ctx; });
+window.__radio = radio;
+const nowPlaying = (() => {
+  const st = document.createElement('style');
+  st.textContent = `.np { position: fixed; left: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 8; display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 12px; border-radius: 999px;
+      background: rgba(22,16,40,.62); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid rgba(255,255,255,.12); color: #fff;
+      font: 600 12px/1.2 "Avenir Next", "SF Pro Text", system-ui, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.25); transition: opacity .45s, transform .55s cubic-bezier(.2,.8,.2,1); }
+    .np.off { opacity: 0; transform: translateY(14px); pointer-events: none; }
+    .np .eq { display: flex; align-items: flex-end; gap: 2px; width: 18px; height: 16px; }
+    .np .eq i { flex: 1; height: 18%; border-radius: 1px; background: #ffb46b; transition: height .08s linear; }
+    .np .tt { display: flex; flex-direction: column; min-width: 0; max-width: 46vw; }
+    .np .tt b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .np .tt span { font-size: 10.5px; letter-spacing: .06em; opacity: .62; white-space: nowrap; }
+    .np button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; padding: 0; border-radius: 50%; background: transparent; color: #fff; cursor: pointer; opacity: .82; transition: background .2s, opacity .2s; }
+    .np button:hover { background: rgba(255,255,255,.12); opacity: 1; }
+    .np button.pp { background: #fff; color: #1a1430; opacity: 1; }
+    .np button[hidden] { display: none; }
+    @media (max-width: 640px) { .np { left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); } .np.off { transform: translate(-50%, 14px); } .np .tt { max-width: 52vw; } }
+    .np svg { width: 14px; height: 14px; fill: currentColor; }`;
+  document.head.appendChild(st);
+  const I = { prev: '<svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>', next: '<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>',
+    play: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>', pause: '<svg viewBox="0 0 24 24"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/></svg>' };
+  const el = document.createElement('div'); el.className = 'np off'; el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Music player');
+  el.innerHTML = `<div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="tt"><b></b><span></span></div>
+    <button type="button" class="pv" aria-label="Previous track">${I.prev}</button><button type="button" class="pp" aria-label="Play"></button><button type="button" class="nx" aria-label="Next track">${I.next}</button>`;
+  document.body.appendChild(el);
+  const bars = [...el.querySelectorAll('.eq i')], pp = el.querySelector('.pp');
+  el.querySelector('.pv').onclick = () => radio.skip(-1); el.querySelector('.nx').onclick = () => radio.skip(1); pp.onclick = () => radio.toggle();
+  let used = false;
+  const sync = () => {
+    used = used || radio.playing;
+    el.querySelector('.tt b').textContent = radio.track.title; el.querySelector('.tt span').textContent = `${radio.track.mood} · ${radio.index + 1}/${radio.count}`;
+    pp.innerHTML = radio.playing ? I.pause : I.play; pp.setAttribute('aria-label', radio.playing ? 'Pause' : 'Play');
+    el.querySelectorAll('.pv, .nx').forEach((b) => { b.hidden = radio.count < 2; });   // 清單只有一首時先藏起來
+  };
+  radio.onChange(sync); sync();
+  return { step(show) {
+    el.classList.toggle('off', !(show && used));
+    const b = radio.bands(4); bars.forEach((x, i) => { x.style.height = (18 + Math.min(82, b[i] * 160)) + '%'; });
+  } };
+})();
+// 音響本身的動作:燈、旋鈕、布網跟著低音輕輕鼓起來、飄音符
+{ let lv = 0, nextNote = 0;
+  idleAnims.push((t) => {
+    if (!speaker.group) return;
+    const raw = radio.level(); lv += (raw - lv) * 0.25;
+    const on = radio.playing;
+    speaker.led.material.emissiveIntensity = on ? 1.2 + lv * 2 : 0.05;
+    speaker.front.position.z = 0.17 / 2 + 0.0015 + (on ? lv * 0.004 : 0);
+    if (on) speaker.knobs.forEach((k, i) => { k.rotation.y += 0.002 * (i + 1); });
+    if (on && t > nextNote) {
+      nextNote = t + 0.9 + Math.random() * 0.9;
+      const n = speaker.notes.find((q) => t - q.t0 > 3.2); if (n) { n.t0 = t; n.x = (Math.random() - 0.5) * 0.3; n.s.visible = true; }
+    }
+    for (const n of speaker.notes) {
+      const a = t - n.t0; if (a < 0 || a > 3.2) { n.s.visible = false; continue; }
+      n.s.position.set(n.x + Math.sin(a * 2.2 + n.x * 20) * 0.03, 0.34 + a * 0.12, 0.1 + a * 0.03);
+      n.s.material.opacity = Math.min(1, a * 3) * Math.max(0, 1 - a / 3.2) * 0.9;
+    }
+  });
+}
 // 機台螢幕按鈕的小音效(和遊戲裡一樣用合成音):hover 一聲「嘀」、按下一聲「嗒」
 function uiSfx(kind) {
   if (!bgm.ctx || !bgm.on || bgm.ctx.state !== 'running') return;
@@ -1847,7 +1923,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (!hv && zoomT === 0 && !uiOn && !(story && story.active)) {
     ndc.set((e.clientX / canvas.clientWidth) * 2 - 1, -(e.clientY / canvas.clientHeight) * 2 + 1); raycaster.setFromCamera(ndc, camera);
     onCam = !!camRig && raycaster.intersectObject(camRig, true).length > 0;
-    hot3d = onCam || (screenMesh && raycaster.intersectObject(screenMesh).length > 0) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length > 0) || (arcadeScreen && raycaster.intersectObject(arcadeScreen).length > 0);
+    hot3d = onCam || (speaker.group && raycaster.intersectObject(speaker.group, true).length > 0) || (screenMesh && raycaster.intersectObject(screenMesh).length > 0) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length > 0) || (arcadeScreen && raycaster.intersectObject(arcadeScreen).length > 0);
   }
   if (ccur) ccur.p.hot3d = hot3d;
   canvas.style.cursor = hot3d ? 'pointer' : '';
@@ -1871,14 +1947,17 @@ const hints = (() => {
     const el = document.createElement('button'); el.className = 'ihint off'; el.type = 'button'; el.setAttribute('aria-label', label);
     el.innerHTML = `<span class="ring"></span><span class="ring"></span><span class="core"></span><span class="lbl">${label}</span>`;
     el.addEventListener('click', (e) => { e.stopPropagation(); act(); });
-    document.body.appendChild(el); list.push({ anchor, el, ph: list.length * 1.7 });
+    document.body.appendChild(el); list.push({ anchor, el, ph: list.length * 1.7 }); return el;
   };
   add(arcadeModel, 0, ARCADE_H + 0.16, 1.22, 'Play', () => { focusArcade = true; zoomGoal = 1; });
   add(screenMesh, 0.62, 0.36, 0.03, 'Explore', () => { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } });
   add(camHead, 0, 0.4, 0, 'Interact', () => { camGreet.start(); uiSfx('hover'); });
+  const musicHint = add(speaker.group, 0.12, 0.4, 0.06, 'Play music', () => radio.toggle());
+  radio.onChange(() => { const l = radio.playing ? 'Pause music' : 'Play music'; musicHint.querySelector('.lbl').textContent = l; musicHint.setAttribute('aria-label', l); });
   const v = new THREE.Vector3();
   return { step(t) {
     const show = zoomT === 0 && !uiOn && !gameOn && !(story && story.active) && loadingEl.classList.contains('done');
+    nowPlaying.step(!gameOn && !(story && story.active));
     camera.updateMatrixWorld();                                    // 鏡頭這一格剛被 OrbitControls 動過,先更新矩陣再投影,點才不會晚一格
     for (const h of list) {
       h.anchor.getWorldPosition(v);
@@ -2136,4 +2215,4 @@ const loadT0 = performance.now();
   if ((pending.size === 0 && performance.now() - loadT0 > 400) || performance.now() - loadT0 > 6000) loadingEl.classList.add('done');
   else setTimeout(waitModels, 100);
 })();
-window.__room = { get camHeadY() { return camHead ? camHead.rotation.y : null; }, get camHeadPitch() { return camHead ? camHead.rotation.z : null; }, greetCam() { camGreet.start(); }, get arcade() { return arcadeModel; }, frames: 0, camera, controls, THREE, catUniforms, get zoomT() { return zoomT; }, setZoom(v) { zoomGoal = v; }, openGame, hideGame, fitGameRot, get poster() { return livePoster; } };
+window.__room = { speaker, get camHeadY() { return camHead ? camHead.rotation.y : null; }, get camHeadPitch() { return camHead ? camHead.rotation.z : null; }, greetCam() { camGreet.start(); }, get arcade() { return arcadeModel; }, frames: 0, camera, controls, THREE, catUniforms, get zoomT() { return zoomT; }, setZoom(v) { zoomGoal = v; }, openGame, hideGame, fitGameRot, get poster() { return livePoster; } };
