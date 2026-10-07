@@ -698,7 +698,7 @@ function loadGLB(name, url, onLoad) {
   const canvasTex = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
   const planeOn = (parent, w, h, tex, x, y, z, rx = 0, ex = {}) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, ...ex })); p.position.set(x, y, z); p.rotation.x = rx; parent.add(p); return p; };
   // 兩片側板(薰衣草紫):街機側面輪廓 —— 下半身較淺、操作檯那段往前凸、螢幕那段往後斜收、最上面招牌再往前凸。座標是(深度 z, 高度 y),用 Shape 擠出厚度。
-  // 側面印側板圖(珊瑚 / 橘 / 黃的大斜紋、小 K 棒、星星、大貓掌),邊緣包一圈粉紅色 T 型飾條
+  // 側面印側板圖(珊瑚 / 橘 / 黃的大斜紋、星星、大貓掌),邊緣包一圈粉紅色 T 型飾條
   const prof = [[0, 0], [1.36, 0], [1.36, 0.62], [1.62, 0.76], [1.62, 1.34], [1.50, 1.46], [1.24, 1.53], [1.08, 2.18], [1.36, 2.23], [1.36, ARCADE_H], [0, ARCADE_H]];
   {
     const shape = new THREE.Shape(); prof.forEach(([z, y], i) => (i ? shape.lineTo(z, y) : shape.moveTo(z, y))); shape.closePath();
@@ -710,9 +710,6 @@ function loadGLB(name, url, onLoad) {
       [['#ffd36a', 0], ['#ff9a5a', 46], ['#f25f7a', 92]].forEach(([c, o]) => {   // 從前下往後上的大斜紋
         g.fillStyle = c; g.beginPath(); g.moveTo(Z(1.62), Y(0.35 + o / 200)); g.bezierCurveTo(Z(1.1), Y(0.9 + o / 200), Z(0.6), Y(1.4 + o / 200), Z(0), Y(2.05 + o / 200));
         g.lineTo(Z(0), Y(2.25 + o / 200)); g.bezierCurveTo(Z(0.7), Y(1.6 + o / 200), Z(1.15), Y(1.12 + o / 200), Z(1.62), Y(0.6 + o / 200)); g.closePath(); g.fill(); });
-      [[0.35, 1.72, 1], [0.55, 1.62, 0], [0.75, 1.42, 1], [0.95, 1.3, 1], [1.15, 1.08, 0], [1.35, 0.95, 1]].forEach(([z, y, up]) => {   // 斜紋上的小 K 棒
-        g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(Z(z), Y(y + 0.12)); g.lineTo(Z(z), Y(y - 0.12)); g.stroke();
-        g.fillStyle = up ? '#3fc98a' : '#e2553d'; g.fillRect(Z(z) - 8, Y(y + 0.07), 16, 0.14 / ARCADE_H * h); });
       g.fillStyle = 'rgba(255,255,255,.9)'; for (let i = 0; i < 26; i++) { const x = (i * 137) % w, y = (i * 211) % h, r = 2 + (i % 3) * 2; g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, rr = k % 2 ? r * 0.4 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.fill(); }
       g.fillStyle = 'rgba(255,255,255,.85)'; const px = Z(0.62), py = Y(0.55);                   // 大貓掌
       g.beginPath(); g.ellipse(px, py, 62, 52, 0, 0, Math.PI * 2); g.fill();
@@ -969,11 +966,10 @@ let screenMesh, deskGroup;
   screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.42, 0.86), new THREE.MeshBasicMaterial({ map: screenTex }));
   screenMesh.position.set(0, 0.9, 0.045);
   m.add(screenMesh);
-  // 大桌墊(鍵盤 + 滑鼠都放在上面):薰衣草奶油色、細點格、幾個小貓掌、邊緣一條股價線
+  // 大桌墊(鍵盤 + 滑鼠都放在上面):薰衣草奶油色、細點格、幾個小貓掌
   { const mt = document.createElement('canvas'); mt.width = 1024; mt.height = 400; const g = mt.getContext('2d');
     g.fillStyle = '#f2e6f8'; g.fillRect(0, 0, 1024, 400);
     g.fillStyle = 'rgba(139,124,255,.18)'; for (let x = 16; x < 1024; x += 24) for (let y = 16; y < 400; y += 24) g.fillRect(x, y, 2, 2);
-    g.strokeStyle = '#ff6fa8'; g.lineWidth = 4; g.beginPath(); for (let x = 0; x <= 1024; x += 16) { const y = 360 - 30 * Math.sin(x * 0.012) - x * 0.06 + 10 * Math.sin(x * 0.07); x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
     g.fillStyle = 'rgba(70,191,207,.35)'; const paw = (x, y, r) => { g.beginPath(); g.ellipse(x, y, r, r * 0.85, 0, 0, Math.PI * 2); g.fill(); for (const [dx, dy] of [[-1, -1.2], [-0.35, -1.6], [0.35, -1.6], [1, -1.2]]) { g.beginPath(); g.arc(x + dx * r, y + dy * r * 0.9, r * 0.36, 0, Math.PI * 2); g.fill(); } };
     paw(90, 90, 18); paw(940, 70, 14); paw(860, 300, 12);
     g.strokeStyle = 'rgba(123,92,245,.35)'; g.lineWidth = 6; g.strokeRect(10, 10, 1004, 380);
@@ -1571,7 +1567,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (ccur) ccur.p.hot3d = hot3d;
   canvas.style.cursor = hot3d ? 'pointer' : '';
 });
-// ---------- 可以互動的物件上的提示點(很多遊戲那種):白色小點 + 一圈往外擴散的光圈,輕輕上下浮;滑上去跳出小標籤,點它等於點那個物件 ----------
+// ---------- 可以互動的物件上的提示點(很多遊戲那種):白色小點 + 一圈往外擴散的光圈,釘在物件上(鏡頭更新後才算位置);滑上去跳出小標籤,點它等於點那個物件 ----------
 const hints = (() => {
   // class 叫 ihint:index.html 裡已經有一個舊的 .hint(捲動提示),手機上會被 display: none
   const st = document.createElement('style');
@@ -1598,12 +1594,13 @@ const hints = (() => {
   const v = new THREE.Vector3();
   return { step(t) {
     const show = zoomT === 0 && !uiOn && !gameOn && !(story && story.active) && loadingEl.classList.contains('done');
+    camera.updateMatrixWorld();                                    // 鏡頭這一格剛被 OrbitControls 動過,先更新矩陣再投影,點才不會晚一格
     for (const h of list) {
       h.anchor.getWorldPosition(v);
       // 在鏡頭後面、或跑出畫面外就藏起來
       const p = v.clone().project(camera), off = !show || p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05;
       h.el.classList.toggle('off', off);
-      if (!off) h.el.style.transform = `translate3d(${((p.x + 1) / 2 * innerWidth).toFixed(1)}px, ${((1 - p.y) / 2 * innerHeight - 4 * Math.sin(t * 2 + h.ph)).toFixed(1)}px, 0)`;
+      if (!off) h.el.style.transform = `translate3d(${((p.x + 1) / 2 * innerWidth).toFixed(1)}px, ${((1 - p.y) / 2 * innerHeight).toFixed(1)}px, 0)`;   // 釘在物件上,不浮動
     }
   } };
 })();
@@ -1766,7 +1763,6 @@ function loop() {
   for (const lf of plantLeaves) lf.userData.uni.uTime.value = t;
   for (const f of idleAnims) f(t);
   if (ccur) ccur.step(dt);
-  hints.step(t);
   if (playTag) {                                                          // PLAY 標記:上下漂浮 + 面向鏡頭(只轉 y 軸)
     playTag.position.y = ARCADE_H + 0.55 + 0.08 * Math.sin(t * 2.2);
     playTag.getWorldPosition(tagPos); tagLook.set(camera.position.x, tagPos.y, camera.position.z);
@@ -1779,8 +1775,8 @@ function loop() {
   if (livePoster && (liveN++ % 2 === 1)) livePoster(t);                                                       // 會動的照片每 2 幀更新(和街機錯開)
   if (story && !focusArcade && zoomT === 0) {
     if (!story.active) updateZoom(dt);                                    // 還在房間:照舊左右慢慢轉
-    story.update(dt, t); story.render();
-  } else { if (story) story.idle(); updateZoom(dt); if (composer) { fxGrade.uniforms.uTime.value = t; composer.render(dt); } else renderer.render(scene, camera); }
+    story.update(dt, t); hints.step(t); story.render();
+  } else { if (story) story.idle(); updateZoom(dt); hints.step(t); if (composer) { fxGrade.uniforms.uTime.value = t; composer.render(dt); } else renderer.render(scene, camera); }
 }
 // 街機在用(飛過去 / 選單 / 遊戲中)時,捲動版不接滾輪
 const storyBusy = () => gameOn || (focusArcade && (zoomGoal > 0 || zoomT > 0));
