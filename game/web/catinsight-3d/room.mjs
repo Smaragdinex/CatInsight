@@ -7,6 +7,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate } from './intro.mjs?v=12';
 import { makeRadio } from './radio.mjs?v=1';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -427,7 +428,7 @@ for (const y of [2.55, 1.65]) {
     const notes = []; for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[i % 3], transparent: true, opacity: 0, depthWrite: false })); s.scale.setScalar(0.07); s.visible = false; sp.add(s); notes.push({ s, t0: -99, x: 0 }); }
     speaker.notes = notes;
   }
-  // 層板上的小東西:一排書、VR 頭戴裝置 + 展示架;上層兩隻坐在層板邊緣、腳垂下來的兔子擺飾
+  // 層板上的小東西:一排書、抽象像素木雕;上層兩隻坐在層板邊緣、腳垂下來的兔子擺飾
   // 一排書:黃銅書擋 + 七本高矮厚薄不一的書(書背朝房間 -x,有燙金線和書名線,上面和後面看得到米白書頁),最後一本斜靠,旁邊再平放兩本
   { const SY = 2.39, BX = WX - 0.2;                                   // 層板上緣、書的中心 x
     const pagesMat = mat(0xf6eedc, { roughness: 0.9 });
@@ -458,47 +459,85 @@ for (const y of [2.55, 1.65]) {
     book(0.24, 0.035, 0.17, 0xef7b3a, 11, new THREE.Vector3(BX + 0.02, SY + 0.0175, 1.27), [0, 0.12, 0]);
     book(0.21, 0.03, 0.15, 0x8fd1c4, 12, new THREE.Vector3(BX + 0.02, SY + 0.05, 1.26), [0, -0.1, 0]);
   }
-  // 頭戴式 VR / MR 裝置 + 展示架(取代水晶球;像空間運算頭戴裝置那種造型,沒有任何品牌標誌):
-  // 弧形黑色鏡面前罩 + 一圈鋁合金邊框、後面淺灰色遮光軟墊、兩側鋁製接頭、繞到後腦的針織頭帶(直條紋),
-  // 戴在展示架的布面頭型上(霧白圓座 + 細立柱);左邊一條細線接到層板上的鋁製電池
-  // 展示架維持原尺寸、矮一點;頭戴裝置本身放大 1.6 倍(HS)
-  { const vr = group(WX - 0.21, 2.39, 1.68); vr.rotation.y = -Math.PI / 2 + 0.35;            // 本地 +z = 正面(朝房間)
-    const white = mat(0xf1eef4, { roughness: 0.4 }), alu = new THREE.MeshStandardMaterial({ color: 0xd9dbe2, metalness: 0.9, roughness: 0.22, envMap: reflectEnv(), envMapIntensity: 0.9 });
-    const seal = mat(0xb9b6bd, { roughness: 1 });
-    const add = (geo, m2, x, y, z, parent = vr) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
-    // 展示架
-    const HS = 1.6, HY = 0.2;                                                                  // 頭戴裝置的放大倍數、中心高度
-    add(new THREE.CylinderGeometry(0.075, 0.08, 0.014, 48), white, 0, 0.007, -0.06);
-    add(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 16), white, 0, 0.09, -0.09);
-    // 頭戴裝置(中心在托頭前面);托頭跟著裝置一起放大,才會剛好在頭帶圈裡面
-    const hs = new THREE.Group(); hs.position.set(0, HY, 0.0); hs.scale.setScalar(HS); vr.add(hs);
-    const head = add(new THREE.SphereGeometry(1, 40, 28), white, 0, -0.008, -0.058, hs); head.scale.set(0.05, 0.046, 0.054);   // 展示架頂端的托頭:縮在頭帶圈裡面,和架子同色
-    // 弧形前罩:橢球的前面一片(左右各約 63°、上下修掉一點,像護目鏡)
-    const P0 = Math.PI / 2 - 1.1, PL = 2.2, T0 = 0.62, TL = Math.PI - 1.24, SX = 0.104, SY = 0.058, SZ = 0.048;   // 前罩是淺淺的弧面玻璃,不是一顆球
-    const glassM = new THREE.MeshPhysicalMaterial({ color: 0x07080d, metalness: 0.25, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, envMap: reflectEnv(), envMapIntensity: 1.4 });
-    const visor = add(new THREE.SphereGeometry(1, 64, 32, P0, PL, T0, TL), glassM, 0, 0, 0, hs); visor.scale.set(SX, SY, SZ);
-    // 鋁合金邊框:沿著前罩外緣的一圈管子
-    { const pts = [], at = (phi, th) => new THREE.Vector3(-Math.cos(phi) * Math.sin(th) * SX, Math.cos(th) * SY, Math.sin(phi) * Math.sin(th) * SZ);
-      const N = 30; for (let i = 0; i < N; i++) pts.push(at(P0 + PL * i / N, T0)); for (let i = 0; i < N; i++) pts.push(at(P0 + PL, T0 + TL * i / N));
-      for (let i = 0; i < N; i++) pts.push(at(P0 + PL - PL * i / N, T0 + TL)); for (let i = 0; i < N; i++) pts.push(at(P0, T0 + TL - TL * i / N));
-      add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 240, 0.0045, 10, true), alu, 0, 0, 0, hs);
-      // 上緣兩側:右邊數位旋鈕、左邊按鈕(貼在邊框上)
-      for (const [phi, r2] of [[P0 + 0.32, 0.0075], [P0 + PL - 0.32, 0.0055]]) { const q = at(phi, T0); add(new THREE.CylinderGeometry(r2, r2, 0.007, 20), alu, q.x, q.y + 0.004, q.z - 0.004, hs); } }
-    // 遮光軟墊:前罩後面一圈淺灰色布
-    { const sl = add(new RoundedBoxGeometry(0.188, 0.09, 0.05, 4, 0.024), seal, 0, -0.002, -0.014, hs); sl.scale.set(1, 1, 1); }
-    // 兩側鋁製接頭 + 上面的數位旋鈕(右)和按鈕(左)
-    for (const sx of [-1, 1]) { const pod = add(new THREE.CapsuleGeometry(0.011, 0.04, 6, 16), alu, sx * 0.097, 0, -0.018, hs); pod.rotation.x = Math.PI / 2; }
-    // 針織頭帶:從兩側接頭繞過後腦,寬寬的、有直條紋
-    { const kc = document.createElement('canvas'); kc.width = 256; kc.height = 32; const kg = kc.getContext('2d'); kg.fillStyle = '#8f8c96'; kg.fillRect(0, 0, 256, 32);
-      for (let x = 0; x < 256; x += 4) { kg.fillStyle = x % 8 ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.2)'; kg.fillRect(x, 0, 2, 32); }
-      const kt = new THREE.CanvasTexture(kc); kt.colorSpace = THREE.SRGBColorSpace; kt.wrapS = THREE.RepeatWrapping; kt.repeat.set(3, 1);
-      const bandG = new THREE.Group(); bandG.position.set(0, -0.002, -0.03); bandG.rotation.y = Math.PI + 0.32; hs.add(bandG);
-      const band = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.009, 12, 72, Math.PI + 0.64), new THREE.MeshStandardMaterial({ map: kt, roughness: 0.95 }));
-      band.rotation.x = Math.PI / 2; band.scale.set(0.97, 0.8, 2.6); band.castShadow = true; bandG.add(band); }
-    // 電池 + 線
-    const bat = add(new RoundedBoxGeometry(0.06, 0.016, 0.1, 3, 0.007), alu, -0.22, 0.008, 0.02); bat.rotation.y = 0.3;
-    { const a0 = new THREE.Vector3(-0.097 * HS, HY, -0.04 * HS), pts = [a0, new THREE.Vector3(-0.185, 0.14, -0.05), new THREE.Vector3(-0.21, 0.05, -0.01), new THREE.Vector3(-0.22, 0.02, 0.03), new THREE.Vector3(-0.22, 0.017, 0.06)];
-      add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.0028, 8), mat(0xe9e7ee, { roughness: 0.5 }), 0, 0, 0); }
+  // 抽象木雕(取代 VR 頭戴裝置):像「像素化消散」那種木雕 —— 上半是淺色白蠟木雕出來的抽象人形(往左上拉長的頭、細脖子、寬肩、身軀,
+  // 線條圓滑、沒有寫實細節),往右下慢慢「碎成」一格一格的方塊(胡桃、紫心木、紅木、黃心木、烏木、白蠟…不同木色),有幾塊凸出來或飄在旁邊;胡桃木底座。
+  // 做法:先用幾個橢球拼出人形(同時寫一份 JS 版的距離函數);每 2.2 cm 一格,依高度 / 往右的程度決定這格要不要「消散」:
+  // 消散的格子在雕刻表面上用 shader 挖掉,同一格放一塊方塊補上,邊緣就會是一階一階的像素感
+  { const fig = group(WX - 0.21, 2.39, 1.68); fig.rotation.y = -Math.PI / 2 + 0.3;              // 本地 +z = 正面(朝房間)
+    const CELL = 0.022, BASE_H = 0.04;
+    // 人形(本地座標;y 從底座上緣算起):幾個橢球用 smooth-min 融成一整塊(像一塊木頭雕出來的,不是一顆顆球)
+    const SHAPES = [
+      { c: [0.0, 0.205, 0], r: [0.066, 0.07, 0.045] },    // 胸
+      { c: [0.0, 0.135, 0], r: [0.05, 0.055, 0.04] },     // 腰
+      { c: [0.0, 0.07, 0], r: [0.066, 0.055, 0.046] },    // 腰下
+      { c: [0.0, 0.258, 0], r: [0.1, 0.034, 0.044] },     // 肩
+      { c: [-0.012, 0.31, 0], r: [0.025, 0.05, 0.025] },  // 脖子
+      { c: [-0.035, 0.372, 0], r: [0.072, 0.03, 0.037] }, // 頭:往左拉長
+      { c: [0.02, 0.386, 0], r: [0.04, 0.04, 0.036] },    // 後腦
+      { c: [-0.105, 0.382, 0.004], r: [0.036, 0.022, 0.028] },   // 往左伸出去的圓弧
+    ].map((o) => ({ c: new THREE.Vector3(o.c[0], o.c[1] + BASE_H, o.c[2]), r: new THREE.Vector3(...o.r) }));
+    const smin = (a2, b2, k2) => { const h = Math.max(k2 - Math.abs(a2 - b2), 0) / k2; return Math.min(a2, b2) - h * h * k2 * 0.25; };
+    const sdf = (p) => SHAPES.reduce((d, { c, r }) => { const q = p.clone().sub(c).divide(r); return smin(d, (q.length() - 1) * Math.min(r.x, r.y, r.z), 0.03); }, 1);
+    const hash = (x, y, z) => { const v = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453; return v - Math.floor(v); };
+    const dissolveT = (x, y) => Math.max(0, Math.min(1, (0.17 - (y - BASE_H)) / 0.17 * 0.7 + x / 0.1 * 0.45 - 0.08));   // 越低、越右邊越碎;上面三分之二大多保留雕刻
+    // 雕刻表面:白蠟木紋 + 在「消散格子」挖洞
+    const ash = new THREE.MeshStandardMaterial({ map: woodTex(512, 512, 'v', '#dccaa6', [128, 98, 60]), roughness: 0.66 });   // 木紋線深一點才看得到
+    ash.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vFigP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvFigP = position;')
+        .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = vec2(position.x * 3.0 + position.z * 2.0, position.y * 2.2);\n#endif');   // 沒有 UV:用位置當木紋座標(直紋)
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+        varying vec3 vFigP;
+        float hsh(vec3 c) { float v = sin(c.x * 12.9898 + c.y * 78.233 + c.z * 37.719) * 43758.5453; return v - floor(v); }`)
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          { vec3 cell = floor(vFigP / ${CELL.toFixed(4)});
+            float t = clamp((0.17 - (vFigP.y - ${BASE_H.toFixed(3)})) / 0.17 * 0.7 + vFigP.x / 0.1 * 0.45 - 0.08, 0.0, 1.0);
+            if (hsh(cell) < t) discard; }`);
+    };
+    ash.customProgramCacheKey = () => 'pixel-carving';
+    // 用 MarchingCubes 把距離函數變成一整塊平滑的網格(只算一次)
+    { const RES = 72, C = new THREE.Vector3(-0.01, BASE_H + 0.22, 0), HALF = 0.24;
+      const mc = new MarchingCubes(RES, new THREE.MeshBasicMaterial(), false, false, 120000); mc.isolation = 80;
+      const pp = new THREE.Vector3();
+      for (let z = 0; z < RES; z++) for (let y = 0; y < RES; y++) for (let x = 0; x < RES; x++) {
+        pp.set(C.x + (x - RES / 2) / (RES / 2) * HALF, C.y + (y - RES / 2) / (RES / 2) * HALF, C.z + (z - RES / 2) / (RES / 2) * HALF);
+        mc.field[x + y * RES + z * RES * RES] = Math.max(0, 80 - sdf(pp) * 4000);
+      }
+      mc.update();
+      const n = mc.count, geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(mc.positionArray.subarray(0, n * 3)), nrm = new Float32Array(mc.normalArray.subarray(0, n * 3));
+      for (let i = 0; i < n; i++) { pos[i * 3] = C.x + pos[i * 3] * HALF; pos[i * 3 + 1] = C.y + pos[i * 3 + 1] * HALF; pos[i * 3 + 2] = C.z + pos[i * 3 + 2] * HALF; }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+      const carved = new THREE.Mesh(geo, ash); carved.castShadow = carved.receiveShadow = true; fig.add(carved);
+      mc.geometry.dispose(); }
+    // 方塊:每個消散的格子一塊(在人形裡或貼著表面),再加幾塊飄在外面的
+    const WOODS = [0xe6d8bc, 0xe6d8bc, 0xd9c49c, 0x3b2a20, 0x7a2e22, 0x4a2338, 0xc08a2e, 0x1f1a1c, 0x8a5a3a, 0xb07a4f];
+    const cells = [];
+    for (let ix = -8; ix <= 8; ix++) for (let iy = 1; iy <= 21; iy++) for (let iz = -4; iz <= 4; iz++) {
+      const ctr = new THREE.Vector3((ix + 0.5) * CELL, (iy + 0.5) * CELL, (iz + 0.5) * CELL), d = sdf(ctr);
+      if (d > CELL * 0.9 || hash(ix, iy, iz) >= dissolveT(ctr.x, ctr.y)) continue;
+      cells.push({ ctr, out: d > 0 ? d : 0 });
+    }
+    // 底下右半邊:從底座一路疊上來的木塊柱(像照片右下那一疊)
+    for (let ix = 0; ix <= 3; ix++) for (let iy = 1; iy <= 4; iy++) for (let iz = -2; iz <= 1; iz++) {
+      const ctr = new THREE.Vector3((ix + 0.5) * CELL, (iy + 0.5) * CELL + BASE_H - CELL, (iz + 0.5) * CELL);
+      if (hash(ix + 40, iy, iz) < 0.82 && !cells.some((c) => c.ctr.distanceTo(ctr) < 1e-4)) cells.push({ ctr, out: 0 });
+    }
+    // 飄在旁邊的小塊
+    for (const [x, y, z] of [[-0.1, 0.27, 0.02], [-0.12, 0.29, 0.0], [0.12, 0.2, 0.01], [0.13, 0.12, -0.01], [-0.09, 0.08, 0.02], [0.11, 0.06, 0.02], [-0.11, 0.11, 0.0]])
+      cells.push({ ctr: new THREE.Vector3(x, y + BASE_H, z), out: 0.01, small: true });
+    const grain = woodTex(256, 256, 'v', '#d8d8d8', [150, 150, 150]);
+    const blocks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ map: grain, roughness: 0.55 }), cells.length);
+    const m4 = new THREE.Matrix4(), col = new THREE.Color();
+    cells.forEach((c, i) => {
+      const k = hash(c.ctr.x * 91, c.ctr.y * 57, c.ctr.z * 33), sz = CELL * (c.small ? 0.7 + k * 0.4 : 0.94 + k * 0.08);
+      const h = c.small ? sz : sz * (k > 0.7 ? 1.9 : 1);                                      // 偶爾一塊直的長方塊
+      m4.compose(c.ctr.clone().add(new THREE.Vector3(0, 0, (k - 0.5) * 0.006)), new THREE.Quaternion(), new THREE.Vector3(sz, h, sz));
+      blocks.setMatrixAt(i, m4); blocks.setColorAt(i, col.setHex(WOODS[Math.floor(hash(c.ctr.z * 17, c.ctr.x * 23, c.ctr.y * 29) * WOODS.length)]));
+    });
+    blocks.castShadow = blocks.receiveShadow = true; fig.add(blocks);
+    // 胡桃木底座
+    const walnut = new THREE.MeshStandardMaterial({ map: woodTex(512, 128, 'u', '#5a3a26', [40, 24, 14]), roughness: 0.5 });
+    const base = new THREE.Mesh(new RoundedBoxGeometry(0.22, BASE_H, 0.13, 2, 0.004), walnut); base.position.y = BASE_H / 2; base.castShadow = base.receiveShadow = true; fig.add(base);
   }
   // 兔子擺飾(像照片那種陶瓷兔):坐在上層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
   // 一隻亮金、一隻珍珠白(帶彩虹光澤),稍微轉向彼此。金屬 / 珍珠需要有東西可以反射,所以只給這兩種材質一張小的室內環境貼圖(不影響房間其他東西)
