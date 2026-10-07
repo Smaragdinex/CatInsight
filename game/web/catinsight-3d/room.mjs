@@ -1567,10 +1567,9 @@ const plantLeaves = [];   // (舊的彎曲仙人掌用;現在的仙人掌不會�
 }
 
 // ---------- 貓 + 碗 ----------
-// 貓改用 Meshy 產生的 GLB(cat.glb,已 Draco 壓縮 + 貼圖縮到 1024)。
-// 模型只有一個 mesh、沒有骨架,所以「轉頭」用 vertex shader 做:脖子以上的頂點依高度加權繞垂直軸旋轉。
+// 貓:程式產生的可愛橘貓(見下面);沒有骨架,所以「轉頭」用 vertex shader 做:脖子以上的頂點依高度加權繞垂直軸旋轉,尾巴同理。
 let catHead = null;            // 舊介面保留(不再使用)
-const catUniforms = { uHead: { value: 0 }, uTail: { value: 0 }, uNeck: { value: 0.08 }, uBlend: { value: 0.18 }, uPivot: { value: new THREE.Vector2(0.17, 0.40) } };   // 模型原始座標:脖子約 y=0.08~0.26,頭中心 xz≈(0.17, 0.40)
+const catUniforms = { uHead: { value: 0 }, uTail: { value: 0 }, uNeck: { value: 0.44 }, uBlend: { value: 0.12 }, uPivot: { value: new THREE.Vector2(0.0, 0.05) } };   // 模型座標:脖子約 y=0.44~0.56,頭中心 xz≈(0, 0.05)
 let catModel = null;
 {
   const b = group(2.25, 0, 2.45);
@@ -1592,112 +1591,128 @@ let catModel = null;
     const tail = [[0.04, -0.045, 0.03], [0.1, -0.058, 0.07], [0.17, -0.058, 0.05], [0.22, -0.058, 0.1]].map(([x, y, z]) => new THREE.Vector3(x, y, z));
     yg.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tail), 30, 0.004, 6), yarnM)); }
   const cat = new THREE.Group(); cat.position.y = 0.24; cat.rotation.y = -Math.PI * 0.7 + Math.PI / 6; b.add(cat);   // 再往牠的左邊轉 30°
-  // 高品質版:原本的切面貓在 Blender 裡重建成平滑高模(cat-hq.glb:體素重建 + 平滑 + 減面,顏色從原貼圖取到頂點色再柔化),
-  // 這裡再加:虎斑條紋、毛絨外層(fur shells:沿法線往外疊幾層、每層用雜訊挖出一根根毛)、真的眼睛(琥珀色虹膜 + 直立瞳孔 + 透明角膜)、粉紅鼻頭、鬍鬚。
-  // 頭轉、尾巴擺仍用 vertex shader(catUniforms);眼睛 / 鼻子 / 鬍鬚的頂點直接放在模型座標裡,吃同一段變形,才會跟著頭一起轉
-  const CAT_GLSL_V = `
+  // 可愛版橘貓(照參考圖:大圓頭、蓬蓬的臉頰、短短胖胖的身體、白色小腳掌、往上捲的蓬鬆尾巴、水汪汪的大眼睛、粉紅小鼻子、ω 嘴、腮紅)。
+  // 整隻用程式做:幾個橢球 / 圓錐 / 膠囊用 smooth-min 融成一個距離函數 → MarchingCubes 變成平滑網格 → 依位置算頂點色(橘、奶油色、粉紅)→
+  // 疊 8 層毛絨外層(手機 5 層)。眼睛、鼻子、嘴是另外的小零件,和身體一起吃頭轉 / 甩尾的變形
+  const KG = `
     uniform float uHead, uNeck, uBlend, uTail; uniform vec2 uPivot; varying vec3 vCatPos; varying float vFur;
-    // 眼睛、鼻子周圍不長毛(不然會蓋住眼睛)
-    float furMask(vec3 p) { return smoothstep(0.07, 0.12, distance(p, vec3(-0.01, 0.5, 0.64))) * smoothstep(0.07, 0.12, distance(p, vec3(0.327, 0.504, 0.642))) * smoothstep(0.045, 0.09, distance(p, vec3(0.159, 0.37, 0.76))); }
     mat2 rot2(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
     mat2 headRot(float y) { return rot2(uHead * smoothstep(uNeck, uNeck + uBlend, y)); }
-    float tailW(vec3 p) { return (1.0 - smoothstep(-0.45, -0.33, p.x)) * (1.0 - smoothstep(-0.6, -0.5, p.y)) * smoothstep(-0.7, 0.25, p.z); }
-    const vec2 TAIL_PIVOT = vec2(-0.38, -0.62);`;
-  const patchCat = (mat2, { stripes = false, shell = null } = {}) => {
+    // 尾巴:身體右後方往上捲的那一段,尾根在 (0.2, -0.27)
+    float tailW(vec3 p) { return smoothstep(0.12, 0.24, p.x) * (1.0 - smoothstep(-0.26, -0.18, p.z)) * smoothstep(0.06, 0.16, p.y); }
+    const vec2 TAIL_PIVOT = vec2(0.14, -0.26);
+    // 眼睛、鼻子、嘴附近不長毛
+    float furMask(vec3 p) { return smoothstep(0.09, 0.13, distance(p, vec3(-0.118, 0.665, 0.32))) * smoothstep(0.09, 0.13, distance(p, vec3(0.118, 0.665, 0.32))) * smoothstep(0.05, 0.09, distance(p, vec3(0.0, 0.585, 0.37))); }`;
+  const patchKitty = (mat2, shell = null) => {
     mat2.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, catUniforms);
       if (shell) sh.uniforms.uShell = { value: shell.k }, sh.uniforms.uFurLen = { value: shell.len };
       sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\n' + CAT_GLSL_V + (shell ? '\nuniform float uShell, uFurLen;' : ''))
+        .replace('#include <common>', '#include <common>\n' + KG + (shell ? '\nuniform float uShell, uFurLen;' : ''))
         .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
-          objectNormal.xz = headRot(position.y) * objectNormal.xz;
-          objectNormal.xz = rot2(uTail * tailW(position)) * objectNormal.xz;`)
+          objectNormal.xz = headRot(position.y) * objectNormal.xz; objectNormal.xz = rot2(uTail * tailW(position)) * objectNormal.xz;`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>
           vCatPos = position; vFur = furMask(position);
           transformed.xz = uPivot + headRot(position.y) * (transformed.xz - uPivot);
           transformed.xz = TAIL_PIVOT + rot2(uTail * tailW(position)) * (transformed.xz - TAIL_PIVOT);
-          ${shell ? 'transformed += normalize(objectNormal) * uFurLen * uShell * vFur; transformed.y -= uFurLen * 0.45 * uShell * uShell * vFur;' : ''}`);
-      sh.fragmentShader = sh.fragmentShader
+          ${shell ? 'transformed += normalize(objectNormal) * uFurLen * uShell * vFur; transformed.y -= uFurLen * 0.35 * uShell * uShell * vFur;' : ''}`);
+      if (shell) sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
-          varying vec3 vCatPos; varying float vFur; ${shell ? 'uniform float uShell;' : ''}
-          float h31(vec3 p) { p = fract(p * vec3(.1031, .1030, .0973)); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }
-          float vn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-            return mix(mix(mix(h31(i), h31(i + vec3(1,0,0)), f.x), mix(h31(i + vec3(0,1,0)), h31(i + vec3(1,1,0)), f.x), f.y),
-                       mix(mix(h31(i + vec3(0,0,1)), h31(i + vec3(1,0,1)), f.x), mix(h31(i + vec3(0,1,1)), h31(i + vec3(1,1,1)), f.x), f.y), f.z); }`)
+          varying vec3 vCatPos; varying float vFur; uniform float uShell;
+          float h31(vec3 p) { p = fract(p * vec3(.1031, .1030, .0973)); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }`)
         .replace('#include <color_fragment>', `#include <color_fragment>
-          ${stripes ? `{
-            // 頂點色是從 sRGB 貼圖直接取的值,這裡轉回線性
-            diffuseColor.rgb = pow(max(diffuseColor.rgb, vec3(0.0)), vec3(2.2));
-            float mx = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b), mn = min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b);
-            float orange = smoothstep(0.25, 0.5, (mx - mn) / max(mx, 1e-3));           // 飽和的橘色區才有條紋(白色胸口、腳掌沒有)
-            vec3 p = vCatPos; float w = vn(p * 3.0) * 2.2 + vn(p * 7.0) * 0.6;
-            float body = sin(p.z * 30.0 + w * 2.4 + p.y * 4.0);                        // 身體:垂直於背脊的條紋
-            float legs = sin(p.y * 36.0 + w * 1.6);                                   // 腳:一圈一圈
-            float head = sin(p.x * 34.0 + w * 1.2);                                   // 額頭:直條
-            float isLeg = 1.0 - smoothstep(-0.55, -0.4, p.y), isHead = smoothstep(0.32, 0.42, p.y) * smoothstep(0.55, 0.7, p.y + p.z * 0.3);
-            float st = mix(mix(body, legs, isLeg), head, isHead);
-            float stripe = smoothstep(0.55, 0.95, st) * orange * mix(1.0, 0.6, isHead) * (0.6 + 0.4 * vn(p * 11.0));   // 細一點、邊緣不規則、深淺不一
-            diffuseColor.rgb *= mix(vec3(1.0), vec3(0.62, 0.5, 0.4), stripe);
-            diffuseColor.rgb *= vec3(1.1, 0.98, 0.86) * 1.45;                         // 暖一點、亮一點(房間燈偏暗偏紫)
-            ${shell ? `
-            // 每一小格一根毛:格子裡隨機放一個圓心,越外層半徑越小(毛尖變細);眼睛鼻子周圍(vFur 小)不畫外層
-            vec3 q = p * 330.0, cell = floor(q), fq = fract(q) - 0.5 - (vec3(h31(cell), h31(cell + 7.1), h31(cell + 3.3)) - 0.5) * 0.5;
-            float rad = 0.48 * (1.0 - uShell * 0.85) * (0.7 + 0.5 * h31(cell + 1.7));
+          { vec3 q = vCatPos * 300.0, cell = floor(q), fq = fract(q) - 0.5 - (vec3(h31(cell), h31(cell + 7.1), h31(cell + 3.3)) - 0.5) * 0.5;
+            float rad = 0.5 * (1.0 - uShell * 0.8) * (0.7 + 0.5 * h31(cell + 1.7));
             if (vFur < 0.15 || length(fq.xz) > rad) discard;
-            diffuseColor.rgb *= mix(0.72, 1.12, uShell);                               // 毛根暗、毛尖亮
-            ` : ''}
-          }` : ''}`);
+            diffuseColor.rgb *= mix(0.8, 1.1, uShell); }`);
+      else sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCatPos; varying float vFur;');
     };
-    // 一定要給不同的快取鍵:不然 three.js 會把(毛絨外層 / 本體 / 小零件)當成同一支 shader 重用,外層就不會往外長
-    mat2.customProgramCacheKey = () => `cat-${stripes ? 's' : ''}-${shell ? 'f' : ''}`;
+    mat2.customProgramCacheKey = () => 'kitty-' + (shell ? 'fur' : 'base') + (mat2.map ? '-map' : '') + (mat2.vertexColors ? '-vc' : '');
     mat2.needsUpdate = true; return mat2;
   };
-  loadGLB('cat', './cat-hq.glb?v=1', (gltf) => {
-    const m = gltf.scene;
-    const box = new THREE.Box3().setFromObject(m);
-    const size = box.getSize(new THREE.Vector3());
-    const k = 1.0 / size.y;                       // 貓高約 1.0
-    m.scale.setScalar(k);
-    m.position.set(-(box.min.x + box.max.x) / 2 * k, -box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
-    let body = null;
-    m.traverse((o) => { if (o.isMesh && !body) body = o; });
-    body.castShadow = body.receiveShadow = true;
-    body.material = patchCat(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0 }), { stripes: true });
-    // 毛絨外層:8 層,越外層毛越少,整體毛長約模型高度的 1.8%
+  { // ---- 形狀(模型座標:臉朝 +z,y 朝上,腳底 y = 0)----
+    const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+    const ell = (c, r) => (p) => { const q = p.clone().sub(c).divide(r); return (q.length() - 1) * Math.min(r.x, r.y, r.z); };
+    const cap = (a2, b2, r1, r2) => (p) => { const pa = p.clone().sub(a2), ba = b2.clone().sub(a2), h = Math.max(0, Math.min(1, pa.dot(ba) / ba.dot(ba))); return pa.addScaledVector(ba, -h).length() - (r1 + (r2 - r1) * h); };
+    const earF = (sx) => { const base = V3(sx * 0.2, 0.84, 0.0), tip = V3(sx * 0.3, 1.08, 0.03); return (p) => { const q = p.clone(); q.z = (q.z - 0.0) * 1.9; return cap(base, tip, 0.12, 0.012)(q); }; };
+    const TAIL = [V3(0.14, 0.1, -0.26), V3(0.26, 0.17, -0.36), V3(0.33, 0.32, -0.38), V3(0.33, 0.48, -0.32), V3(0.27, 0.58, -0.25)];   // 從屁股右後方往後、再往上捲
+    const parts = [
+      ell(V3(0, 0.27, -0.03), V3(0.26, 0.245, 0.27)),               // 胖胖的小身體
+      ell(V3(0, 0.66, 0.05), V3(0.37, 0.31, 0.3)),                   // 大圓頭
+      ell(V3(-0.2, 0.58, 0.12), V3(0.17, 0.14, 0.15)), ell(V3(0.2, 0.58, 0.12), V3(0.17, 0.14, 0.15)),   // 蓬蓬的臉頰
+      ell(V3(-0.045, 0.565, 0.3), V3(0.06, 0.045, 0.05)), ell(V3(0.045, 0.565, 0.3), V3(0.06, 0.045, 0.05)),   // 口鼻兩團
+      earF(-1), earF(1),
+      cap(V3(-0.12, 0.24, 0.13), V3(-0.12, 0.05, 0.19), 0.075, 0.07), cap(V3(0.12, 0.24, 0.13), V3(0.12, 0.05, 0.19), 0.075, 0.07),   // 前腳
+      ell(V3(-0.12, 0.04, 0.22), V3(0.08, 0.045, 0.09)), ell(V3(0.12, 0.04, 0.22), V3(0.08, 0.045, 0.09)),   // 腳掌
+      ell(V3(-0.2, 0.15, -0.08), V3(0.13, 0.13, 0.17)), ell(V3(0.2, 0.15, -0.08), V3(0.13, 0.13, 0.17)),     // 後腿
+      ...TAIL.slice(0, -1).map((a2, i) => cap(a2, TAIL[i + 1], 0.048 + i * 0.006, 0.054 + i * 0.006)),       // 尾巴(細一點,越往尾端越蓬)
+    ];
+    const smin = (a2, b2, k2) => { const h = Math.max(k2 - Math.abs(a2 - b2), 0) / k2; return Math.min(a2, b2) - h * h * k2 * 0.25; };
+    const sdf = (p) => parts.reduce((d, f, i) => smin(d, f(p), i >= 8 && i < 12 ? 0.03 : 0.05), 9);
+    // ---- MarchingCubes ----
+    const RES = 88, C = V3(0.04, 0.6, 0.0), HALF = 0.62, mc = new MarchingCubes(RES, new THREE.MeshBasicMaterial(), false, false, 200000); mc.isolation = 80;
+    const pp = V3(0, 0, 0);
+    for (let z = 0; z < RES; z++) for (let y = 0; y < RES; y++) for (let x = 0; x < RES; x++) {
+      pp.set(C.x + (x - RES / 2) / (RES / 2) * HALF, C.y + (y - RES / 2) / (RES / 2) * HALF, C.z + (z - RES / 2) / (RES / 2) * HALF);
+      mc.field[x + y * RES + z * RES * RES] = pp.y < -0.005 ? 0 : Math.max(0, 80 - sdf(pp) * 3000);
+    }
+    mc.update();
+    const n = mc.count, pos = new Float32Array(mc.positionArray.subarray(0, n * 3)), nrm = new Float32Array(mc.normalArray.subarray(0, n * 3)), col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { pos[i * 3] = C.x + pos[i * 3] * HALF; pos[i * 3 + 1] = C.y + pos[i * 3 + 1] * HALF; pos[i * 3 + 2] = C.z + pos[i * 3 + 2] * HALF; }
+    mc.geometry.dispose();
+    // ---- 顏色:淡橘底、奶油色的口鼻 / 胸口 / 肚子 / 腳掌 / 尾巴尖,額頭幾條深一點的橘紋、耳朵內側粉紅、腮紅 ----
+    const ORANGE = new THREE.Color(0xfcc47a), DEEP = new THREE.Color(0xf4a457), CREAM = new THREE.Color(0xfff0d8), PINK = new THREE.Color(0xf7a3a0), BLUSH = new THREE.Color(0xf79a8e);
+    const c = new THREE.Color(), sm = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+    for (let i = 0; i < n; i++) {
+      const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2], nz = nrm[i * 3 + 2];
+      c.copy(ORANGE);
+      const muzzle = sm(0.17, 0.09, Math.hypot(x / 1.3, (y - 0.57) * 1.2, (z - 0.33) * 0.8));
+      const chest = sm(0.05, 0.25, z) * sm(0.24, 0.1, Math.abs(x)) * sm(0.52, 0.42, y) * sm(0.06, 0.16, y);
+      const paws = sm(0.1, 0.05, y) * sm(0.08, 0.16, z);
+      const tailTip = sm(0.48, 0.58, y) * sm(0.2, 0.26, x) * sm(-0.18, -0.26, z);
+      const face = sm(0.2, 0.32, z) * sm(0.62, 0.7, y) * sm(0.14, 0.05, Math.abs(x));      // 眼睛中間往上的一條淺色
+      c.lerp(CREAM, Math.min(1, muzzle + chest + paws + tailTip + face * 0.5));
+      const forehead = sm(0.82, 0.9, y) * sm(0.05, 0.22, z) * sm(0.2, 0.06, Math.abs(x)) * (Math.sin(x * 70) > 0.35 ? 1 : 0);
+      const tailBand = sm(0.16, 0.24, x) * sm(-0.2, -0.28, z) * (Math.sin(y * 34) > 0.5 ? 1 : 0) * (1 - tailTip);
+      c.lerp(DEEP, Math.min(0.85, forehead + tailBand * 0.6));
+      const ear = sm(0.86, 0.93, y) * sm(0.13, 0.19, Math.abs(x)) * sm(0.0, 0.5, nz);
+      c.lerp(PINK, ear * 0.9);
+      const blush = sm(0.08, 0.02, Math.hypot(Math.abs(x) - 0.2, y - 0.6, (z - 0.26) * 0.7));
+      c.lerp(BLUSH, blush * 0.55);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.Group(); m.scale.setScalar(0.86); cat.add(m);
+    // 一點暖色自發光當補光,頭底下、肚子這些朝下的地方才不會一片黑(強度 < 0.5,不會被當成發光物做光暈)
+    const FILL = { emissive: 0x9a6a44, emissiveIntensity: 0.4 };
+    const body = new THREE.Mesh(geo, patchKitty(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, ...FILL }))); body.castShadow = true; body.receiveShadow = false; m.add(body);   // 不接收自己的影子(不然大頭會在胸口投一圈黑)
     const SHELLS = matchMedia('(pointer: coarse)').matches ? 5 : 8;
-    for (let i = 1; i <= SHELLS; i++) {
-      const sm = patchCat(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 }), { stripes: true, shell: { k: i / SHELLS, len: 0.032 } });
-      const shellMesh = new THREE.Mesh(body.geometry, sm); shellMesh.castShadow = false; shellMesh.receiveShadow = true; shellMesh.frustumCulled = false; body.add(shellMesh);
+    for (let i = 1; i <= SHELLS; i++) { const sh2 = new THREE.Mesh(geo, patchKitty(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, ...FILL }), { k: i / SHELLS, len: 0.034 })); sh2.receiveShadow = false; sh2.frustumCulled = false; m.add(sh2); }
+    // ---- 小零件(頂點直接放在模型座標,和身體吃同一段頭轉變形)----
+    const part = (g0, mat2, p0, q0, s0) => { const g2 = g0.clone(); g2.applyMatrix4(new THREE.Matrix4().compose(p0, q0 || new THREE.Quaternion(), s0 || V3(1, 1, 1))); const o = new THREE.Mesh(g2, patchKitty(mat2)); o.frustumCulled = false; m.add(o); return o; };
+    // 大眼睛:深棕 → 琥珀的虹膜佔滿、大大的圓瞳孔、兩顆白色反光點;外面一層亮亮的角膜
+    const eyeTex = (() => { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d'); g.fillStyle = '#fbf6ee'; g.fillRect(0, 0, 512, 256);
+      const cx = 128, cy = 128, R = 82, gr = g.createRadialGradient(cx, cy + 10, 8, cx, cy, R); gr.addColorStop(0, '#d98b3a'); gr.addColorStop(0.55, '#a8601f'); gr.addColorStop(0.85, '#5e3110'); gr.addColorStop(1, '#2a1406');
+      g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#120804'; g.beginPath(); g.arc(cx, cy + 4, 36, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.95)'; g.beginPath(); g.ellipse(cx - 24, cy - 26, 17, 15, -0.4, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(cx + 22, cy + 22, 6, 0, Math.PI * 2); g.fill();
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; })();
+    const eyeM = new THREE.MeshStandardMaterial({ map: eyeTex, roughness: 0.25 });
+    const corneaM = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.06, roughness: 0.02, clearcoat: 1, envMap: reflectEnv(), envMapIntensity: 1.0, depthWrite: false });
+    for (const sx of [-1, 1]) {
+      // 眼球往頭裡縮,只露出前面一片(露出來的幾乎都是虹膜)
+      const nv = V3(sx * 0.16, 0.05, 1).normalize(), cv = V3(sx * 0.118, 0.665, 0.272), q = new THREE.Quaternion().setFromUnitVectors(V3(0, 0, 1), nv);
+      part(new THREE.SphereGeometry(0.084, 40, 28), eyeM, cv, q, V3(1, 1.06, 1));
+      part(new THREE.SphereGeometry(0.087, 40, 28), corneaM, cv, q, V3(1, 1.06, 1));
     }
-    // 把小零件的幾何直接放到模型座標(baked transform),才能吃同一段頭轉變形
-    const part = (geo, mat2, pos, quat, scl) => { const g2 = geo.clone(); g2.applyMatrix4(new THREE.Matrix4().compose(pos, quat || new THREE.Quaternion(), scl || new THREE.Vector3(1, 1, 1))); const o = new THREE.Mesh(g2, patchCat(mat2)); o.frustumCulled = false; body.add(o); return o; };
-    // 眼睛:原模型眼睛(深色區)的中心和朝向
-    const eyeTex = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#f3efe2'; g.fillRect(0, 0, 512, 256);
-      const cx = 128, cy = 128, R = 74, gr = g.createRadialGradient(cx, cy, 6, cx, cy, R); gr.addColorStop(0, '#c9e06a'); gr.addColorStop(0.35, '#e8c24a'); gr.addColorStop(0.75, '#d08a24'); gr.addColorStop(0.95, '#6a4210'); gr.addColorStop(1, '#1c1206');   // 露出來的幾乎都是虹膜(貓眼):中心偏黃綠、外圈琥珀
-      g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, R, R, 0, 0, Math.PI * 2); g.fill();
-      for (let i = 0; i < 60; i++) { const a = Math.random() * Math.PI * 2; g.strokeStyle = `rgba(${Math.random() < 0.5 ? '255,230,150' : '120,70,10'},.35)`; g.lineWidth = 1; g.beginPath(); g.moveTo(cx + Math.cos(a) * 12, cy + Math.sin(a) * 12); g.lineTo(cx + Math.cos(a) * (R - 4), cy + Math.sin(a) * (R - 4)); g.stroke(); }
-      g.fillStyle = '#050505'; g.beginPath(); g.ellipse(cx, cy, 9, 50, 0, 0, Math.PI * 2); g.fill();
-      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; })();
-    const eyeM = new THREE.MeshStandardMaterial({ map: eyeTex, roughness: 0.3 });
-    const corneaM = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.05, roughness: 0.02, metalness: 0, clearcoat: 1, envMap: reflectEnv(), envMapIntensity: 0.7, depthWrite: false });   // 很淡,只留一點高光
-    const z = new THREE.Vector3(0, 0, 1);
-    for (const [c, n] of [[[-0.01, 0.5, 0.65], [-0.23, 0.14, 0.96]], [[0.327, 0.504, 0.652], [0.29, 0.07, 0.95]]]) {
-      const nv = new THREE.Vector3(...n).normalize(), cv = new THREE.Vector3(...c), q = new THREE.Quaternion().setFromUnitVectors(z, nv);
-      // SphereGeometry 的 +z 剛好在貼圖 u = 0.25(虹膜畫在那裡),所以直接把 +z 轉到眼睛的朝向;眼球往裡縮,只露出前面一片
-      part(new THREE.SphereGeometry(0.052, 32, 20), eyeM, cv.clone().addScaledVector(nv, -0.036), q, new THREE.Vector3(1, 1.1, 1));
-      part(new THREE.SphereGeometry(0.0545, 32, 20), corneaM, cv.clone().addScaledVector(nv, -0.034), q, new THREE.Vector3(1, 1.1, 1));
-    }
-    // 粉紅鼻頭(倒三角感:壓扁的球)+ 鬍鬚
-    part(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshStandardMaterial({ color: 0xe9a3a3, roughness: 0.5 }), new THREE.Vector3(0.159, 0.37, 0.762), null, new THREE.Vector3(0.024, 0.016, 0.014));
-    const whiskM = new THREE.MeshStandardMaterial({ color: 0xfaf6ee, roughness: 0.4 });
-    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) {
-      const o = new THREE.Vector3(0.159 + sx * 0.055, 0.345 - i * 0.012, 0.735), d = new THREE.Vector3(sx, 0.12 - i * 0.12, 0.12).normalize();
-      const pts = [0, 0.33, 0.66, 1].map((u) => o.clone().addScaledVector(d, u * 0.3).add(new THREE.Vector3(0, -u * u * 0.04, 0)));
-      part(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 12, 0.0011, 4), whiskM, new THREE.Vector3(), null, null);
-    }
-    cat.add(m); catModel = m;
-    if (window.__room) window.__room.cat = m;
-  });
+    // 粉紅小鼻子(圓圓的倒三角)+ ω 嘴
+    part(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshStandardMaterial({ color: 0xf6a3a3, roughness: 0.45 }), V3(0, 0.592, 0.352), null, V3(0.022, 0.014, 0.012));
+    const mouthM = new THREE.MeshStandardMaterial({ color: 0x8a4a3a, roughness: 0.6 });
+    part(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(0, 0.574, 0.354), V3(0, 0.556, 0.352)]), 4, 0.0035, 6), mouthM, V3(0, 0, 0));
+    for (const sx of [-1, 1]) part(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(0, 0.556, 0.352), V3(sx * 0.02, 0.546, 0.349), V3(sx * 0.042, 0.552, 0.343), V3(sx * 0.054, 0.564, 0.337)]), 16, 0.0035, 6), mouthM, V3(0, 0, 0));
+    catModel = m;
+  }
   animated.push(cat);
 }
 
@@ -2424,4 +2439,4 @@ const loadT0 = performance.now();
   if ((pending.size === 0 && performance.now() - loadT0 > 400) || performance.now() - loadT0 > 6000) loadingEl.classList.add('done');
   else setTimeout(waitModels, 100);
 })();
-window.__room = { speaker, get camHeadY() { return camHead ? camHead.rotation.y : null; }, get camHeadPitch() { return camHead ? camHead.rotation.z : null; }, greetCam() { camGreet.start(); }, get arcade() { return arcadeModel; }, frames: 0, camera, controls, THREE, catUniforms, get zoomT() { return zoomT; }, setZoom(v) { zoomGoal = v; }, openGame, hideGame, fitGameRot, get poster() { return livePoster; } };
+window.__room = { speaker, get cat() { return catModel; }, get camHeadY() { return camHead ? camHead.rotation.y : null; }, get camHeadPitch() { return camHead ? camHead.rotation.z : null; }, greetCam() { camGreet.start(); }, get arcade() { return arcadeModel; }, frames: 0, camera, controls, THREE, catUniforms, get zoomT() { return zoomT; }, setZoom(v) { zoomGoal = v; }, openGame, hideGame, fitGameRot, get poster() { return livePoster; } };
