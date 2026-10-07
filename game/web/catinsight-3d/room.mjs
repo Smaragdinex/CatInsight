@@ -1551,7 +1551,7 @@ const hints = (() => {
   };
   add(arcadeModel, 0, ARCADE_H + 0.16, 1.22, 'Play', () => { focusArcade = true; zoomGoal = 1; });
   add(screenMesh, 0.62, 0.36, 0.03, 'Explore', () => { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } });
-  add(camHead, 0, 0.4, 0, 'Say hi', () => { camGreet.start(); uiSfx('hover'); });
+  add(camHead, 0, 0.4, 0, 'Interact', () => { camGreet.start(); uiSfx('hover'); });
   const v = new THREE.Vector3();
   return { step(t) {
     const show = zoomT === 0 && !uiOn && !gameOn && !(story && story.active) && loadingEl.classList.contains('done');
