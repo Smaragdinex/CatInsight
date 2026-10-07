@@ -141,8 +141,31 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
 // ---------- 粉紅牆:兩片層板(底下各一盞暖光)+ 霓虹招牌(貓掌 + K 線)----------
 {
   const WX = S / 2 - T;                     // 粉牆內側的 x
+  // 層板:淺色橡木(程式畫的木紋:上面的紋沿長邊走、前緣是側面的紋,幾個小木節)+ 底下兩支黃銅托架
+  const grain = (w, h, along) => {   // along = 'u':紋路橫向;'v':紋路直向
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d');
+    g.fillStyle = '#e9cfa6'; g.fillRect(0, 0, w, h);
+    const L = along === 'u' ? w : h, S = along === 'u' ? h : w;
+    for (let i = 0; i < 70; i++) {
+      const o = Math.random() * S, amp = 2 + Math.random() * 6, fr = 0.004 + Math.random() * 0.01, ph = Math.random() * 6, a = 0.06 + Math.random() * 0.12;
+      g.strokeStyle = `rgba(${150 + Math.random() * 30 | 0},${105 + Math.random() * 25 | 0},${60 + Math.random() * 20 | 0},${a})`; g.lineWidth = 0.6 + Math.random() * 1.6; g.beginPath();
+      for (let t = 0; t <= L; t += 8) { const q = o + Math.sin(t * fr + ph) * amp + Math.sin(t * fr * 3.7 + ph) * amp * 0.3; along === 'u' ? (t ? g.lineTo(t, q) : g.moveTo(t, q)) : (t ? g.lineTo(q, t) : g.moveTo(q, t)); }
+      g.stroke();
+    }
+    for (let k = 0; k < 2; k++) { const x = Math.random() * w, y = Math.random() * h, gr = g.createRadialGradient(x, y, 0, x, y, 9); gr.addColorStop(0, 'rgba(120,80,45,.55)'); gr.addColorStop(1, 'rgba(120,80,45,0)'); g.fillStyle = gr; g.fillRect(x - 12, y - 12, 24, 24); }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+  };
+  const brassShelf = new THREE.MeshStandardMaterial({ color: 0xc9a25a, metalness: 0.8, roughness: 0.35 });
   for (const [y, z0, z1] of [[2.35, 0.55, 2.45], [3.05, 0.9, 2.45]]) {
-    box(0.42, 0.08, z1 - z0, C.shelf, { x: WX - 0.21, y, z: (z0 + z1) / 2, r: 0.02, seg: 1 });
+    const L = z1 - z0, side = new THREE.MeshStandardMaterial({ map: grain(1024, 64, 'u'), roughness: 0.6 }), top = new THREE.MeshStandardMaterial({ map: grain(128, 1024, 'v'), roughness: 0.55 });
+    const end = new THREE.MeshStandardMaterial({ color: 0xdcbf94, roughness: 0.7 });
+    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.08, L), [end, side, top, top, end, end]);   // +x 靠牆、-x 前緣、上下面、兩端
+    sh.position.set(WX - 0.21, y, (z0 + z1) / 2); sh.castShadow = sh.receiveShadow = true; root.add(sh);
+    for (const z of [z0 + 0.22, z1 - 0.22]) {                                   // L 形托架:貼牆的一段 + 托在板子下面的一段 + 斜撐
+      const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.16, 0.03), brassShelf); b1.position.set(WX - 0.008, y - 0.12, z); root.add(b1);
+      const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.012, 0.03), brassShelf); b2.position.set(WX - 0.16, y - 0.046, z); root.add(b2);
+      const b3 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.01, 0.024), brassShelf); b3.position.set(WX - 0.08, y - 0.11, z); b3.rotation.z = -0.62; root.add(b3);
+    }
     const under = new THREE.PointLight(0xffc27a, 1.8, 2.4, 2); under.position.set(WX - 0.3, y - 0.12, (z0 + z1) / 2); root.add(under);
   }
   // 牆上兩張畫(圖片 + 白框):夜景城市、太空貓,並排掛在桌子上方
@@ -414,8 +437,64 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
     glass.position.y = CY; cb.add(glass);
     idleAnims.push((t) => { core.rotation.y = t * 0.25; core.rotation.z = Math.sin(t * 0.3) * 0.2; stars.forEach((st, i) => { st.scale.setScalar(0.6 + 0.5 * (0.5 + 0.5 * Math.sin(t * (1.7 + i * 0.4) + i))); }); });
   }
-  sphere(0.11, 0xf7f1f2, { x: WX - 0.21, y: 3.05 + 0.15, z: 2.1 }); sphere(0.07, 0xf7f1f2, { x: WX - 0.21, y: 3.05 + 0.3, z: 2.1 });   // 招財貓(簡化)
-  box(0.16, 0.26, 0.06, 0xf0a7c8, { x: WX - 0.21, y: 3.05 + 0.17, z: 1.35, r: 0.015, seg: 1 }); box(0.1, 0.09, 0.02, 0x6fd9c2, { x: WX - 0.21, y: 3.05 + 0.22, z: 1.33, r: 0.004, seg: 1 });   // 掌上遊戲機
+  // 招財貓:白色陶瓷、紅坐墊、紅項圈 + 金鈴鐺、抱著金幣,舉起來的那隻手慢慢招手(本地 +z 朝房間)
+  { const mk = group(WX - 0.2, 3.09, 2.13); mk.rotation.y = -Math.PI / 2;
+    const porcelain = mat(0xfbf7f2, { roughness: 0.28 }), red = mat(0xe0453a, { roughness: 0.45 }), gold = new THREE.MeshStandardMaterial({ color: 0xe2b84f, metalness: 0.85, roughness: 0.3 }), pink = mat(0xff9fb5, { roughness: 0.5 }), ink = mat(0x2b2228, { roughness: 0.6 });
+    const add = (geo, m, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0, parent = mk) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.rotation.set(rx, ry, rz); o.castShadow = true; parent.add(o); return o; };
+    add(new RoundedBoxGeometry(0.17, 0.03, 0.15, 3, 0.012), red, 0, 0.015, 0);                                   // 坐墊
+    add(new THREE.SphereGeometry(0.075, 32, 20), porcelain, 0, 0.1, 0, 1, 1.12, 0.92);                           // 身體
+    add(new THREE.SphereGeometry(0.066, 32, 20), porcelain, 0, 0.215, 0.005, 1.12, 0.95, 1);                     // 頭
+    for (const sx of [-1, 1]) {                                                                                   // 耳朵(外白內粉)
+      add(new THREE.ConeGeometry(0.026, 0.05, 16), porcelain, sx * 0.042, 0.272, 0, 1, 1, 0.7, 0, 0, -sx * 0.32);
+      add(new THREE.ConeGeometry(0.016, 0.034, 16), pink, sx * 0.041, 0.268, 0.01, 1, 1, 0.5, 0, 0, -sx * 0.32);
+      const eye = add(new THREE.TorusGeometry(0.011, 0.0028, 6, 16, Math.PI), ink, sx * 0.026, 0.222, 0.064, 1, 1, 1, 0, 0, Math.PI);   // 瞇瞇眼(向下彎的弧)
+      add(new THREE.SphereGeometry(0.012, 12, 8), pink, sx * 0.045, 0.2, 0.055, 1, 0.6, 0.4);                   // 腮紅
+      for (const k of [-1, 1]) add(new THREE.CylinderGeometry(0.0012, 0.0012, 0.045, 4), ink, sx * 0.07, 0.2 + k * 0.008, 0.045, 1, 1, 1, 0, 0, Math.PI / 2 + k * sx * 0.15);   // 鬍鬚
+    }
+    add(new THREE.SphereGeometry(0.007, 10, 8), pink, 0, 0.205, 0.07);                                           // 鼻子
+    add(new THREE.TorusGeometry(0.052, 0.008, 8, 32), red, 0, 0.162, 0.004, 1, 1, 1, Math.PI / 2 - 0.12);        // 項圈
+    add(new THREE.SphereGeometry(0.013, 16, 12), gold, 0, 0.152, 0.058);                                         // 鈴鐺
+    add(new THREE.CylinderGeometry(0.028, 0.028, 0.008, 24), gold, -0.02, 0.095, 0.07, 1, 1, 1.5, Math.PI / 2 - 0.2);   // 抱著的金幣
+    add(new THREE.SphereGeometry(0.02, 16, 12), porcelain, -0.035, 0.085, 0.06);                                 // 抱金幣的手
+    add(new THREE.TorusGeometry(0.03, 0.009, 8, 20, Math.PI * 1.2), porcelain, 0.05, 0.05, -0.05, 1, 1, 1, 0, 0.6, 0.4);   // 尾巴
+    const arm = new THREE.Group(); arm.position.set(0.055, 0.15, 0.01); mk.add(arm);                              // 舉起來招手的手(軸心在肩膀)
+    add(new THREE.CylinderGeometry(0.017, 0.02, 0.065, 16), porcelain, 0, 0.03, 0, 1, 1, 1, 0, 0, -0.15, arm);
+    add(new THREE.SphereGeometry(0.023, 16, 12), porcelain, 0.004, 0.068, 0, 1, 1, 1, 0, 0, 0, arm);
+    add(new THREE.SphereGeometry(0.009, 10, 8), pink, 0.004, 0.068, 0.02, 1, 1, 0.5, 0, 0, 0, arm);            // 肉球
+    idleAnims.push((t) => { arm.rotation.x = -0.15 - 0.45 * Math.max(0, Math.sin(t * 1.6)); });
+  }
+  // 掌上遊戲機(復古掌機的感覺,不放任何品牌):粉色機身斜靠在小架子上,淡綠色螢幕跑一隻跳起來吃金幣的像素貓
+  { const gb = group(WX - 0.19, 3.09, 1.3); gb.rotation.y = -Math.PI / 2;
+    const stand = mat(0xf6eef8, { roughness: 0.5 });
+    const st = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.012, 0.06, 2, 0.004), stand); st.position.y = 0.006; gb.add(st);
+    const lean = new THREE.Mesh(new RoundedBoxGeometry(0.09, 0.08, 0.008, 2, 0.003), stand); lean.position.set(0, 0.045, -0.022); lean.rotation.x = -0.32; gb.add(lean);
+    const dev = new THREE.Group(); dev.position.set(0, 0.098, 0.006); dev.rotation.x = -0.28; gb.add(dev);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(0.105, 0.17, 0.024, 3, 0.012), mat(0xf6a9c8, { roughness: 0.45 })); body.castShadow = true; dev.add(body);
+    const bezel = new THREE.Mesh(new RoundedBoxGeometry(0.084, 0.072, 0.004, 2, 0.006), mat(0x5b4a6b, { roughness: 0.5 })); bezel.position.set(0, 0.035, 0.012); dev.add(bezel);
+    const sc = document.createElement('canvas'); sc.width = 80; sc.height = 64; const sg = sc.getContext('2d');
+    const scrTex = new THREE.CanvasTexture(sc); scrTex.colorSpace = THREE.SRGBColorSpace; scrTex.magFilter = THREE.NearestFilter; scrTex.minFilter = THREE.NearestFilter; scrTex.generateMipmaps = false;
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.066, 0.053), new THREE.MeshStandardMaterial({ map: scrTex, emissive: 0xffffff, emissiveMap: scrTex, emissiveIntensity: 0.3, roughness: 0.4 })   /* 低於光暈門檻:太亮會暈成一片白、看不到像素貓 */);
+    scr.position.set(0, 0.035, 0.0145); dev.add(scr);
+    const CAT = ['..#...#.', '..##.##.', '..#####.', '..#.#.#.', '.#######', '#.#####.', '..#...#.'];   // 8×7 像素貓
+    let lastF = -1;
+    const drawScr = (t) => {
+      const f = Math.floor(t * 8); if (f === lastF) return; lastF = f;
+      sg.fillStyle = '#c9e8b8'; sg.fillRect(0, 0, 80, 64);
+      sg.fillStyle = '#7fb48a'; sg.fillRect(0, 52, 80, 12); for (let x = (-(f * 2) % 8 + 8) % 8; x < 80; x += 8) sg.fillRect(x, 50, 4, 2);   // 地面往後捲
+      const ph = (f % 24) / 24, jump = ph < 0.4 ? Math.sin(ph / 0.4 * Math.PI) * 16 : 0, cy = 43 - Math.round(jump);
+      sg.fillStyle = '#2f5b46'; CAT.forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') sg.fillRect(20 + x, cy + y, 1, 1); }));
+      const coinX = 70 - ((f * 3) % 70); if (!(coinX > 18 && coinX < 30 && jump > 8)) { sg.fillStyle = '#e2b84f'; sg.fillRect(coinX, 26, 4, 4); sg.fillStyle = '#fff3c4'; sg.fillRect(coinX + 1, 27, 1, 1); }
+      sg.fillStyle = '#2f5b46'; sg.font = '7px monospace'; sg.fillText('$' + (120 + Math.floor(f / 24) * 10), 4, 9);
+      scrTex.needsUpdate = true;
+    };
+    idleAnims.push(drawScr);
+    const btn = mat(0x8b7cff, { roughness: 0.4 }), dark = mat(0x5b4a6b, { roughness: 0.5 });
+    const dp = new THREE.Group(); dp.position.set(-0.025, -0.032, 0.013); dev.add(dp);                           // 十字鍵
+    dp.add(new THREE.Mesh(new RoundedBoxGeometry(0.03, 0.009, 0.005, 1, 0.002), dark)); dp.add(new THREE.Mesh(new RoundedBoxGeometry(0.009, 0.03, 0.005, 1, 0.002), dark));
+    for (const [x, y] of [[0.022, -0.026], [0.034, -0.036]]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.0065, 0.0065, 0.005, 16), btn); b.rotation.x = Math.PI / 2; b.position.set(x, y, 0.013); dev.add(b); }   // A / B
+    for (const x of [-0.012, 0.008]) { const p = new THREE.Mesh(new THREE.CapsuleGeometry(0.0025, 0.01, 4, 8), dark); p.rotation.z = Math.PI / 2 - 0.4; p.position.set(x, -0.062, 0.0125); dev.add(p); }   // 兩顆小長條鍵
+    for (let i = 0; i < 4; i++) { const sl = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.016, 0.002), dark); sl.position.set(0.026 + i * 0.005, -0.068, 0.0125); sl.rotation.z = 0.5; dev.add(sl); }   // 喇叭孔
+  }
 }
 // ---------- 窗外:2.5D 夜景 —— 天空漸層 + 月亮星星、遠 / 近兩層用 BoxGeometry 做的高樓(InstancedMesh,窗戶用 emissive 貼圖),
 //            城市底部一層柔和的橘紫光、開口前一片淡玻璃、再從窗戶打一盞藍紫 RectAreaLight 讓房間吃到夜景的冷光。全部只畫在開口範圍內(stencil)----------
