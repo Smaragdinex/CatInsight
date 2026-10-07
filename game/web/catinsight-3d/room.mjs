@@ -463,7 +463,8 @@ for (const y of [2.55, 1.65]) {
   // 線條圓滑、沒有寫實細節),往右下慢慢「碎成」一格一格的方塊(胡桃、紫心木、紅木、黃心木、烏木、白蠟…不同木色),有幾塊凸出來或飄在旁邊;胡桃木底座。
   // 做法:先用幾個橢球拼出人形(同時寫一份 JS 版的距離函數);每 2.2 cm 一格,依高度 / 往右的程度決定這格要不要「消散」:
   // 消散的格子在雕刻表面上用 shader 挖掉,同一格放一塊方塊補上,邊緣就會是一階一階的像素感
-  { const fig = group(WX - 0.21, 2.39, 1.68); fig.rotation.y = -Math.PI / 2 + 0.3;              // 本地 +z = 正面(朝房間)
+  // 放在上層(音響右邊、原本兔子的位置),放大 1.3 倍
+  { const fig = group(WX - 0.22, 3.09, 2.06); fig.rotation.y = -Math.PI / 2 + 0.3; fig.scale.setScalar(1.3);   // 本地 +z = 正面(朝房間)
     const CELL = 0.022, BASE_H = 0.04;
     // 人形(本地座標;y 從底座上緣算起):幾個橢球用 smooth-min 融成一整塊(像一塊木頭雕出來的,不是一顆顆球)
     const SHAPES = [
@@ -539,7 +540,7 @@ for (const y of [2.55, 1.65]) {
     const walnut = new THREE.MeshStandardMaterial({ map: woodTex(512, 128, 'u', '#5a3a26', [40, 24, 14]), roughness: 0.5 });
     const base = new THREE.Mesh(new RoundedBoxGeometry(0.22, BASE_H, 0.13, 2, 0.004), walnut); base.position.y = BASE_H / 2; base.castShadow = base.receiveShadow = true; fig.add(base);
   }
-  // 兔子擺飾(像照片那種陶瓷兔):坐在上層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
+  // 兔子擺飾(像照片那種陶瓷兔):坐在下層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
   // 一隻亮金、一隻珍珠白(帶彩虹光澤),稍微轉向彼此。金屬 / 珍珠需要有東西可以反射,所以只給這兩種材質一張小的室內環境貼圖(不影響房間其他東西)
   { const env = reflectEnv();
     const goldM = new THREE.MeshPhysicalMaterial({ color: 0xe8b64e, metalness: 1, roughness: 0.13, clearcoat: 0.5, envMap: env, envMapIntensity: 1.1 });
@@ -547,7 +548,7 @@ for (const y of [2.55, 1.65]) {
       iridescence: 1, iridescenceIOR: 1.45, iridescenceThicknessRange: [200, 900], envMap: env, envMapIntensity: 0.9 });
     const EDGE = WX - 0.42;                                                         // 上層層板前緣的 x
     const rabbit = (m2, z, sc, turn) => {
-      const g = group(EDGE + 0.012, 3.09, z); g.rotation.y = -Math.PI / 2 + turn; g.scale.setScalar(sc);   // 本地 +z = 朝房間(腳垂下去的那邊)
+      const g = group(EDGE + 0.012, 2.39, z);                                         // 下層層板前緣(和木雕換位置) g.rotation.y = -Math.PI / 2 + turn; g.scale.setScalar(sc);   // 本地 +z = 朝房間(腳垂下去的那邊)
       const add = (geo, x, y, zz, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, zz); o.scale.set(sx, sy, sz); o.castShadow = true; g.add(o); return o; };
       const limb = (r, a2, b2) => { const dv = b2.clone().sub(a2), o = new THREE.Mesh(new THREE.CapsuleGeometry(r, dv.length(), 6, 14), m2);
         o.position.copy(a2).add(b2).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
@@ -571,8 +572,8 @@ for (const y of [2.55, 1.65]) {
       }
       return g;
     };
-    rabbit(goldM, 1.88, 1.0, 0.18);
-    rabbit(pearlM, 2.2, 0.94, -0.14);
+    rabbit(goldM, 1.6, 1.0, 0.18);
+    rabbit(pearlM, 1.92, 0.94, -0.14);
   }
 
 }
