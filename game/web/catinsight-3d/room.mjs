@@ -1018,11 +1018,48 @@ let screenMesh, deskGroup;
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), new THREE.MeshStandardMaterial({ color: 0xfff1cc, emissive: 0xffc466, emissiveIntensity: 1.8 }));
   bulb.position.set(0, 0.085, 0); shadeG.add(bulb);
   const lampLight = new THREE.PointLight(0xffb36b, 7, 5.5, 2); lampLight.position.set(0.44, 0.66, 0); lamp.add(lampLight);
-  // 桌上小物:筆筒(幾支筆)、貓咪馬克杯
-  cyl(0.06, 0.055, 0.14, 0xf7f1f2, { x: -0.75, y: 1.41 + 0.07, z: 0.05, parent: d });
-  [[-0.77, 0x8b7cff], [-0.73, 0xf27a5a], [-0.75, 0x46bfcf]].forEach(([x, c], i) => cyl(0.008, 0.008, 0.22, c, { x, y: 1.41 + 0.2, z: 0.03 + i * 0.02, parent: d }));
-  { const mug = group(-0.45, 1.41, 0.12, d); cyl(0.065, 0.06, 0.12, 0xf7a24a, { y: 0.06, parent: mug }); const h = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.012, 8, 16, Math.PI), mat(0xf7a24a)); h.position.set(0.07, 0.06, 0); h.rotation.z = -Math.PI / 2; mug.add(h);
-    for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.04, 4), mat(0xf7a24a)); ear.position.set(sx * 0.035, 0.135, 0); mug.add(ear); } }
+  // 貓咪馬克杯(在鍵盤左邊,不擋鍵盤):奶油色陶瓷 + 珊瑚色底帶、正面印貓臉、杯口兩個小耳朵、尾巴形狀的把手;
+  // 裡面是有貓掌拉花的咖啡,冒幾縷熱氣;底下一片軟木杯墊。正面朝鏡頭那邊
+  { const mug = group(-0.8, 1.41, 0.2, d); mug.rotation.y = -0.8;
+    const cream = 0xfff4e6, coralM = 0xf27a5a;
+    // 杯墊
+    cyl(0.088, 0.088, 0.008, 0xc99a6b, { y: 0.004, parent: mug });
+    { const rr = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.003, 6, 40), mat(0xa87a4f)); rr.rotation.x = Math.PI / 2; rr.position.y = 0.0085; mug.add(rr); }
+    // 外杯身:印貓臉的貼圖(圓柱的 u 從背面開始,所以正面在貼圖正中間)
+    const fc = document.createElement('canvas'); fc.width = 512; fc.height = 144; const g = fc.getContext('2d');
+    g.fillStyle = '#fff4e6'; g.fillRect(0, 0, 512, 144); g.fillStyle = '#f27a5a'; g.fillRect(0, 122, 512, 22);
+    const cx = 256, cy = 66; g.strokeStyle = '#3b2f2a'; g.lineWidth = 4; g.lineCap = 'round';
+    for (const ex of [-22, 22]) { g.beginPath(); g.arc(cx + ex, cy, 8, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }          // ^ ^ 眼睛
+    g.fillStyle = '#ff8fa8'; g.beginPath(); g.moveTo(cx - 5, cy + 10); g.lineTo(cx + 5, cy + 10); g.lineTo(cx, cy + 16); g.closePath(); g.fill();   // 鼻子
+    g.lineWidth = 3; g.beginPath(); g.arc(cx - 5, cy + 18, 5, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke(); g.beginPath(); g.arc(cx + 5, cy + 18, 5, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke();   // ω
+    g.lineWidth = 2; for (const sx of [-1, 1]) for (const dy of [-4, 4]) { g.beginPath(); g.moveTo(cx + sx * 34, cy + 14 + dy * 0.5); g.lineTo(cx + sx * 62, cy + 12 + dy * 1.6); g.stroke(); }   // 鬍鬚
+    g.fillStyle = 'rgba(255,143,168,.45)'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(cx + sx * 38, cy + 6, 10, 6, 0, 0, Math.PI * 2); g.fill(); }   // 腮紅
+    g.fillStyle = 'rgba(242,122,90,.35)'; for (const px of [70, 150, 362, 442]) { g.beginPath(); g.ellipse(px, 92, 7, 6, 0, 0, Math.PI * 2); g.fill(); for (const [dx, dy] of [[-7, -8], [-2, -11], [3, -11], [8, -8]]) { g.beginPath(); g.arc(px + dx, 92 + dy, 2.6, 0, Math.PI * 2); g.fill(); } }   // 小腳印
+    const faceTex = new THREE.CanvasTexture(fc); faceTex.colorSpace = THREE.SRGBColorSpace; faceTex.anisotropy = 8;
+    const H = 0.115;
+    { const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.061, H, 48, 1, true, -Math.PI, Math.PI * 2), new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.35 })); outer.position.y = 0.008 + H / 2; outer.castShadow = true; mug.add(outer);
+      const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.056, H - 0.004, 40, 1, true), mat(cream, { roughness: 0.35, side: THREE.BackSide })); inner.position.y = 0.01 + H / 2; mug.add(inner);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.063, 0.0035, 8, 48), mat(cream, { roughness: 0.3 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.008 + H; mug.add(rim);
+      cyl(0.061, 0.061, 0.006, coralM, { y: 0.011, parent: mug }); }
+    // 咖啡 + 貓掌拉花
+    { const lc = document.createElement('canvas'); lc.width = lc.height = 128; const l2 = lc.getContext('2d');
+      const gr = l2.createRadialGradient(64, 64, 10, 64, 64, 64); gr.addColorStop(0, '#a8714b'); gr.addColorStop(1, '#6b4128'); l2.fillStyle = gr; l2.fillRect(0, 0, 128, 128);
+      l2.fillStyle = '#f6e3cc'; l2.beginPath(); l2.ellipse(64, 74, 18, 15, 0, 0, Math.PI * 2); l2.fill(); for (const [dx, dy] of [[-18, -18], [-6, -27], [6, -27], [18, -18]]) { l2.beginPath(); l2.arc(64 + dx, 74 + dy, 6.5, 0, Math.PI * 2); l2.fill(); }
+      const lt = new THREE.CanvasTexture(lc); lt.colorSpace = THREE.SRGBColorSpace;
+      const cof = new THREE.Mesh(new THREE.CircleGeometry(0.058, 32), new THREE.MeshStandardMaterial({ map: lt, roughness: 0.25 })); cof.rotation.x = -Math.PI / 2; cof.rotation.z = Math.PI; cof.position.y = 0.105; mug.add(cof); }
+    // 杯口的貓耳朵(外奶油內粉),在正面左右兩邊
+    for (const sx of [-1, 1]) { const a2 = sx * 0.55;
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.032, 12), mat(cream, { roughness: 0.35 })); ear.position.set(Math.sin(a2) * 0.058, 0.008 + H + 0.014, Math.cos(a2) * 0.058); ear.scale.z = 0.55; ear.rotation.y = a2; ear.castShadow = true; mug.add(ear);
+      const inn = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.022, 12), mat(0xff9fb5)); inn.position.set(Math.sin(a2) * 0.061, 0.008 + H + 0.011, Math.cos(a2) * 0.061); inn.scale.z = 0.4; inn.rotation.y = a2; mug.add(inn); }
+    // 把手:像貓尾巴一樣捲起來
+    { const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0.064, 0.1, 0), new THREE.Vector3(0.1, 0.098, 0), new THREE.Vector3(0.118, 0.06, 0), new THREE.Vector3(0.098, 0.028, 0), new THREE.Vector3(0.07, 0.03, 0), new THREE.Vector3(0.082, 0.05, 0)]);
+      const hdl = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.0085, 8), mat(cream, { roughness: 0.35 })); hdl.castShadow = true; mug.add(hdl); }
+    // 熱氣:三縷柔柔的白霧往上飄、淡出
+    { const sc = document.createElement('canvas'); sc.width = sc.height = 64; const s2 = sc.getContext('2d'); const gr = s2.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); s2.fillStyle = gr; s2.fillRect(0, 0, 64, 64);
+      const st = new THREE.CanvasTexture(sc), puffs = [];
+      for (let i = 0; i < 4; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: st, transparent: true, depthWrite: false, opacity: 0 })); mug.add(sp); puffs.push(sp); }
+      idleAnims.push((t) => { puffs.forEach((sp, i) => { const ph = ((t * 0.35 + i / puffs.length) % 1); sp.position.set(Math.sin(t * 1.3 + i * 2) * 0.012, 0.13 + ph * 0.16, Math.cos(t + i) * 0.01); sp.scale.setScalar(0.035 + ph * 0.06); sp.material.opacity = Math.sin(ph * Math.PI) * 0.5; }); }); }
+  }
   // 螢幕光(青藍):從螢幕前面照向鍵盤和桌面
   const scrLight = new THREE.PointLight(0x7fd8ff, 3.5, 3.6, 2); scrLight.position.set(0, 2.2, 0.35); d.add(scrLight);
 }
