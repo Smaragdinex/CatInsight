@@ -530,39 +530,110 @@ for (const y of [2.55, 1.65]) {
   // 1. 開口遮罩:看不見,只寫 stencil
   const mask = new THREE.Mesh(new THREE.PlaneGeometry(openW, openH), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, stencilWrite: true, stencilRef: 1, stencilZPass: THREE.ReplaceStencilOp }));
   mask.position.set(cx, 0.5 + openH / 2, L.z + T / 2 + 0.01); mask.renderOrder = -20; root.add(mask);
-  // 2. 天空:藍紫 → 粉紫垂直漸層,星星、月亮
-  const skyTex = mk(1024, 1024, (g, w, h) => { const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#1b1442'); sky.addColorStop(0.55, '#4a3690'); sky.addColorStop(1, '#f07cb6'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
-    g.fillStyle = 'rgba(255,255,255,.9)'; for (let i = 0; i < 260; i++) { g.beginPath(); g.arc(Math.random() * w, Math.random() * h * 0.55, Math.random() * 1.3 + 0.3, 0, 7); g.fill(); }
-    g.fillStyle = '#fff1c4'; g.beginPath(); g.arc(300, 150, 14, 0, 7); g.fill(); g.fillStyle = '#2b1f5c'; g.beginPath(); g.arc(306, 146, 12, 0, 7); g.fill(); });
+  // 2. 天空:深海軍藍 → 紫 → 地平線洋紅粉,淡淡的銀河帶(星星另外一層會閃)
+  const skyTex = mk(1024, 1024, (g, w, h) => { const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#0d0b2e'); sky.addColorStop(0.42, '#2a1d63'); sky.addColorStop(0.72, '#5b3a9e'); sky.addColorStop(1, '#ff7fb6'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
+    g.save(); g.translate(w / 2, h * 0.32); g.rotate(-0.35);                         // 銀河:斜斜一條淡淡的光帶 + 細小星塵
+    for (let i = 0; i < 18; i++) { const x = (Math.random() - 0.5) * w * 1.4, y = (Math.random() - 0.5) * 70, r = 60 + Math.random() * 90, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(190,170,255,.10)'); gr.addColorStop(1, 'rgba(190,170,255,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+    g.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 700; i++) g.fillRect((Math.random() - 0.5) * w * 1.4, (Math.random() - 0.5) * 60 * (Math.random() + 0.2), 1, 1);
+    g.restore(); });
   // 天空和城市都做很寬(從斜角、手機直拿透過開口看也不會看到邊)
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(S * 5, H * 3), new THREE.MeshBasicMaterial({ map: skyTex, ...STENCIL }));
   sky.position.set(cx, H / 2 - 0.2, L.z - 3.4); sky.renderOrder = -10; root.add(sky);
-  // 3. 城市底部的柔和橘紫光(加色混合的漸層面)
-  const glowTex = mk(256, 128, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,140,90,0)'); gr.addColorStop(1, 'rgba(255,120,110,.55)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+  const SZ = L.z - 3.36;                                                               // 星星 / 月亮 / 流星都在天空前面一點
+  // 會閃的星星:一層 Points,每顆有自己的大小和閃爍節奏
+  const starU = { uTime: { value: 0 } };
+  { const N = 340, pos = new Float32Array(N * 3), ph = new Float32Array(N), sz = new Float32Array(N);
+    for (let i = 0; i < N; i++) { pos[i * 3] = cx + (Math.random() - 0.5) * S * 4.5; pos[i * 3 + 1] = 2.4 + Math.random() * (H * 1.2); pos[i * 3 + 2] = SZ; ph[i] = Math.random() * 6.28; sz[i] = 1.2 + Math.random() * Math.random() * 3.2; }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('aPh', new THREE.BufferAttribute(ph, 1)); geo.setAttribute('aSz', new THREE.BufferAttribute(sz, 1));
+    const stars = new THREE.Points(geo, new THREE.ShaderMaterial({ uniforms: starU, transparent: true, depthWrite: false, ...STENCIL,
+      vertexShader: 'attribute float aPh; attribute float aSz; uniform float uTime; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; vA = 0.45 + 0.55 * (0.5 + 0.5 * sin(uTime * (1.2 + fract(aPh) * 2.5) + aPh)); gl_PointSize = aSz * vA * (14.0 / -mv.z); }',
+      fragmentShader: 'varying float vA; void main(){ vec2 p = gl_PointCoord - 0.5; float d = length(p); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vec3(1.0, 0.97, 0.9), a * vA); }' }));
+    stars.renderOrder = -9.5; stars.frustumCulled = false; root.add(stars); }
+  // 月亮:大一點的彎月 + 柔柔的光暈
+  { const mt = mk(256, 256, (g) => { const gr = g.createRadialGradient(128, 128, 30, 128, 128, 128); gr.addColorStop(0, 'rgba(255,240,200,.45)'); gr.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = '#fff3cf'; g.beginPath(); g.arc(128, 128, 34, 0, 7); g.fill(); g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(144, 118, 30, 0, 7); g.fill(); });
+    const moon = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: mt, transparent: true, depthWrite: false, ...STENCIL })); moon.position.set(cx - 1.6, 3.75, SZ + 0.01); moon.renderOrder = -9.4; root.add(moon); }
+  // 雲:三層很淡的雲帶,各自用不同速度慢慢飄(貼圖往旁邊捲)
+  const clouds = [];
+  for (const [y, z, op, sp] of [[3.5, L.z - 3.25, 0.32, 0.006], [2.95, L.z - 3.0, 0.22, 0.01], [3.9, L.z - 3.3, 0.18, 0.004]]) {
+    const ct = mk(1024, 128, (g, w, h) => { for (let i = 0; i < 26; i++) { const x = Math.random() * w, yy = h * (0.35 + Math.random() * 0.3), r = 30 + Math.random() * 60, gr = g.createRadialGradient(x, yy, 0, x, yy, r); gr.addColorStop(0, 'rgba(255,214,240,.5)'); gr.addColorStop(1, 'rgba(255,214,240,0)'); g.fillStyle = gr; g.fillRect(x - r, yy - r, r * 2, r * 2); } });
+    ct.wrapS = THREE.RepeatWrapping; ct.repeat.set(2, 1);
+    const cm = new THREE.Mesh(new THREE.PlaneGeometry(S * 5, 0.9), new THREE.MeshBasicMaterial({ map: ct, transparent: true, opacity: op, depthWrite: false, ...STENCIL })); cm.position.set(cx, y, z); cm.renderOrder = -9.2; root.add(cm); clouds.push([ct, sp]);
+  }
+  // 3. 城市底部的柔和洋紅光(加色混合的漸層面)
+  const glowTex = mk(256, 128, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,120,170,0)'); gr.addColorStop(1, 'rgba(255,110,150,.55)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(S * 5, 2.2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, ...STENCIL }));
   glow.position.set(cx, 0.6, L.z - 3.1); glow.renderOrder = -9; root.add(glow);
-  // 4. 高樓:窗戶貼圖(暖黃亮窗,隨機有亮有暗),當 emissiveMap 貼在深色方塊上;遠近兩層各一個 InstancedMesh,高度 / 寬度隨機
-  // 窗戶貼圖:一格 32px 一扇窗,大約 1/3 亮著(真的夜景大多數窗是暗的);每棟樓只重複 1×2 → 一棟 4~8 扇,不會密到像雜訊
-  // 每張貼圖至少 3 扇亮窗(不然整棟黑掉);每層用 3 張不同圖案輪流,樓看起來才不會一模一樣
-  const winTex = (lit) => { const t = mk(64, 128, (g, w, h) => { g.fillStyle = '#000'; g.fillRect(0, 0, w, h); const cells = []; for (let y = 10; y < h - 10; y += 32) for (let x = 10; x < w - 10; x += 32) cells.push([x, y]);
+  // 4. 高樓:三層(遠 / 中 / 近),中間夾一層紫色霧氣;窗戶有暖黃、冷白、少數紫 / 青;屋頂有天線(紅色航空燈會閃)、水塔、退縮的頂樓;近景有幾塊直立霓虹招牌
+  const winTex = (lit, cool) => { const t = mk(64, 128, (g, w, h) => { g.fillStyle = '#000'; g.fillRect(0, 0, w, h); const cells = []; for (let y = 10; y < h - 10; y += 32) for (let x = 10; x < w - 10; x += 32) cells.push([x, y]);
       let on = cells.map(() => Math.random() < lit); while (on.filter(Boolean).length < 3) on[Math.floor(Math.random() * on.length)] = true;
-      cells.forEach(([x, y], i) => { if (on[i]) { g.fillStyle = Math.random() < 0.8 ? '#ffd27a' : '#ffe9b0'; g.fillRect(x, y, 12, 14); } }); });
+      cells.forEach(([x, y], i) => { if (on[i]) { const r = Math.random(); g.fillStyle = r < 0.62 ? '#ffd27a' : r < 0.84 ? (cool ? '#cfe6ff' : '#ffe9b0') : r < 0.93 ? '#d59bff' : '#8fe8ff'; g.fillRect(x, y, 12, 14); } }); });
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 2); return t; };
-  const cityLayer = (count, z, hMin, hMax, color, lit, spread) => {
+  const tops = [];
+  const cityLayer = (count, z, hMin, hMax, color, lit, spread, wi, keepTops) => {
     const geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0, 0.5, 0);
-    const roof = new THREE.MeshStandardMaterial({ color, roughness: 0.95, ...STENCIL });   // 屋頂 / 底面沒有窗戶
-    const K = 3, per = Math.ceil(count / K), ims = [], M = new THREE.Matrix4();
-    for (let k = 0; k < K; k++) { const side = new THREE.MeshStandardMaterial({ color, emissive: 0xffffff, emissiveMap: winTex(lit), emissiveIntensity: 1.1, roughness: 0.9, ...STENCIL });
-      const im = new THREE.InstancedMesh(geo, [side, side, roof, roof, side, side], per); im.renderOrder = -8; im.count = 0; root.add(im); ims.push(im); }   // BoxGeometry 面的順序:+x -x +y -y +z -z
-    // 從左到右一棟接一棟排,中間留縫,排滿就停,不會疊在一起;三組貼圖輪流用
+    const roof = new THREE.MeshStandardMaterial({ color, roughness: 0.95, ...STENCIL });
+    const K = 3, per = Math.ceil(count / K) + 2, ims = [], M = new THREE.Matrix4();
+    for (let k = 0; k < K; k++) { const side = new THREE.MeshStandardMaterial({ color, emissive: 0xffffff, emissiveMap: winTex(lit, k === 1), emissiveIntensity: wi, roughness: 0.9, ...STENCIL });
+      const im = new THREE.InstancedMesh(geo, [side, side, roof, roof, side, side], per * 2); im.renderOrder = -8; im.count = 0; root.add(im); ims.push(im); }
     let x = cx - spread / 2;
     for (let i = 0; i < count; i++) { const w = rnd(0.3, 0.6), h = rnd(hMin, hMax), d = rnd(0.4, 0.7);
       if (x + w > cx + spread / 2) break;
-      const im = ims[i % K]; M.makeScale(w, h, d); M.setPosition(x + w / 2, -0.4, z - d / 2); im.setMatrixAt(im.count++, M); x += w + rnd(0.08, 0.3); }
+      const im = ims[i % K]; M.makeScale(w, h, d); M.setPosition(x + w / 2, -0.4, z - d / 2); im.setMatrixAt(im.count++, M);
+      if (Math.random() < 0.3) { const w2 = w * rnd(0.45, 0.7), h2 = rnd(0.12, 0.35); M.makeScale(w2, h2, d * 0.7); M.setPosition(x + w / 2, -0.4 + h, z - d / 2); ims[(i + 1) % K].setMatrixAt(ims[(i + 1) % K].count++, M); if (keepTops) tops.push([x + w / 2, -0.4 + h + h2, z - d / 2, w2]); }   // 退縮的頂樓
+      else if (keepTops) tops.push([x + w / 2, -0.4 + h, z - d / 2, w]);
+      x += w + rnd(0.08, 0.3); }
     ims.forEach((im) => { im.instanceMatrix.needsUpdate = true; }); return ims;
   };
-  cityLayer(40, L.z - 2.6, 1.2, 2.9, 0x3b2b6e, 0.3, S * 3.2);      // 遠景:較高、偏紫、亮窗少(排很寬,斜看也有樓)
-  cityLayer(28, L.z - 1.5, 0.5, 1.5, 0x221a48, 0.4, S * 2.4);       // 近景:矮一截、更深色(上半部留給天空和月亮)
+  cityLayer(46, L.z - 2.95, 1.6, 3.2, 0x2f2460, 0.18, S * 3.6, 0.7, false);   // 最遠:很高、很暗,像剪影
+  { const ht = mk(64, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(120,80,200,0)'); gr.addColorStop(1, 'rgba(150,90,210,.5)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });   // 霧氣
+    const hz = new THREE.Mesh(new THREE.PlaneGeometry(S * 5, 2.4), new THREE.MeshBasicMaterial({ map: ht, transparent: true, depthWrite: false, ...STENCIL })); hz.position.set(cx, 0.8, L.z - 2.4); hz.renderOrder = -7.9; root.add(hz); }
+  cityLayer(38, L.z - 2.2, 1.0, 2.5, 0x3b2b6e, 0.3, S * 3.0, 1.05, true);      // 中景
+  cityLayer(26, L.z - 1.45, 0.45, 1.4, 0x1f1842, 0.42, S * 2.4, 1.15, true);   // 近景:矮、最深色(上半部留給天空)
+  // 屋頂小東西(都要套 stencil,只畫在窗框裡)
+  const rf = (c, ex = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, ...ex, ...STENCIL });
+  const darkM = rf(0x1a1438), beacons = [];
+  for (const [x, y, z, w] of tops) {
+    const r = Math.random();
+    if (r < 0.28) {                                                     // 天線 + 紅色航空燈
+      const hh = rnd(0.25, 0.55), ant = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.012, hh, 6), darkM); ant.position.set(x + rnd(-w / 4, w / 4), y + hh / 2, z); ant.renderOrder = -7.8; root.add(ant);
+      const bm = rf(0xff3a3a, { emissive: 0xff2020, emissiveIntensity: 1.2 }), b2 = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), bm); b2.position.set(ant.position.x, y + hh, z); b2.renderOrder = -7.8; root.add(b2); beacons.push([bm, Math.random() * 6]);
+    } else if (r < 0.45) {                                              // 水塔
+      const tk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.12, 10), darkM); tk.position.set(x + rnd(-w / 5, w / 5), y + 0.1, z); tk.renderOrder = -7.8; root.add(tk);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.06, 10), darkM); cap.position.set(tk.position.x, y + 0.19, z); cap.renderOrder = -7.8; root.add(cap);
+      for (const dx of [-0.05, 0.05]) { const lg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.05, 4), darkM); lg.position.set(tk.position.x + dx, y + 0.025, z); lg.renderOrder = -7.8; root.add(lg); }
+    }
+  }
+  // 近景幾塊直立霓虹招牌(粉 / 青)
+  for (let i = 0; i < 7; i++) {
+    const c = i % 2 ? 0x6ff0ff : 0xff5fb0, hh = rnd(0.25, 0.5);
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.07, hh, 0.015), rf(c, { emissive: c, emissiveIntensity: 1.1 }));
+    sign.position.set(cx + (i - 3) * rnd(0.85, 1.15) + rnd(-0.2, 0.2), rnd(0.15, 0.6), L.z - 1.43); sign.renderOrder = -7.7; root.add(sign);
+  }
+  // 流星:很亮的頭 + 長長淡出的尾巴(加色),每 3~8 秒劃過一次,偶爾連兩顆;在最遠那排樓後面
+  const mtex = mk(512, 32, (g, w, h) => { const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, 'rgba(160,200,255,0)'); gr.addColorStop(0.75, 'rgba(200,225,255,.55)'); gr.addColorStop(0.97, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; const yc = h / 2; g.beginPath(); g.moveTo(0, yc); g.lineTo(w * 0.97, yc - h * 0.35); g.lineTo(w, yc); g.lineTo(w * 0.97, yc + h * 0.35); g.closePath(); g.fill(); });
+  const meteors = [0, 1].map(() => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.045), new THREE.MeshBasicMaterial({ map: mtex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, ...STENCIL })); m.renderOrder = -9.3; m.visible = false; root.add(m); return { m, t0: -1 }; });
+  let nextMeteor = 2.5;
+  window.__meteorNow = () => { nextMeteor = 0; };   // 除錯 / 截圖用:馬上來一顆流星
+  const launch = (t, mt) => { const fromLeft = Math.random() < 0.5, ang = THREE.MathUtils.degToRad(rnd(18, 34));
+    mt.dir = new THREE.Vector3(fromLeft ? Math.cos(ang) : -Math.cos(ang), -Math.sin(ang), 0); mt.start = new THREE.Vector3(cx + rnd(-2.2, 2.2) - mt.dir.x * 1.2, rnd(3.3, 4.2), SZ + 0.02);
+    mt.t0 = t; mt.dur = rnd(0.7, 1.1); mt.len = rnd(0.7, 1.2); mt.speed = rnd(3.2, 4.6); mt.m.rotation.z = Math.atan2(mt.dir.y, mt.dir.x); mt.m.visible = true; };
+  idleAnims.push((t) => {
+    starU.uTime.value = t;
+    for (const [ct, sp] of clouds) ct.offset.x = (t * sp) % 1;
+    for (const [bm, ph] of beacons) bm.emissiveIntensity = Math.sin(t * 2.4 + ph) > 0.6 ? 1.4 : 0.15;
+    if (t > nextMeteor) { launch(t, meteors[0]); if (Math.random() < 0.25) meteors[1].pending = t + rnd(0.25, 0.6); nextMeteor = t + rnd(3, 8); }   // 1/4 的機會緊接著再來一顆
+    if (meteors[1].pending && t > meteors[1].pending) { meteors[1].pending = 0; launch(t, meteors[1]); }
+    for (const mt of meteors) {
+      if (mt.t0 < 0) continue;
+      const p = (t - mt.t0) / mt.dur;
+      if (p >= 1) { mt.t0 = -1; mt.m.visible = false; continue; }
+      const head = mt.start.clone().addScaledVector(mt.dir, mt.speed * (t - mt.t0)), L2 = mt.len * Math.min(1, p * 3);
+      mt.m.scale.x = L2; mt.m.position.copy(head).addScaledVector(mt.dir, -L2 / 2);
+      mt.m.material.opacity = Math.sin(Math.min(1, p) * Math.PI);
+    }
+  });
   // 5. 開口前一片玻璃:很淡、很光滑,室內的燈會在上面留一點反光
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(openW, openH), new THREE.MeshStandardMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.07, roughness: 0.05, metalness: 0.35, depthWrite: false }));
   glass.position.set(cx, 0.5 + openH / 2, L.z + T / 2 + 0.02); glass.renderOrder = 5; root.add(glass);
