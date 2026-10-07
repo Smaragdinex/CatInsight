@@ -91,7 +91,7 @@ const speaker = { group: null, led: null, front: null, knobs: [], notes: null };
 // 亮面金屬擺飾(兔子、氣球狗)要有東西可以反射:用 RoomEnvironment 做一張小環境貼圖,只給這些材質用(房間其他東西不受影響)
 let reflectTex = null;
 function reflectEnv() { if (!reflectTex) { const pm = new THREE.PMREMGenerator(renderer); reflectTex = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); } return reflectTex; }
-const idleAnims = [];               // 每幀呼叫的小動畫:植物隨風輕擺(黃金葛、龜背芋)、水晶球裡的星雲
+const idleAnims = [];               // 每幀呼叫的小動畫:植物隨風輕擺(黃金葛、龜背芋)…
 
 function box(w, h, d, color, { x = 0, y = 0, z = 0, r = 0.06, parent = root, shadow = true, seg = 3, ry = 0, rz = 0, rx = 0 } = {}) {
   const g = r > 0 ? new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2, h / 2, d / 2)) : new THREE.BoxGeometry(w, h, d);
@@ -427,7 +427,7 @@ for (const y of [2.55, 1.65]) {
     const notes = []; for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[i % 3], transparent: true, opacity: 0, depthWrite: false })); s.scale.setScalar(0.07); s.visible = false; sp.add(s); notes.push({ s, t0: -99, x: 0 }); }
     speaker.notes = notes;
   }
-  // 層板上的小東西:一排書、水晶球;上層兩隻坐在層板邊緣、腳垂下來的兔子擺飾
+  // 層板上的小東西:一排書、VR 頭戴裝置 + 展示架;上層兩隻坐在層板邊緣、腳垂下來的兔子擺飾
   // 一排書:黃銅書擋 + 七本高矮厚薄不一的書(書背朝房間 -x,有燙金線和書名線,上面和後面看得到米白書頁),最後一本斜靠,旁邊再平放兩本
   { const SY = 2.39, BX = WX - 0.2;                                   // 層板上緣、書的中心 x
     const pagesMat = mat(0xf6eedc, { roughness: 0.9 });
@@ -458,26 +458,45 @@ for (const y of [2.55, 1.65]) {
     book(0.24, 0.035, 0.17, 0xef7b3a, 11, new THREE.Vector3(BX + 0.02, SY + 0.0175, 1.27), [0, 0.12, 0]);
     book(0.21, 0.03, 0.15, 0x8fd1c4, 12, new THREE.Vector3(BX + 0.02, SY + 0.05, 1.26), [0, -0.1, 0]);
   }
-  // 水晶球:胡桃木底座 + 黃銅環、透明玻璃球,裡面一團慢慢轉的紫 / 青 / 粉星雲(會發光)和幾顆閃爍的小星星
-  { const cb = group(WX - 0.2, 2.39, 1.62);
-    cyl(0.085, 0.1, 0.06, 0x6b4430, { y: 0.03, parent: cb });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.008, 8, 40), new THREE.MeshStandardMaterial({ color: 0xc9a25a, metalness: 0.85, roughness: 0.3 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.066; cb.add(ring);
-    const R = 0.115, CY = 0.06 + R * 0.92;
-    // 星雲貼圖:幾團柔和的彩色霧 + 細小亮點
-    const nc = document.createElement('canvas'); nc.width = 512; nc.height = 256; { const g = nc.getContext('2d'); g.fillStyle = '#1a0f3a'; g.fillRect(0, 0, 512, 256);
-      g.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < 18; i++) { const x = Math.random() * 512, y = 40 + Math.random() * 176, r = 30 + Math.random() * 70, col = ['120,80,255', '70,220,230', '255,110,200', '150,120,255'][i % 4];
-        const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${col},.32)`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
-      for (let i = 0; i < 120; i++) { g.fillStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.6})`; g.fillRect(Math.random() * 512, Math.random() * 256, 1.5, 1.5); } }
-    const neb = new THREE.CanvasTexture(nc); neb.colorSpace = THREE.SRGBColorSpace; neb.wrapS = THREE.RepeatWrapping;
-    const core = new THREE.Mesh(new THREE.SphereGeometry(R * 0.78, 32, 20), new THREE.MeshStandardMaterial({ map: neb, emissive: 0xffffff, emissiveMap: neb, emissiveIntensity: 0.55, roughness: 1 }));   // 太亮會整顆暈成白色,看不到顏色
-    core.position.y = CY; cb.add(core);
-    const stars = [];
-    for (let i = 0; i < 7; i++) { const st = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff2c8, emissiveIntensity: 1.5 }));
-      const a = i * 2.3, e = (i % 3 - 1) * 0.5; st.position.set(Math.cos(a) * R * 0.84 * Math.cos(e), CY + Math.sin(e) * R * 0.84, Math.sin(a) * R * 0.84 * Math.cos(e)); cb.add(st); stars.push(st); }
-    const glass = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.03, metalness: 0, transmission: 1, thickness: 0.15, ior: 1.45, clearcoat: 1, transparent: true, opacity: 1 }));
-    glass.position.y = CY; cb.add(glass);
-    idleAnims.push((t) => { core.rotation.y = t * 0.25; core.rotation.z = Math.sin(t * 0.3) * 0.2; stars.forEach((st, i) => { st.scale.setScalar(0.6 + 0.5 * (0.5 + 0.5 * Math.sin(t * (1.7 + i * 0.4) + i))); }); });
+  // 頭戴式 VR / MR 裝置 + 展示架(取代水晶球;像空間運算頭戴裝置那種造型,沒有任何品牌標誌):
+  // 弧形黑色鏡面前罩 + 一圈鋁合金邊框、後面淺灰色遮光軟墊、兩側鋁製接頭、繞到後腦的針織頭帶(直條紋),
+  // 戴在展示架的布面頭型上(霧白圓座 + 細立柱);左邊一條細線接到層板上的鋁製電池
+  { const vr = group(WX - 0.2, 2.39, 1.66); vr.rotation.y = -Math.PI / 2 + 0.35;            // 本地 +z = 正面(朝房間)
+    const white = mat(0xf1eef4, { roughness: 0.4 }), alu = new THREE.MeshStandardMaterial({ color: 0xd9dbe2, metalness: 0.9, roughness: 0.22, envMap: reflectEnv(), envMapIntensity: 0.9 });
+    const seal = mat(0xb9b6bd, { roughness: 1 });
+    const add = (geo, m2, x, y, z, parent = vr) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
+    // 展示架
+    add(new THREE.CylinderGeometry(0.075, 0.08, 0.014, 48), white, 0, 0.007, 0);
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.25, 16), white, 0, 0.13, -0.03); // 立柱一路接到托頭裡面
+    const head = add(new THREE.SphereGeometry(1, 40, 28), white, 0, 0.272, -0.058); head.scale.set(0.05, 0.046, 0.054);   // 展示架頂端的托頭:縮在頭帶圈裡面,和架子同色
+    // 頭戴裝置(中心在頭型前面)
+    const hs = new THREE.Group(); hs.position.set(0, 0.28, 0.0); vr.add(hs);
+    // 弧形前罩:橢球的前面一片(左右各約 63°、上下修掉一點,像護目鏡)
+    const P0 = Math.PI / 2 - 1.1, PL = 2.2, T0 = 0.62, TL = Math.PI - 1.24, SX = 0.104, SY = 0.058, SZ = 0.048;   // 前罩是淺淺的弧面玻璃,不是一顆球
+    const glassM = new THREE.MeshPhysicalMaterial({ color: 0x07080d, metalness: 0.25, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, envMap: reflectEnv(), envMapIntensity: 1.4 });
+    const visor = add(new THREE.SphereGeometry(1, 64, 32, P0, PL, T0, TL), glassM, 0, 0, 0, hs); visor.scale.set(SX, SY, SZ);
+    // 鋁合金邊框:沿著前罩外緣的一圈管子
+    { const pts = [], at = (phi, th) => new THREE.Vector3(-Math.cos(phi) * Math.sin(th) * SX, Math.cos(th) * SY, Math.sin(phi) * Math.sin(th) * SZ);
+      const N = 30; for (let i = 0; i < N; i++) pts.push(at(P0 + PL * i / N, T0)); for (let i = 0; i < N; i++) pts.push(at(P0 + PL, T0 + TL * i / N));
+      for (let i = 0; i < N; i++) pts.push(at(P0 + PL - PL * i / N, T0 + TL)); for (let i = 0; i < N; i++) pts.push(at(P0, T0 + TL - TL * i / N));
+      add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 240, 0.0045, 10, true), alu, 0, 0, 0, hs);
+      // 上緣兩側:右邊數位旋鈕、左邊按鈕(貼在邊框上)
+      for (const [phi, r2] of [[P0 + 0.32, 0.0075], [P0 + PL - 0.32, 0.0055]]) { const q = at(phi, T0); add(new THREE.CylinderGeometry(r2, r2, 0.007, 20), alu, q.x, q.y + 0.004, q.z - 0.004, hs); } }
+    // 遮光軟墊:前罩後面一圈淺灰色布
+    { const sl = add(new RoundedBoxGeometry(0.188, 0.09, 0.05, 4, 0.024), seal, 0, -0.002, -0.014, hs); sl.scale.set(1, 1, 1); }
+    // 兩側鋁製接頭 + 上面的數位旋鈕(右)和按鈕(左)
+    for (const sx of [-1, 1]) { const pod = add(new THREE.CapsuleGeometry(0.011, 0.04, 6, 16), alu, sx * 0.097, 0, -0.018, hs); pod.rotation.x = Math.PI / 2; }
+    // 針織頭帶:從兩側接頭繞過後腦,寬寬的、有直條紋
+    { const kc = document.createElement('canvas'); kc.width = 256; kc.height = 32; const kg = kc.getContext('2d'); kg.fillStyle = '#8f8c96'; kg.fillRect(0, 0, 256, 32);
+      for (let x = 0; x < 256; x += 4) { kg.fillStyle = x % 8 ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.2)'; kg.fillRect(x, 0, 2, 32); }
+      const kt = new THREE.CanvasTexture(kc); kt.colorSpace = THREE.SRGBColorSpace; kt.wrapS = THREE.RepeatWrapping; kt.repeat.set(3, 1);
+      const bandG = new THREE.Group(); bandG.position.set(0, -0.002, -0.03); bandG.rotation.y = Math.PI + 0.32; hs.add(bandG);
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.009, 12, 72, Math.PI + 0.64), new THREE.MeshStandardMaterial({ map: kt, roughness: 0.95 }));
+      band.rotation.x = Math.PI / 2; band.scale.set(0.97, 0.8, 2.6); band.castShadow = true; bandG.add(band); }
+    // 電池 + 線
+    const bat = add(new RoundedBoxGeometry(0.06, 0.016, 0.1, 3, 0.007), alu, -0.15, 0.008, 0.02); bat.rotation.y = 0.3;
+    { const a0 = new THREE.Vector3(-0.097, 0.28, -0.04), pts = [a0, new THREE.Vector3(-0.125, 0.2, -0.03), new THREE.Vector3(-0.14, 0.06, 0.0), new THREE.Vector3(-0.15, 0.02, 0.03), new THREE.Vector3(-0.15, 0.017, 0.06)];
+      add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.0028, 8), mat(0xe9e7ee, { roughness: 0.5 }), 0, 0, 0); }
   }
   // 兔子擺飾(像照片那種陶瓷兔):坐在上層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
   // 一隻亮金、一隻珍珠白(帶彩虹光澤),稍微轉向彼此。金屬 / 珍珠需要有東西可以反射,所以只給這兩種材質一張小的室內環境貼圖(不影響房間其他東西)
