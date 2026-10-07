@@ -1682,7 +1682,7 @@ let catModel = null;
       col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const m = new THREE.Group(); m.scale.setScalar(0.86); cat.add(m);
+    const m = new THREE.Group(); m.scale.setScalar(0.62); cat.add(m);   // 跟房間其他東西比起來的大小(原本 0.86 太大隻)
     // 一點暖色自發光當補光,頭底下、肚子這些朝下的地方才不會一片黑(強度 < 0.5,不會被當成發光物做光暈)
     const FILL = { emissive: 0x9a6a44, emissiveIntensity: 0.4 };
     const body = new THREE.Mesh(geo, patchKitty(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, ...FILL }))); body.castShadow = true; body.receiveShadow = false; m.add(body);   // 不接收自己的影子(不然大頭會在胸口投一圈黑)
