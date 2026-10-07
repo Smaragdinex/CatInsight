@@ -147,16 +147,19 @@ box(S, 0.55, S, C.slab, { y: -0.275, r: 0.05, seg: 2 });
   let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   for (let r = 0; r < ROWS; r++) {
     const z = -S / 2 + 0.1 + (r + 0.5) * RW;
-    let x = -W / 2 - rnd() * 1.4;                                  // 每排從不同的位置開始,接縫才會錯開
-    while (x < W / 2) {
-      const len = 1.1 + rnd() * 1.5, x0 = Math.max(-W / 2, x), x1 = Math.min(W / 2, x + len);
-      if (x1 - x0 > 0.08) {
+    // 先切好這排的接縫位置(每排從不同的位置開始,接縫才會錯開);太短(< 0.3)的頭尾碎片併進隔壁那塊,每排頭尾都會剛好貼齊邊緣
+    const cuts = [-W / 2]; let x = -W / 2 - rnd() * 1.4;
+    while (true) { x += 1.1 + rnd() * 1.5; if (x >= W / 2) break; if (x > cuts[cuts.length - 1] + 0.3) cuts.push(x); }
+    if (W / 2 - cuts[cuts.length - 1] < 0.3 && cuts.length > 1) cuts.pop();
+    cuts.push(W / 2);
+    for (let c = 0; c < cuts.length - 1; c++) {
+      const x0 = cuts[c], x1 = cuts[c + 1];
+      {
         const tex = bases[Math.floor(rnd() * 3)].clone(); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set((x1 - x0) / 3.2, 1); tex.offset.set(rnd(), 0); tex.needsUpdate = true;
         const pl = new THREE.Mesh(new RoundedBoxGeometry(x1 - x0 - GAP, 0.05, RW - GAP, 1, 0.006), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.62 }));
         pl.position.set((x0 + x1) / 2, 0.025, z); pl.receiveShadow = true; root.add(pl);
       }
-      x += len;
     }
   }
 }
@@ -627,8 +630,8 @@ for (const y of [2.55, 1.65]) {
       mt.m.material.opacity = Math.sin(Math.min(1, p) * Math.PI);
     }
   });
-  // 5. 開口前一片玻璃:很淡、很光滑,室內的燈會在上面留一點反光
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(openW, openH), new THREE.MeshStandardMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.07, roughness: 0.05, metalness: 0.35, depthWrite: false }));
+  // 5. 開口前一片玻璃:很淡;表面不要太光滑(roughness 0.42),不然室內的點光源會在上面反射成一顆顆小亮點、看起來像浮在太空梭前面
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(openW, openH), new THREE.MeshStandardMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.07, roughness: 0.42, metalness: 0.2, depthWrite: false }));
   glass.position.set(cx, 0.5 + openH / 2, L.z + T / 2 + 0.02); glass.renderOrder = 5; root.add(glass);
   // 6. 夜景的冷光:從窗戶往房間打一盞低強度藍紫 RectAreaLight(窗框、層板、街機都會吃到)
   RectAreaLightUniformsLib.init();
