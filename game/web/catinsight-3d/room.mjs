@@ -511,8 +511,17 @@ for (const y of [2.55, 1.65]) {
       }
       return g;
     };
-    rabbit(goldM, 1.88, 1.0, 0.18);
-    rabbit(pearlM, 2.2, 0.94, -0.14);
+    const rb = [rabbit(goldM, 1.88, 1.0, 0.18), rabbit(pearlM, 2.2, 0.94, -0.14)];
+    // 跟氣球狗一樣:開場後用 CubeCamera 從兩隻兔子中間把真實房間拍成反射(粉牆、音響、層板、房間都會映在身上),拍的時候先把兔子藏起來
+    const cubeRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+    const cubeCam = new THREE.CubeCamera(0.03, 40, cubeRT); scene.add(cubeCam);
+    const shots = [3.6, 9.1];
+    idleAnims.push((t) => {
+      if (!shots.length || t < shots[0]) return; shots.shift();
+      root.updateWorldMatrix(true, false); root.localToWorld(cubeCam.position.set(EDGE - 0.05, 3.09 + 0.22, 2.04));
+      rb.forEach((r) => { r.visible = false; }); cubeCam.update(renderer, scene); rb.forEach((r) => { r.visible = true; });
+      if (goldM.envMap !== cubeRT.texture) { goldM.envMap = pearlM.envMap = cubeRT.texture; goldM.envMapIntensity = 2.0; pearlM.envMapIntensity = 1.6; goldM.needsUpdate = pearlM.needsUpdate = true; }
+    });
   }
 
 }
