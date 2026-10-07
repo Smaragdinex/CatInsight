@@ -1532,8 +1532,23 @@ const catUniforms = { uHead: { value: 0 }, uTail: { value: 0 }, uNeck: { value: 
 let catModel = null;
 {
   const b = group(2.25, 0, 2.45);
-  cyl(0.5, 0.42, 0.22, C.bowl, { y: 0.11, parent: b });
-  cyl(0.42, 0.42, 0.02, 0x8fe0ea, { y: 0.23, parent: b });
+  // 貓窩:甜甜圈形的長毛絨窩:一圈胖胖的淡紫色靠邊 + 中間鼓鼓的奶油色坐墊(短毛紋理 + 凹凸),旁邊地上一顆粉紅毛線球
+  { const furTex = (base, light, dark, n) => { const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < n; i++) { const x = Math.random() * 512, y = Math.random() * 512, a = Math.random() * Math.PI * 2, l = 3 + Math.random() * 6; g.strokeStyle = Math.random() < 0.5 ? light : dark; g.lineWidth = 1 + Math.random(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; };
+    const rimTex = furTex('#cdb6ef', 'rgba(250,240,255,.5)', 'rgba(120,95,170,.35)', 26000); rimTex.repeat.set(10, 2);
+    const padTex = furTex('#f6ecdf', 'rgba(255,255,255,.6)', 'rgba(190,165,140,.3)', 26000); padTex.repeat.set(3, 3);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.415, 0.11, 28, 96), new THREE.MeshStandardMaterial({ map: rimTex, bumpMap: rimTex, bumpScale: 1.6, roughness: 1 }));
+    rim.rotation.x = Math.PI / 2; rim.position.y = 0.165; rim.scale.z = 0.95; rim.castShadow = rim.receiveShadow = true; b.add(rim);
+    const pad = new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0.218], [0.18, 0.226], [0.3, 0.222], [0.36, 0.2], [0.39, 0.16], [0.385, 0.09], [0.35, 0.056], [0.001, 0.055]].map(([r, y]) => new THREE.Vector2(r, y)), 64),
+      new THREE.MeshStandardMaterial({ map: padTex, bumpMap: padTex, bumpScale: 1.4, roughness: 1 }));
+    pad.castShadow = pad.receiveShadow = true; b.add(pad);
+    // 毛線球:粉紅球 + 一圈圈纏繞的線 + 拖出來的一小段線頭
+    const yarnM = mat(0xf58fb4, { roughness: 0.9 }), yg = new THREE.Group(); yg.position.set(-0.62, 0.11, 0.18); b.add(yg);
+    const yb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 24, 16), yarnM); yb.castShadow = true; yg.add(yb);
+    for (let i = 0; i < 7; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.0045, 6, 40), yarnM); t.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); yg.add(t); }
+    const tail = [[0.04, -0.045, 0.03], [0.1, -0.058, 0.07], [0.17, -0.058, 0.05], [0.22, -0.058, 0.1]].map(([x, y, z]) => new THREE.Vector3(x, y, z));
+    yg.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tail), 30, 0.004, 6), yarnM)); }
   const cat = new THREE.Group(); cat.position.y = 0.24; cat.rotation.y = -Math.PI * 0.7 + Math.PI / 6; b.add(cat);   // 再往牠的左邊轉 30°
   loadGLB('cat', './cat.glb', (gltf) => {
     const m = gltf.scene;
