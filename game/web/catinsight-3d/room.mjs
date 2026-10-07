@@ -654,45 +654,83 @@ for (const y of [2.55, 1.65]) {
 }
 // ---------- 層架上的東西 ----------
 {
-  // 霓虹燈管:每條邊 = 外面一層有顏色的玻璃管 + 裡面一條很亮(接近白)的芯,轉角是發光的玻璃彎頭;
-  // 中間再一個半透明、會發光的小立體(全息核心),反方向慢慢轉;燈管偶爾輕輕閃一下
-  const neonMats = [];
-  const neonEdges = (geometry, color) => {
-    const g = new THREE.Group(), edges = new THREE.EdgesGeometry(geometry), pos = edges.attributes.position;
-    const coreCol = new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.55);
-    const core = new THREE.MeshStandardMaterial({ color: coreCol, emissive: coreCol, emissiveIntensity: 2.0, roughness: 0.3, toneMapped: false });
-    const glass = new THREE.MeshPhysicalMaterial({ color, emissive: color, emissiveIntensity: 0.25, roughness: 0.12, transparent: true, opacity: 0.38, clearcoat: 1, depthWrite: false });
-    neonMats.push(core);
-    const seen = new Set();
-    for (let i = 0; i < pos.count; i += 2) {
-      const a2 = new THREE.Vector3().fromBufferAttribute(pos, i), b2 = new THREE.Vector3().fromBufferAttribute(pos, i + 1), dv = b2.clone().sub(a2), mid = a2.clone().add(b2).multiplyScalar(0.5), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.clone().normalize());
-      for (const [r2, m2] of [[0.011, core], [0.03, glass]]) { const c2 = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2, dv.length(), 12), m2); c2.position.copy(mid); c2.quaternion.copy(q); if (m2 === core) c2.castShadow = true; g.add(c2); }
-      for (const v of [a2, b2]) {
-        const k = v.toArray().map((n) => n.toFixed(3)).join(','); if (seen.has(k)) continue; seen.add(k);
-        for (const [r2, m2] of [[0.013, core], [0.034, glass]]) { const sp = new THREE.Mesh(new THREE.SphereGeometry(r2, 14, 10), m2); sp.position.copy(v); g.add(sp); }
-      }
+  // 太空梭模型(發射時的樣子,直立):橘色外掛油箱(泡沫隔熱層的斑駁紋)+ 兩支白色固體火箭(黑色環帶、底部噴嘴裙)+ 揹在油箱上的軌道器
+  // (白色機身、黑色機腹和機鼻、雙三角翼、垂直尾翼、三具主引擎 + 兩個 OMS 莢艙、駕駛艙窗、貨艙門縫線、CatInsight 字樣)。
+  // 放在黑色圓座上(前面一塊黃銅銘牌、一圈淡藍小燈),模型本身在座上很慢地轉(約 50 秒一圈)
+  { const sh = new THREE.Group(); sh.scale.setScalar(1.3); group(-0.95, 2.61, L.z + 0.15).add(sh);   // 放大 1.3 倍(放在內層,開場彈出動畫會改外層的 scale)
+    const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, ...o });
+    const put = (geo, m2, x, y, z, parent) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); return o; };
+    const lathe = (pts, m2, x, y, z, parent) => put(new THREE.LatheGeometry(pts.map(([r, h]) => new THREE.Vector2(r, h)), 40), m2, x, y, z, parent);
+    // 底座:黑色圓座 + 細黃銅邊 + 一圈淡藍小燈 + 銘牌
+    const baseM = M(0x16141c, { roughness: 0.35, metalness: 0.2 }), brassM = M(0xc9a25a, { metalness: 0.85, roughness: 0.3 });
+    put(new THREE.CylinderGeometry(0.2, 0.215, 0.035, 48), baseM, 0, 0.0175, 0, sh);
+    put(new THREE.TorusGeometry(0.2, 0.004, 6, 64), brassM, 0, 0.035, 0, sh).rotation.x = Math.PI / 2;
+    const ringM = new THREE.MeshStandardMaterial({ color: 0xbfe6ff, emissive: 0x7fc8ff, emissiveIntensity: 0.9 });
+    put(new THREE.TorusGeometry(0.17, 0.0025, 6, 64), ringM, 0, 0.036, 0, sh).rotation.x = Math.PI / 2;
+    { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');
+      g.fillStyle = '#c9a25a'; g.fillRect(0, 0, 256, 64); g.fillStyle = '#3a2a12'; g.textAlign = 'center';
+      g.font = '700 22px "Avenir Next", system-ui, sans-serif'; g.fillText('STS-CAT', 128, 28); g.font = '600 13px "Avenir Next", system-ui, sans-serif'; g.fillText('CATINSIGHT  ·  1:1200', 128, 50);
+      const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+      const pl = put(new THREE.BoxGeometry(0.12, 0.03, 0.004), [brassM, brassM, brassM, brassM, new THREE.MeshStandardMaterial({ map: tx, metalness: 0.6, roughness: 0.35 }), brassM], 0, 0.02, 0.212, sh); pl.rotation.x = -0.25; }
+    // 會轉的那一層
+    const st = new THREE.Group(); st.position.y = 0.035; sh.add(st);
+    put(new THREE.CylinderGeometry(0.015, 0.02, 0.07, 12), brassM, 0, 0.035, 0, st);            // 中間支柱(撐住油箱底)
+    const Y0 = 0.07;                                                                         // 油箱底的高度
+    // 外掛油箱:泡沫隔熱層的橘色(深淺斑駁)+ 頂端尖拱
+    const foam = document.createElement('canvas'); foam.width = 256; foam.height = 512; { const g = foam.getContext('2d'); g.fillStyle = '#c9692a'; g.fillRect(0, 0, 256, 512);
+      for (let i = 0; i < 2600; i++) { const v = Math.random(); g.fillStyle = v < 0.5 ? `rgba(120,50,15,${Math.random() * 0.18})` : `rgba(240,150,80,${Math.random() * 0.16})`; g.fillRect(Math.random() * 256, Math.random() * 512, 3 + Math.random() * 8, 2 + Math.random() * 4); }
+      g.fillStyle = 'rgba(90,40,10,.35)'; for (const y of [150, 160, 330]) g.fillRect(0, y, 256, 2); }
+    const foamTex = new THREE.CanvasTexture(foam); foamTex.colorSpace = THREE.SRGBColorSpace;
+    const ET_R = 0.068, ET_H = 0.6;
+    const etPts = [[0.001, 0], [ET_R * 0.8, 0.002], [ET_R, 0.02], [ET_R, ET_H]]; for (let i = 1; i <= 12; i++) { const k = i / 12; etPts.push([ET_R * Math.cos(k * Math.PI / 2) ** 0.8 + 0.0005, ET_H + 0.16 * Math.sin(k * Math.PI / 2)]); }
+    lathe(etPts, new THREE.MeshStandardMaterial({ map: foamTex, roughness: 0.85 }), 0, Y0, 0, st);
+    // 固體火箭推進器:白色、黑色環帶、尖頭、底部裙 + 噴嘴
+    const white = M(0xf4f2ee, { roughness: 0.45 }), black = M(0x1b1a20, { roughness: 0.6 }), grey = M(0x8d8a96, { metalness: 0.6, roughness: 0.35 });
+    const SR = 0.029, SH = 0.62;
+    for (const sx of [-1, 1]) {
+      const x = sx * (ET_R + SR + 0.006);
+      lathe([[0.001, 0.0], [0.042, 0.0], [0.04, 0.035], [SR, 0.07], [SR, SH], [SR * 0.85, SH + 0.04], [SR * 0.4, SH + 0.075], [0.001, SH + 0.085]], white, x, Y0 - 0.04, 0, st);
+      for (const y of [0.16, 0.3, 0.44]) put(new THREE.CylinderGeometry(SR + 0.0012, SR + 0.0012, 0.006, 32), black, x, Y0 - 0.04 + y, 0, st);
+      lathe([[0.012, 0], [0.026, -0.03], [0.028, -0.031]], grey, x, Y0 - 0.04, 0, st).material.side = THREE.DoubleSide;   // 噴嘴
+      for (const y of [0.1, SH - 0.02]) put(new THREE.CylinderGeometry(0.004, 0.004, 0.012, 6), grey, x - sx * (SR + 0.003), Y0 - 0.04 + y, 0, st).rotation.z = Math.PI / 2;   // 和油箱的連接桿
     }
-    // 全息核心:同形狀縮小、半透明發光,反方向轉
-    const holo = new THREE.Mesh(geometry.clone().scale(0.42, 0.42, 0.42), new THREE.MeshPhysicalMaterial({ color, emissive: color, emissiveIntensity: 0.6, transparent: true, opacity: 0.32, roughness: 0.1, depthWrite: false, side: THREE.DoubleSide }));
-    g.add(holo); g.userData.holo = holo;
-    return g;
-  };
-  // 立方體(粉)
-  const g1 = group(-1.35, 3.10, L.z + 0.15);
-  const e1 = neonEdges(new THREE.BoxGeometry(0.5, 0.5, 0.5), C.wire1);
-  e1.rotation.set(0.5, 0.6, 0.2); g1.add(e1);
-  { const l = new THREE.PointLight(C.wire1, 2.2, 2.6, 2); l.position.y = 0.1; g1.add(l); }   // 粉紅光
-  g1.userData.jump = { phase: 0.0, height: 0.32, baseY: 3.10 };
-  // 四面體(青)
-  const g2 = group(-0.45, 3.14, L.z + 0.15);   // 四面體半徑 0.42,離層架面(2.61)要留夠,才不會插進去
-  const e2 = neonEdges(new THREE.TetrahedronGeometry(0.42), C.wire2);
-  e2.rotation.set(0.3, 0.2, 0.4); g2.add(e2);
-  { const l = new THREE.PointLight(C.wire2, 2.2, 2.6, 2); l.position.y = 0.1; g2.add(l); }   // 青色光
-  g2.userData.jump = { phase: 1.1, height: 0.28, baseY: 3.14 };
-  idleAnims.push((t) => {
-    e1.userData.holo.rotation.set(-t * 0.6, -t * 0.9, 0); e2.userData.holo.rotation.set(t * 0.7, -t * 0.5, t * 0.3);
-    neonMats.forEach((m2, i) => { const fl = Math.sin(t * 41 + i * 3) > 0.985 ? 0.55 : 1; m2.emissiveIntensity = 2.0 * fl * (0.94 + 0.06 * Math.sin(t * 3.1 + i)); });   // 偶爾閃一下 + 輕微呼吸
-  });
+    // 軌道器:機鼻朝上、機腹貼著油箱(本地 -z),背上(+z)朝房間
+    const orb = new THREE.Group(); orb.position.set(0, Y0 + 0.02, ET_R + 0.052); st.add(orb);
+    const FL = 0.5, FW = 0.078, FD = 0.082;                                                  // 機身長、寬、厚
+    // 背上的貼圖:貨艙門(中間一條縫 + 橫向門縫)、駕駛艙窗、CatInsight 直寫字、美國國旗位置換成小貓掌
+    const bc = document.createElement('canvas'); bc.width = 128; bc.height = 640; { const g = bc.getContext('2d'); g.fillStyle = '#f4f2ee'; g.fillRect(0, 0, 128, 640);
+      g.strokeStyle = 'rgba(40,40,50,.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(64, 120); g.lineTo(64, 560); g.stroke();
+      for (let y = 120; y <= 560; y += 55) { g.beginPath(); g.moveTo(8, y); g.lineTo(120, y); g.stroke(); }
+      g.save(); g.translate(30, 340); g.rotate(-Math.PI / 2); g.fillStyle = '#2a2a3a'; g.font = '700 26px "Avenir Next", system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('CatInsight', 0, 9); g.restore();
+      g.fillStyle = '#f27a5a'; g.beginPath(); g.arc(96, 470, 9, 0, Math.PI * 2); g.fill(); for (const [dx, dy] of [[-10, -12], [-3, -17], [4, -17], [11, -12]]) { g.beginPath(); g.arc(96 + dx * 0.9, 470 + dy, 3.6, 0, Math.PI * 2); g.fill(); } }
+    const backTex = new THREE.CanvasTexture(bc); backTex.colorSpace = THREE.SRGBColorSpace; backTex.anisotropy = 8;
+    put(new RoundedBoxGeometry(FW, FL, FD, 3, 0.022), [white, white, white, white, new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.45 }), black], 0, FL / 2, 0, orb);
+    // 機鼻:前段白、最前端黑(隔熱瓦),側面兩片黑色駕駛艙窗
+    const nose = lathe([[FW / 2 * 0.98, 0], [FW / 2 * 0.9, 0.03], [FW / 2 * 0.7, 0.06], [FW / 2 * 0.42, 0.085], [0.001, 0.105]], white, 0, FL, 0, orb); nose.scale.z = FD / FW;
+    const tip = lathe([[FW / 2 * 0.43, 0], [FW / 2 * 0.25, 0.012], [0.001, 0.021]], black, 0, FL + 0.085, 0, orb); tip.scale.z = FD / FW;
+    for (const sx of [-1, 1]) { const w = put(new THREE.BoxGeometry(0.018, 0.022, 0.004), black, sx * 0.014, FL + 0.04, FD / 2 - 0.004, orb); w.rotation.x = -0.55; w.rotation.y = sx * 0.25; }
+    { const w = put(new THREE.BoxGeometry(0.02, 0.016, 0.004), black, 0, FL + 0.028, FD / 2 + 0.001, orb); w.rotation.x = -0.5; }
+    // 雙三角翼:上面白、下面(朝油箱)黑,前緣一條深灰
+    { const sp = new THREE.Shape(); sp.moveTo(0, 0.4); sp.lineTo(0.03, 0.4); sp.lineTo(0.06, 0.3); sp.lineTo(0.2, 0.05); sp.lineTo(0.205, 0.0); sp.lineTo(0.18, -0.01); sp.lineTo(0, -0.01); sp.lineTo(0, 0.4);
+      const geo = new THREE.ExtrudeGeometry(sp, { depth: 0.008, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 1 });
+      for (const sx of [-1, 1]) {
+        const top = put(geo, white, 0, 0.0, -FD / 2 + 0.006, orb); top.scale.x = sx;
+        const bot = put(geo, black, 0, 0.0, -FD / 2 - 0.002, orb); bot.scale.set(sx * 1.005, 1.005, 0.5);
+      } }
+    // 垂直尾翼(背上、機尾)+ 方向舵縫
+    // 形狀畫在 (沿機身, 高度) 平面:前緣往後掠、後緣幾乎垂直;再把 (u, v, 厚度) 換成 (x = 厚度, y = 沿機身, z = 往外)
+    { const tp = new THREE.Shape(); tp.moveTo(0, 0); tp.lineTo(0.15, 0); tp.lineTo(0.035, 0.12); tp.lineTo(0.004, 0.12); tp.lineTo(0, 0);
+      const fg = new THREE.ExtrudeGeometry(tp, { depth: 0.007, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0015, bevelSegments: 1 });
+      fg.applyMatrix4(new THREE.Matrix4().set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1));
+      put(fg, white, -0.0035, 0.0, FD / 2 - 0.006, orb); }
+    // 機尾:兩個 OMS 莢艙 + 三具主引擎噴嘴
+    for (const sx of [-1, 1]) { const pod = put(new THREE.CapsuleGeometry(0.015, 0.08, 4, 12), white, sx * 0.03, 0.07, FD / 2 - 0.006, orb); pod.scale.z = 0.8; }
+    for (const [x, z] of [[0, 0.018], [-0.022, -0.012], [0.022, -0.012]]) lathe([[0.008, 0], [0.016, -0.03], [0.017, -0.031]], grey, x, 0.0, z, orb).material.side = THREE.DoubleSide;
+    st.rotation.y = 0.5;
+    // 給模型一點冷白補光(原本霓虹的粉 / 青光拿掉之後窗前不會太暗)
+    { const l = new THREE.PointLight(0xdfe4ff, 1.4, 2.4, 2); l.position.set(0.15, 0.8, 0.35); sh.add(l); }
+    idleAnims.push((t) => { st.rotation.y = 0.5 + t * (Math.PI * 2 / 50); ringM.emissiveIntensity = 0.75 + 0.25 * Math.sin(t * 1.3); });
+  }
   // 流體沙畫(像照片那種會流動的沙漏畫):黑框 + 弧形黑腳架 + 金色轉軸。配色「夜景城市的夕陽」:靛藍、紫、洋紅、珊瑚、少許金砂,泡在桃色→淡紫的液體裡。
   // 上面那團沙慢慢變薄、沙從幾個地方細細往下流、底下堆出沙丘;約 40 秒流完,整個畫框沿轉軸翻一圈,重新開始
   { const g3 = group(1.1, 2.61, L.z + 0.15);
