@@ -88,6 +88,9 @@ scene.add(root);
 const animated = [];   // 進場動畫用:每個物件 scale 從 0 長出來
 let livePoster = null, liveN = 0;   // 牆上會動的照片:每幀重畫的函式
 const speaker = { group: null, led: null, front: null, knobs: [], notes: null };   // 書架上的音響:點它播放 / 暫停音樂(radio.mjs)
+// 亮面金屬擺飾(兔子、氣球狗)要有東西可以反射:用 RoomEnvironment 做一張小環境貼圖,只給這些材質用(房間其他東西不受影響)
+let reflectTex = null;
+function reflectEnv() { if (!reflectTex) { const pm = new THREE.PMREMGenerator(renderer); reflectTex = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); } return reflectTex; }
 const idleAnims = [];               // 每幀呼叫的小動畫:植物隨風輕擺(黃金葛、龜背芋)、水晶球裡的星雲
 
 function box(w, h, d, color, { x = 0, y = 0, z = 0, r = 0.06, parent = root, shadow = true, seg = 3, ry = 0, rz = 0, rx = 0 } = {}) {
@@ -475,7 +478,7 @@ for (const y of [2.55, 1.65]) {
   }
   // 兔子擺飾(像照片那種陶瓷兔):坐在上層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
   // 一隻亮金、一隻珍珠白(帶彩虹光澤),稍微轉向彼此。金屬 / 珍珠需要有東西可以反射,所以只給這兩種材質一張小的室內環境貼圖(不影響房間其他東西)
-  { const pm = new THREE.PMREMGenerator(renderer), env = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose();
+  { const env = reflectEnv();
     const goldM = new THREE.MeshPhysicalMaterial({ color: 0xe8b64e, metalness: 1, roughness: 0.13, clearcoat: 0.5, envMap: env, envMapIntensity: 1.1 });
     const pearlM = new THREE.MeshPhysicalMaterial({ color: 0xfbf0f4, metalness: 0.05, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05,
       iridescence: 1, iridescenceIOR: 1.45, iridescenceThicknessRange: [200, 900], envMap: env, envMapIntensity: 0.9 });
@@ -790,7 +793,7 @@ for (const y of [2.55, 1.65]) {
 }
 
 // ---------- 窗前層架的小東西(原本太空):上層熔岩燈、書堆 + 復古鬧鐘(指針照真實時間走);下層跑車模型、
-//            黑膠唱盤(唱片會轉)+ 唱片封套、三盆多肉(串燈拿掉了)----------
+//            藍色電鍍氣球狗、三盆多肉(串燈拿掉了)----------
 {
   const TOP = 2.61, LOW = 1.71, ZC = L.z + 0.12, FRONT = L.z + 0.15 + 0.35;
   const gold = new THREE.MeshStandardMaterial({ color: 0xe0b24e, metalness: 0.9, roughness: 0.25 });
@@ -883,23 +886,35 @@ for (const y of [2.55, 1.65]) {
       put(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 14), chrome, 0, sz * 0.023, 0, w);
     }
   }
-  // 黑膠唱盤(下層中間):木頭底座、轉動的唱片(紋路 + 彩色圓標)、唱臂;旁邊斜靠兩張唱片封套
-  { const g = group(0.85, LOW, ZC); g.rotation.y = -0.15;
-    put(new RoundedBoxGeometry(0.42, 0.06, 0.34, 2, 0.015), new THREE.MeshStandardMaterial({ map: woodTex(512, 128, 'u', '#c99566', [110, 66, 34]), roughness: 0.5 }), 0, 0.03, 0, g);
-    put(new THREE.CylinderGeometry(0.15, 0.15, 0.012, 40), M(0x2a2533, { metalness: 0.5, roughness: 0.4 }), -0.05, 0.066, 0, g);
-    const rc = document.createElement('canvas'); rc.width = rc.height = 256; const rg = rc.getContext('2d');
-    rg.fillStyle = '#111014'; rg.beginPath(); rg.arc(128, 128, 128, 0, 7); rg.fill();
-    rg.strokeStyle = 'rgba(255,255,255,.07)'; for (let r = 40; r < 126; r += 3) { rg.beginPath(); rg.arc(128, 128, r, 0, 7); rg.stroke(); }
-    rg.fillStyle = '#ff6fa8'; rg.beginPath(); rg.arc(128, 128, 36, 0, 7); rg.fill(); rg.fillStyle = '#fff'; rg.font = 'bold 13px sans-serif'; rg.textAlign = 'center'; rg.fillText('CAT FM', 128, 124); rg.fillStyle = '#111'; rg.beginPath(); rg.arc(128, 128, 4, 0, 7); rg.fill();
-    const rt = new THREE.CanvasTexture(rc); rt.colorSpace = THREE.SRGBColorSpace;
-    const vinyl = put(new THREE.CircleGeometry(0.14, 48), new THREE.MeshStandardMaterial({ map: rt, roughness: 0.25, metalness: 0.2, transparent: true }), -0.05, 0.0735, 0, g, [-Math.PI / 2, 0, 0]);
-    put(new THREE.CylinderGeometry(0.018, 0.018, 0.03, 16), M(0xd8d4e2, { metalness: 0.7, roughness: 0.3 }), 0.15, 0.075, -0.11, g);
-    const arm = new THREE.Group(); arm.position.set(0.15, 0.09, -0.11); arm.rotation.y = 0.55; g.add(arm);
-    put(new THREE.CylinderGeometry(0.004, 0.004, 0.2, 8), M(0xd8d4e2, { metalness: 0.7, roughness: 0.3 }), 0, 0, 0.1, arm, [Math.PI / 2, 0, 0]);
-    put(new RoundedBoxGeometry(0.02, 0.012, 0.035, 1, 0.004), M(0x2a2533), 0, -0.006, 0.2, arm);
-    idleAnims.push((t) => { vinyl.rotation.z = -t * 3.5; });   // 33⅓ 轉
-    for (const [x, c, ry] of [[0.33, 0x46bfcf, 0.12], [0.37, 0xf5c451, -0.06]]) { const sl = put(new RoundedBoxGeometry(0.3, 0.3, 0.008, 1, 0.004), M(c), x, 0.15, -0.08, g, [0.18, Math.PI / 2 + ry, 0]);
-      const dot = put(new THREE.CircleGeometry(0.06, 24), M(0xfff4e6), 0, 0, 0.0045, sl); dot.castShadow = false; } }
+  // 氣球狗(下層中間,像照片那種電鍍亮面氣球狗):每一段都是兩頭被扭緊、中間鼓起來的長氣球,
+  // 四條粗腿、身體、脖子、兩片往上的耳朵、往前伸的長口鼻(尖端有個小打結)、往上翹的尾巴;電鍍藍
+  { const g = group(0.82, LOW, ZC + 0.02); g.rotation.y = -0.55; g.scale.setScalar(0.4);   // 口鼻(本地 +x)斜斜朝向房間
+    const blue = new THREE.MeshPhysicalMaterial({ color: 0x2f8cff, metalness: 1, roughness: 0.07, clearcoat: 1, clearcoatRoughness: 0.03, envMap: reflectEnv(), envMapIntensity: 1.25 });
+    // 一段氣球:沿 a → b,半徑 R。扭結那一端收成細細的(sin 曲線的 0.55 次方 → 中間很圓、尾端急收);
+    // 沒扭的自由端(腳、耳朵尖、口鼻、尾巴)是圓圓的蛋形。free:'a' / 'b' 指出哪一端是自由端
+    const balloon = (a2, b2, R, free = null, taper = 0) => {
+      const dv = b2.clone().sub(a2), L2 = dv.length(), pts = [];
+      for (let i = 0; i <= 32; i++) { const u = i / 32, round = (free === 'a' && u < 0.5) || (free === 'b' && u > 0.5);
+        const r = round ? R * Math.pow(Math.max(0, 1 - ((u - 0.5) / 0.5) ** 2), 0.5) : R * Math.pow(Math.sin(Math.PI * u), 0.55);
+        pts.push(new THREE.Vector2(Math.max(0.0008, r * (1 - taper * u)), u * L2)); }
+      const o = new THREE.Mesh(new THREE.LatheGeometry(pts, 36), blue); o.position.copy(a2); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
+    const knot = (p2, r2) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r2, 20, 14), blue); o.position.copy(p2); o.castShadow = true; g.add(o); };
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const CH = V(0.3, 0.46, 0), HP = V(-0.38, 0.46, 0), HD = V(0.36, 0.8, 0);      // 胸口、屁股、頭的扭結點
+    for (const sz of [-1, 1]) {
+      balloon(V(0.31, -0.015, sz * 0.12), V(0.3, 0.44, sz * 0.035), 0.11, 'a');            // 前腿
+      balloon(V(-0.39, -0.015, sz * 0.12), V(-0.38, 0.44, sz * 0.035), 0.11, 'a');         // 後腿
+      balloon(V(0.35, 0.82, sz * 0.03), V(0.27, 1.1, sz * 0.085), 0.1, 'b');             // 耳朵
+    }
+    balloon(V(0.28, 0.47, 0), V(-0.36, 0.47, 0), 0.095);                            // 身體
+    balloon(V(0.3, 0.48, 0), V(0.36, 0.79, 0), 0.085);                               // 脖子
+    balloon(V(0.38, 0.8, 0), V(0.74, 0.86, 0), 0.088, 'b', 0.3);                         // 口鼻
+    balloon(V(-0.38, 0.48, 0), V(-0.47, 0.78, 0), 0.06, 'b', 0.3);                       // 尾巴
+    knot(CH, 0.05); knot(HP, 0.05); knot(HD, 0.05);
+    for (const [p2, d] of [[V(0.745, 0.861, 0), V(1, 0.17, 0)], [V(-0.472, 0.785, 0), V(-0.29, 1, 0)]]) {   // 口鼻和尾巴尖端的小打結
+      const n = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.016, 0.05, 12), blue); n.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); n.position.copy(p2).addScaledVector(d, 0.022); g.add(n);
+      const k = new THREE.Mesh(new THREE.SphereGeometry(0.018, 14, 10), blue); k.position.copy(p2).addScaledVector(d, 0.05); g.add(k); }
+  }
   // 三盆多肉(下層右邊):粉彩小盆 + 一圈圈尖葉
   [[1.42, 0xf3c9db, 0x6fbf8a], [1.58, 0xcbb8f0, 0x8fd1a0], [1.74, 0xfde2a7, 0x5aa87a]].forEach(([x, pc, lc], k) => {   // 都在右邊窗柱(x≈1.88)的左邊
     const g = group(x, LOW, ZC + (k % 2) * 0.05);
