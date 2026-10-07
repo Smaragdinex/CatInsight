@@ -761,6 +761,96 @@ for (const y of [2.55, 1.65]) {
   }
 }
 
+// ---------- 窗前層架的小東西(原本太空):上層熔岩燈、書堆 + 復古鬧鐘(指針照真實時間走);下層金色公牛、粉紅小豬撲滿 + 金幣、
+//            黑膠唱盤(唱片會轉)+ 唱片封套、三盆多肉;兩層前緣各一串會微微閃的暖色串燈 ----------
+{
+  const TOP = 2.61, LOW = 1.71, ZC = L.z + 0.12, FRONT = L.z + 0.15 + 0.35;
+  const gold = new THREE.MeshStandardMaterial({ color: 0xe0b24e, metalness: 0.9, roughness: 0.25 });
+  const M = (c, ex = {}) => mat(c, ex);
+  const put = (geo, m2, x, y, z, parent, rot) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, z); if (rot) o.rotation.set(...rot); o.castShadow = true; parent.add(o); return o; };
+  // 熔岩燈(上層):深紫金屬底座 + 粉紅玻璃瓶 + 裡面幾團會上下飄、會變形的發光蠟
+  { const g = group(0.3, TOP, ZC);
+    const baseM = M(0x3b2a5e, { metalness: 0.6, roughness: 0.3 });
+    put(new THREE.CylinderGeometry(0.05, 0.085, 0.13, 24), baseM, 0, 0.065, 0, g);
+    put(new THREE.CylinderGeometry(0.03, 0.045, 0.05, 24), baseM, 0, 0.415, 0, g);
+    const bottle = new THREE.Mesh(new THREE.LatheGeometry([[0.045, 0], [0.065, 0.06], [0.06, 0.16], [0.032, 0.26]].map(([r, y]) => new THREE.Vector2(r, y)), 32),
+      new THREE.MeshPhysicalMaterial({ color: 0xff8fc8, emissive: 0xff5fa8, emissiveIntensity: 0.3, transparent: true, opacity: 0.45, roughness: 0.1, clearcoat: 1, depthWrite: false }));
+    bottle.position.y = 0.13; g.add(bottle);
+    const blobs = [0, 1, 2, 3].map((i) => { const b = put(new THREE.SphereGeometry(0.022 + (i % 2) * 0.008, 16, 12), new THREE.MeshStandardMaterial({ color: 0xffa060, emissive: 0xff7a3c, emissiveIntensity: 1.1 }), 0, 0.17, 0, g); return { b, ph: i * 1.7, sp: 0.18 + i * 0.05 }; });
+    idleAnims.push((t) => { for (const { b, ph, sp } of blobs) { const u = 0.5 + 0.5 * Math.sin(t * sp + ph), y = 0.15 + u * 0.2, r = 0.06 - Math.abs(y - 0.24) * 0.12;
+      b.position.set(Math.sin(t * 0.3 + ph) * r * 0.4, y, Math.cos(t * 0.27 + ph) * r * 0.4); b.scale.set(1 + 0.15 * Math.sin(t * 0.9 + ph), 1.2 + 0.3 * Math.sin(t * 0.7 + ph * 2), 1); } }); }
+  // 書堆 + 復古雙鈴鬧鐘(上層,沙畫右邊):指針跟著真實時間
+  { const g = group(1.66, TOP, ZC + 0.04);   // 右邊的窗柱從 x≈1.88 開始,東西要放在它左邊,不然會陷進牆裡
+    [[0.34, 0.05, 0.24, 0x7b5cf5, 0.05], [0.3, 0.045, 0.22, 0x46bfcf, -0.08], [0.32, 0.04, 0.23, 0xf5c451, 0.12]].reduce((y, [w, h, d, c, ry]) => { put(new RoundedBoxGeometry(w, h, d, 2, 0.006), M(c), 0, y + h / 2, 0, g, [0, ry, 0]); return y + h; }, 0);
+    const ck = new THREE.Group(); ck.position.set(0, 0.135, 0.02); ck.rotation.y = -0.25; g.add(ck);
+    const red = M(0xf27a5a, { roughness: 0.35 });
+    put(new THREE.CylinderGeometry(0.075, 0.075, 0.045, 32), red, 0, 0.09, 0, ck, [Math.PI / 2, 0, 0]);
+    const fc = document.createElement('canvas'); fc.width = fc.height = 128; const fg = fc.getContext('2d');
+    fg.fillStyle = '#fff8ec'; fg.beginPath(); fg.arc(64, 64, 62, 0, 7); fg.fill(); fg.fillStyle = '#3b2f2a';
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; fg.fillRect(64 + Math.sin(a) * 50 - 2, 64 - Math.cos(a) * 50 - (i % 3 ? 2 : 5), 4, i % 3 ? 4 : 10); }
+    const ft = new THREE.CanvasTexture(fc); ft.colorSpace = THREE.SRGBColorSpace;
+    put(new THREE.CircleGeometry(0.063, 32), new THREE.MeshStandardMaterial({ map: ft, roughness: 0.5 }), 0, 0.09, 0.0235, ck);
+    const hand = (len, w) => { const h = new THREE.Group(); h.position.set(0, 0.09, 0.026); ck.add(h); const m2 = new THREE.Mesh(new THREE.BoxGeometry(w, len, 0.002), M(0x3b2f2a)); m2.position.y = len / 2; h.add(m2); return h; };
+    const hh = hand(0.035, 0.006), mh = hand(0.052, 0.004);
+    for (const sx of [-1, 1]) { put(new THREE.SphereGeometry(0.03, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), gold, sx * 0.05, 0.16, -0.005, ck, [0, 0, -sx * 0.5]); put(new THREE.CylinderGeometry(0.005, 0.005, 0.05, 6), gold, sx * 0.05, 0.03, 0, ck, [0, 0, sx * 0.35]); }
+    put(new THREE.SphereGeometry(0.01, 8, 6), gold, 0, 0.17, 0, ck);
+    idleAnims.push(() => { const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60; mh.rotation.z = -m / 60 * Math.PI * 2; hh.rotation.z = -h / 12 * Math.PI * 2; }); }
+  // 金色公牛(下層左邊):往前衝的低多邊形公牛,黑色大理石底座
+  { const g = group(-1.3, LOW, ZC); g.rotation.y = 0.5;
+    put(new RoundedBoxGeometry(0.32, 0.04, 0.16, 2, 0.01), M(0x1e1a24, { roughness: 0.3, metalness: 0.2 }), 0, 0.02, 0, g);
+    const bull = new THREE.Group(); bull.position.y = 0.04; g.add(bull);
+    const body = put(new THREE.SphereGeometry(0.07, 8, 6), gold, 0, 0.1, 0, bull); body.scale.set(1.6, 0.85, 0.75);
+    const head = put(new THREE.SphereGeometry(0.04, 8, 6), gold, 0.115, 0.08, 0, bull); head.scale.set(1.2, 0.9, 0.85);
+    for (const sz of [-1, 1]) { put(new THREE.ConeGeometry(0.01, 0.05, 6), gold, 0.12, 0.125, sz * 0.03, bull, [sz * 0.9, 0, -0.5]);
+      for (const sx of [-1, 1]) { const leg = put(new THREE.CylinderGeometry(0.012, 0.01, 0.07, 6), gold, sx * 0.06, 0.035, sz * 0.03, bull, [0, 0, sx * 0.35]); leg.position.x += sx * 0.01; } }
+    put(new THREE.CylinderGeometry(0.004, 0.003, 0.08, 5), gold, -0.12, 0.13, 0, bull, [0, 0, 0.9]); }
+  // 粉紅小豬撲滿 + 一疊金幣(下層)
+  { const g = group(-0.2, LOW, ZC); g.rotation.y = 0.35;
+    const pink = M(0xffa7c4, { roughness: 0.35 });
+    const body = put(new THREE.SphereGeometry(0.08, 24, 18), pink, 0, 0.09, 0, g); body.scale.set(1.25, 1, 1);
+    put(new THREE.CylinderGeometry(0.03, 0.03, 0.025, 20), pink, 0.1, 0.09, 0, g, [0, 0, Math.PI / 2]);
+    for (const dz of [-0.01, 0.01]) put(new THREE.CircleGeometry(0.006, 10), M(0xd9648a), 0.1135, 0.09, dz, g, [0, Math.PI / 2, 0]);
+    for (const sz of [-1, 1]) { put(new THREE.ConeGeometry(0.02, 0.035, 10), pink, 0.05, 0.165, sz * 0.04, g, [sz * 0.3, 0, -0.3]); put(new THREE.SphereGeometry(0.008, 8, 6), M(0x3b2f2a), 0.085, 0.115, sz * 0.03, g);
+      for (const sx of [-1, 1]) put(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 10), pink, sx * 0.05, 0.015, sz * 0.04, g); }
+    put(new THREE.BoxGeometry(0.035, 0.004, 0.008), M(0x3b2f2a), -0.01, 0.178, 0, g);
+    for (let i = 0; i < 5; i++) put(new THREE.CylinderGeometry(0.022, 0.022, 0.007, 20), gold, 0.0 + (i % 2) * 0.003, 0.0035 + i * 0.0075, 0.13, g); }
+  // 黑膠唱盤(下層中間):木頭底座、轉動的唱片(紋路 + 彩色圓標)、唱臂;旁邊斜靠兩張唱片封套
+  { const g = group(0.85, LOW, ZC); g.rotation.y = -0.15;
+    put(new RoundedBoxGeometry(0.42, 0.06, 0.34, 2, 0.015), new THREE.MeshStandardMaterial({ map: woodTex(512, 128, 'u', '#c99566', [110, 66, 34]), roughness: 0.5 }), 0, 0.03, 0, g);
+    put(new THREE.CylinderGeometry(0.15, 0.15, 0.012, 40), M(0x2a2533, { metalness: 0.5, roughness: 0.4 }), -0.05, 0.066, 0, g);
+    const rc = document.createElement('canvas'); rc.width = rc.height = 256; const rg = rc.getContext('2d');
+    rg.fillStyle = '#111014'; rg.beginPath(); rg.arc(128, 128, 128, 0, 7); rg.fill();
+    rg.strokeStyle = 'rgba(255,255,255,.07)'; for (let r = 40; r < 126; r += 3) { rg.beginPath(); rg.arc(128, 128, r, 0, 7); rg.stroke(); }
+    rg.fillStyle = '#ff6fa8'; rg.beginPath(); rg.arc(128, 128, 36, 0, 7); rg.fill(); rg.fillStyle = '#fff'; rg.font = 'bold 13px sans-serif'; rg.textAlign = 'center'; rg.fillText('CAT FM', 128, 124); rg.fillStyle = '#111'; rg.beginPath(); rg.arc(128, 128, 4, 0, 7); rg.fill();
+    const rt = new THREE.CanvasTexture(rc); rt.colorSpace = THREE.SRGBColorSpace;
+    const vinyl = put(new THREE.CircleGeometry(0.14, 48), new THREE.MeshStandardMaterial({ map: rt, roughness: 0.25, metalness: 0.2, transparent: true }), -0.05, 0.0735, 0, g, [-Math.PI / 2, 0, 0]);
+    put(new THREE.CylinderGeometry(0.018, 0.018, 0.03, 16), M(0xd8d4e2, { metalness: 0.7, roughness: 0.3 }), 0.15, 0.075, -0.11, g);
+    const arm = new THREE.Group(); arm.position.set(0.15, 0.09, -0.11); arm.rotation.y = 0.55; g.add(arm);
+    put(new THREE.CylinderGeometry(0.004, 0.004, 0.2, 8), M(0xd8d4e2, { metalness: 0.7, roughness: 0.3 }), 0, 0, 0.1, arm, [Math.PI / 2, 0, 0]);
+    put(new RoundedBoxGeometry(0.02, 0.012, 0.035, 1, 0.004), M(0x2a2533), 0, -0.006, 0.2, arm);
+    idleAnims.push((t) => { vinyl.rotation.z = -t * 3.5; });   // 33⅓ 轉
+    for (const [x, c, ry] of [[0.33, 0x46bfcf, 0.12], [0.37, 0xf5c451, -0.06]]) { const sl = put(new RoundedBoxGeometry(0.3, 0.3, 0.008, 1, 0.004), M(c), x, 0.15, -0.08, g, [0.18, Math.PI / 2 + ry, 0]);
+      const dot = put(new THREE.CircleGeometry(0.06, 24), M(0xfff4e6), 0, 0, 0.0045, sl); dot.castShadow = false; } }
+  // 三盆多肉(下層右邊):粉彩小盆 + 一圈圈尖葉
+  [[1.42, 0xf3c9db, 0x6fbf8a], [1.58, 0xcbb8f0, 0x8fd1a0], [1.74, 0xfde2a7, 0x5aa87a]].forEach(([x, pc, lc], k) => {   // 都在右邊窗柱(x≈1.88)的左邊
+    const g = group(x, LOW, ZC + (k % 2) * 0.05);
+    put(new THREE.CylinderGeometry(0.055, 0.042, 0.075, 20), M(pc, { roughness: 0.4 }), 0, 0.0375, 0, g);
+    put(new THREE.CylinderGeometry(0.05, 0.05, 0.008, 20), M(0x4a3426), 0, 0.074, 0, g);
+    const leaf = M(lc, { roughness: 0.55 });
+    for (let ring = 0; ring < 3; ring++) { const n = 7 - ring * 2, r = 0.035 - ring * 0.012, tilt = 0.9 - ring * 0.3;
+      for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + ring * 0.4; const lf = put(new THREE.ConeGeometry(0.014, 0.05 - ring * 0.008, 6), leaf, Math.cos(a) * r, 0.09 + ring * 0.012, Math.sin(a) * r, g);
+        lf.rotation.set(0, -a, 0); lf.rotateZ(-tilt); lf.scale.z = 0.5; } } });
+  // 兩層前緣的串燈:微微下垂的電線 + 一顆顆暖色小燈泡(分三組輪流微閃)
+  const bulbMats = [0, 1, 2].map(() => new THREE.MeshStandardMaterial({ color: 0xfff1d0, emissive: 0xffc77a, emissiveIntensity: 1.3 }));
+  for (const y of [TOP - 0.05, LOW - 0.05]) {
+    const pts = [], N = 26, x0 = SHELF_X0 + 0.08, x1 = SHELF_X1 - 0.08;
+    for (let i = 0; i <= 200; i++) { const u = i / 200, x = x0 + (x1 - x0) * u, seg = (u * 5) % 1; pts.push(new THREE.Vector3(x, y - Math.sin(seg * Math.PI) * 0.05, FRONT + 0.012)); }
+    const wire = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 200, 0.0025, 4), M(0x3a3340)); root.add(wire);
+    for (let i = 0; i < N; i++) { const p = pts[Math.round((i + 0.5) / N * 200)]; const b = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8), bulbMats[i % 3]); b.position.set(p.x, p.y - 0.016, p.z); root.add(b); }
+  }
+  idleAnims.push((t) => { bulbMats.forEach((m2, i) => { m2.emissiveIntensity = 1.0 + 0.35 * Math.sin(t * 1.7 + i * 2.1); }); });
+}
+
 // ---------- 街機(Meshy GLB:arcade.glb,Draco 壓縮 + 貼圖 1024)----------
 const ARCADE_H = 2.5;                                            // 機台高度
 let arcadeModel = null, arcadeAnchor = null, playTag = null, arcadeScreen = null, arcadeScreenTex = null, arcadeMarquee = null;
