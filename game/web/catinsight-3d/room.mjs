@@ -629,20 +629,48 @@ let screenMesh, deskGroup;
 }
 
 // ---------- 椅子 ----------
+// 人體工學辦公椅:椅殼 + 微微隆起的坐墊、兩邊往前包的弧形靠背(有腰靠、往後仰一點)、連接靠背的背桿、L 形扶手、
+// 金屬氣壓桿 + 套管、五爪腳 + 輪子。放在書桌前偏房間中間,不要被角落的龜背芋擋住
 {
-  const c = group(1.5, 0, 1.0);   // 跟著桌子移;桌面 z 到 0.25,椅墊從 1.15 開始,不重疊
-  c.rotation.y = -0.35;
-  box(0.9, 0.16, 0.9, C.chairDark, { y: 0.72, r: 0.07, parent: c });            // 座墊
-  box(0.9, 1.0, 0.16, C.chair, { y: 1.3, z: -0.4, r: 0.07, parent: c });        // 靠背
-  for (let i = 0; i < 3; i++) box(0.82, 0.03, 0.02, C.chairDark, { y: 0.95 + i * 0.3, z: -0.31, r: 0, parent: c, shadow: false });
-  cyl(0.05, 0.05, 0.6, C.chairPost, { y: 0.35, parent: c });
+  const c = group(0.85, 0, 1.05);
+  c.rotation.y = -0.25;
+  const SEAT = C.chair, SHELL = C.chairDark, FRAME = C.chairPost;
+  // 彎曲 / 隆起:把圓角盒子的頂點推一推再重算法線
+  const shaped = (w, h, d, seg, r, color, fn) => {
+    const g = new RoundedBoxGeometry(w, h, d, seg, r), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const v = fn(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, v[0], v[1], v[2]); }
+    g.computeVertexNormals(); const m = new THREE.Mesh(g, mat(color, { roughness: 0.7 })); m.castShadow = m.receiveShadow = true; c.add(m); return m;
+  };
+  // 坐墊:殼 + 上面一塊中間隆起、前緣往下彎(瀑布邊)的墊子
+  box(0.86, 0.06, 0.84, SHELL, { y: 0.66, r: 0.03, parent: c });
+  shaped(0.84, 0.13, 0.82, 8, 0.06, SEAT, (x, y, z) => [x, y + (y > 0 ? 0.025 * (1 - (x / 0.42) ** 2) * (1 - (z / 0.41) ** 2) : 0) - (z > 0.25 ? (z - 0.25) ** 2 * 0.5 : 0), z]).position.y = 0.755;
+  // 靠背:兩側往前包(+z 是坐墊那邊)、下方一點腰靠;後面一片深色的殼;整塊往後仰
+  const back = new THREE.Group(); back.position.set(0, 0.92, -0.4); back.rotation.x = -0.12; c.add(back);
+  const bend = (x, y, z) => [x, y, z + 0.11 * (x / 0.42) ** 2 + 0.035 * Math.exp(-(((y + 0.22) / 0.16) ** 2))];
+  const pad = shaped(0.84, 0.92, 0.11, 8, 0.05, SEAT, bend); c.remove(pad); back.add(pad); pad.position.y = 0.47;
+  const shell = shaped(0.8, 0.86, 0.04, 4, 0.02, SHELL, (x, y, z) => { const v = bend(x, y, z); return [v[0], v[1], v[2] - 0.07]; }); c.remove(shell); back.add(shell); shell.position.y = 0.47;
+  for (let i = 0; i < 3; i++) { const st = shaped(0.7, 0.012, 0.012, 1, 0.005, SHELL, (x, y, z) => [x, y, z + 0.11 * (x / 0.42) ** 2 + 0.06]); c.remove(st); back.add(st); st.position.y = 0.3 + i * 0.22; }   // 車縫線
+  box(0.12, 0.34, 0.05, SHELL, { y: 0.82, z: -0.43, r: 0.02, parent: c });             // 背桿:坐墊後面接到靠背
+  // L 形扶手
+  for (const sx of [-1, 1]) {
+    box(0.05, 0.26, 0.06, FRAME, { x: sx * 0.41, y: 0.85, z: -0.06, r: 0.02, parent: c });
+    box(0.09, 0.045, 0.4, SHELL, { x: sx * 0.41, y: 0.995, z: 0.0, r: 0.02, parent: c });
+  }
+  // 氣壓桿(金屬)+ 套管
+  const chrome = mat(0xdcd6e4, { metalness: 0.7, roughness: 0.25 });
+  { const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.42, 20), chrome); rod.position.y = 0.43; rod.castShadow = true; c.add(rod); }
+  cyl(0.062, 0.07, 0.2, SHELL, { y: 0.25, parent: c });
+  box(0.36, 0.05, 0.3, FRAME, { y: 0.62, r: 0.02, parent: c });                         // 坐墊下的底盤
+  // 五爪腳 + 輪子
+  cyl(0.11, 0.12, 0.08, FRAME, { y: 0.15, parent: c });
   for (let i = 0; i < 5; i++) {
-    const a = i * Math.PI * 2 / 5;
-    const arm = box(0.5, 0.05, 0.08, C.chairPost, { x: Math.sin(a) * 0.25, y: 0.09, z: Math.cos(a) * 0.25, r: 0.02, parent: c, seg: 1 });
-    arm.rotation.y = a + Math.PI / 2;
-    sphere(0.06, C.chairPost, { x: Math.sin(a) * 0.48, y: 0.06, z: Math.cos(a) * 0.48, parent: c });
+    const a = i * Math.PI * 2 / 5, leg = new THREE.Group(); leg.rotation.y = a; leg.position.y = 0.15; c.add(leg);
+    const spoke = box(0.44, 0.055, 0.075, FRAME, { x: 0.25, y: -0.012, r: 0.025, parent: leg, seg: 2 }); spoke.rotation.z = -0.08;
+    box(0.07, 0.05, 0.06, SHELL, { x: 0.46, y: -0.05, r: 0.02, parent: leg });           // 輪架
+    const wheel = cyl(0.042, 0.042, 0.045, 0x5a4a6a, { x: 0.46, y: -0.105, parent: leg }); wheel.rotation.set(Math.PI / 2, 0, 0);
   }
 }
+
 
 // ---------- 植物 ----------
 const plantLeaves = [];   // (舊的彎曲仙人掌用;現在的仙人掌不會動,留著空陣列)
