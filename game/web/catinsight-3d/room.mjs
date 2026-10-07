@@ -540,17 +540,17 @@ for (const y of [2.55, 1.65]) {
     const walnut = new THREE.MeshStandardMaterial({ map: woodTex(512, 128, 'u', '#5a3a26', [40, 24, 14]), roughness: 0.5 });
     const base = new THREE.Mesh(new RoundedBoxGeometry(0.22, BASE_H, 0.13, 2, 0.004), walnut); base.position.y = BASE_H / 2; base.castShadow = base.receiveShadow = true; fig.add(base);
   }
-  // 兔子擺飾(像照片那種陶瓷兔):坐在下層層板上,兩條細長的腿往前伸、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
+  // 兔子擺飾(像照片那種陶瓷兔):坐在下層層板的前緣,兩條細長的腿垂在層板外面、圓圓的腳掌;梨形身體、長長的耳朵、往前凸的口鼻,沒有五官。
   // 一隻亮金、一隻珍珠白(帶彩虹光澤),稍微轉向彼此。金屬 / 珍珠需要有東西可以反射,所以只給這兩種材質一張小的室內環境貼圖(不影響房間其他東西)
   { const env = reflectEnv();
     const goldM = new THREE.MeshPhysicalMaterial({ color: 0xe8b64e, metalness: 1, roughness: 0.13, clearcoat: 0.5, envMap: env, envMapIntensity: 1.1 });
     const pearlM = new THREE.MeshPhysicalMaterial({ color: 0xfbf0f4, metalness: 0.05, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05,
       iridescence: 1, iridescenceIOR: 1.45, iridescenceThicknessRange: [200, 900], envMap: env, envMapIntensity: 0.9 });
     const EDGE = WX - 0.42;                                                         // 上層層板前緣的 x
-    // 坐在下層層板上(和木雕換過位置),臉朝房間前方(鏡頭那邊,本地 +z),兩條腿往前伸、平放在層板上
-    const rabbit = (m2, x, z, sc, turn) => {
-      const g = group(x, 2.39, z);
-      g.rotation.y = turn; g.scale.setScalar(sc);
+    // 坐在下層層板的前緣(像照片那樣坐在邊上),臉朝外(本地 +z = 房間那邊),兩條細長的腿垂在層板外面;turn > 0 會稍微轉向預設鏡頭
+    const rabbit = (m2, z, sc, turn) => {
+      const g = group(EDGE + 0.012, 2.39, z);
+      g.rotation.y = -Math.PI / 2 + turn; g.scale.setScalar(sc);
       const add = (geo, x, y, zz, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, zz); o.scale.set(sx, sy, sz); o.castShadow = true; g.add(o); return o; };
       const limb = (r, a2, b2) => { const dv = b2.clone().sub(a2), o = new THREE.Mesh(new THREE.CapsuleGeometry(r, dv.length(), 6, 14), m2);
         o.position.copy(a2).add(b2).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
@@ -567,15 +567,15 @@ for (const y of [2.55, 1.65]) {
         // 手臂沿著身體兩側垂下來,手掌像小鰭一樣平放在層板上
         limb(0.015, V(sx * 0.036, 0.16, -0.055), V(sx * 0.078, 0.022, -0.04));                      // 從肩膀(身體裡面)開始,才不會像一根分開的棍子
         add(new THREE.SphereGeometry(0.027, 24, 16), sx * 0.088, 0.008, -0.025, 1, 0.34, 1.35);
-        // 大腿往前,細細長長的小腿平放在層板上往前伸,腳掌往上翹
-        limb(0.021, V(sx * 0.03, 0.026, -0.03), V(sx * 0.031, 0.022, 0.02));
-        limb(0.0115, V(sx * 0.031, 0.0125, 0.03), V(sx * 0.034, 0.0125, 0.19));
-        add(new THREE.SphereGeometry(0.024, 24, 16), sx * 0.034, 0.024, 0.205, 0.9, 1.3, 0.82);
+        // 大腿往前伸到層板邊緣,小腿細細長長垂下去,圓圓的腳掌朝前
+        limb(0.021, V(sx * 0.03, 0.026, -0.03), V(sx * 0.031, 0.02, 0.022));
+        limb(0.0115, V(sx * 0.031, 0.012, 0.034), V(sx * 0.031, -0.165, 0.036));
+        add(new THREE.SphereGeometry(0.024, 24, 16), sx * 0.031, -0.18, 0.048, 0.9, 0.82, 1.3);
       }
       return g;
     };
-    rabbit(goldM, WX - 0.25, 1.5, 1.0, -0.62);    // 轉向預設鏡頭(房間前方偏窗戶那邊)
-    rabbit(pearlM, WX - 0.11, 1.76, 0.94, -0.86);
+    rabbit(goldM, 1.58, 1.0, 0.3);
+    rabbit(pearlM, 1.88, 0.94, 0.22);
   }
 
 }
