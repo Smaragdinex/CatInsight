@@ -757,27 +757,94 @@ function loadGLB(name, url, onLoad) {
 }
 
 // ---------- 攝影機 + 三腳架 ----------
-let camHead = null;
+// 可愛的復古攝影機:米白機身 + 珊瑚色飾條、多層鏡頭(深色鏡筒、珊瑚對焦環、遮光罩、深藍鏡片 + 反光)、上提把 + 麥克風、後面觀景窗、
+// 側邊翻出來的小螢幕(平常顯示 REC + 時間碼)、會閃的錄影紅燈。三腳架:兩節腳 + 夾扣 + 黑色腳墊、中柱、雲台 + 搖桿。
+// 點它一下:轉過來面向你、小螢幕翻到正面變笑臉、點頭兩下打招呼,約 4 秒後回去繼續左右掃
+let camHead = null, camRig = null, camGreet = null;
 {
-  const t = group(-0.55, 0, -1.55); t.rotation.y = -Math.PI / 3;   // 整體朝右轉 60°;靠牆一點(層架前緣在 -2.14,腳架腳張開 0.5 不會碰到)
-  // 三隻腳:腳底在地上張開,頂端收攏到雲台下方
-  const legs = 3, head = new THREE.Vector3(0, 1.45, 0), spread = 0.5;
+  const t = group(-0.55, 0, -1.55); t.rotation.y = -Math.PI / 3; camRig = t;   // 整體朝右轉 60°;靠牆一點
+  const DARK = 0x2a2433, CREAM = C.camera, CORAL = C.arcadeTop;
+  // 三支腳:上節珊瑚色、下節米白,中間夾扣,腳底黑色墊子
+  const legs = 3, head = new THREE.Vector3(0, 1.42, 0), spread = 0.52;
+  const seg = (from, to, r, color) => { const d = to.clone().sub(from), m = cyl(r, r, d.length(), color, { parent: t }); m.position.copy(from).add(to).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); return m; };
   for (let i = 0; i < legs; i++) {
-    const a = i * (Math.PI * 2 / legs) + 0.4;
-    const foot = new THREE.Vector3(Math.sin(a) * spread, 0.02, Math.cos(a) * spread);
-    const dir = head.clone().sub(foot);
-    const leg = cyl(0.03, 0.035, dir.length(), C.tripod, { parent: t });
-    leg.position.copy(foot).add(head).multiplyScalar(0.5);
-    leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    const a = i * (Math.PI * 2 / legs) + 0.4, foot = new THREE.Vector3(Math.sin(a) * spread, 0.03, Math.cos(a) * spread), mid = foot.clone().lerp(head, 0.5);
+    seg(head, mid, 0.032, C.tripod); seg(mid, foot, 0.024, CREAM);
+    const clamp = cyl(0.04, 0.04, 0.05, DARK, { parent: t }); clamp.position.copy(mid); clamp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), head.clone().sub(foot).normalize());
+    sphere(0.035, DARK, { x: foot.x, y: 0.03, z: foot.z, parent: t }).scale.y = 0.6;
   }
-  cyl(0.05, 0.05, 0.4, C.tripod, { y: 1.55, parent: t });
-  // 攝影機頭獨立一個 group,繞雲台左右慢慢掃(±30°)
+  cyl(0.07, 0.06, 0.06, DARK, { y: 1.42, parent: t });                 // 腳的匯合處
+  cyl(0.035, 0.035, 0.32, C.tripod, { y: 1.58, parent: t });            // 中柱
+  cyl(0.06, 0.06, 0.05, DARK, { y: 1.74, parent: t });                  // 雲台底座
   camHead = new THREE.Group(); camHead.position.y = 1.85; t.add(camHead);
-  box(0.55, 0.32, 0.3, C.camera, { r: 0.06, parent: camHead });
-  cyl(0.11, 0.09, 0.22, C.camera, { x: 0.35, parent: camHead, rz: Math.PI / 2 });
-  cyl(0.085, 0.085, 0.02, C.cameraLens, { x: 0.47, parent: camHead, rz: Math.PI / 2 });
-  box(0.22, 0.12, 0.08, C.arcadeTop, { x: -0.1, z: 0.19, r: 0.03, parent: camHead, seg: 1 });
-  sphere(0.02, 0xff4d4d, { x: -0.2, y: 0.1, z: 0.16, parent: camHead });   // 錄影紅燈
+  const hm = (geo, color, x, y, z, ex = {}) => { const m = new THREE.Mesh(geo, color.isMaterial ? color : mat(color, ex)); m.position.set(x, y, z); m.castShadow = true; camHead.add(m); return m; };
+  hm(new RoundedBoxGeometry(0.12, 0.05, 0.12, 2, 0.015), DARK, 0, -0.16, 0);                              // 雲台
+  { const bar = hm(new THREE.CylinderGeometry(0.014, 0.012, 0.42, 12), DARK, -0.3, -0.24, 0); bar.rotation.z = Math.PI / 2 - 0.45;   // 搖桿(往後下)
+    hm(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 12), C.tripod, -0.48, -0.33, 0).rotation.z = Math.PI / 2 - 0.45; }
+  // 機身 + 飾條(鏡頭朝 +x)
+  hm(new RoundedBoxGeometry(0.46, 0.28, 0.26, 4, 0.06), CREAM, 0, 0, 0);
+  hm(new RoundedBoxGeometry(0.3, 0.07, 0.02, 2, 0.01), CORAL, -0.02, -0.07, 0.13);
+  hm(new RoundedBoxGeometry(0.3, 0.07, 0.02, 2, 0.01), CORAL, -0.02, -0.07, -0.13);
+  // 鏡頭:鏡筒、對焦環(有刻紋)、遮光罩、深藍鏡片 + 一圈反光 + 小亮點
+  const lens = (geo, color, x, ex) => { const m = hm(geo, color, x, 0.01, 0, ex); m.rotation.z = Math.PI / 2; return m; };
+  lens(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 32), DARK, 0.28);
+  lens(new THREE.CylinderGeometry(0.108, 0.108, 0.045, 28), CORAL, 0.255);
+  lens(new THREE.CylinderGeometry(0.125, 0.105, 0.06, 32), DARK, 0.365);
+  { const g = hm(new THREE.CircleGeometry(0.088, 32), new THREE.MeshPhysicalMaterial({ color: 0x1d2e66, roughness: 0.05, metalness: 0.2, clearcoat: 1 }), 0.396, 0.01, 0); g.rotation.y = Math.PI / 2;
+    const rr = hm(new THREE.TorusGeometry(0.06, 0.004, 6, 32), new THREE.MeshBasicMaterial({ color: 0x8fa6ff, transparent: true, opacity: 0.35 }), 0.397, 0.01, 0); rr.rotation.y = Math.PI / 2;
+    const hl = hm(new THREE.CircleGeometry(0.016, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }), 0.398, 0.045, 0.03); hl.rotation.y = Math.PI / 2; }
+  // 上提把 + 麥克風、後面觀景窗
+  { const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.17, 0.13, 0), new THREE.Vector3(-0.14, 0.22, 0), new THREE.Vector3(0.08, 0.23, 0), new THREE.Vector3(0.13, 0.13, 0)]);
+    hm(new THREE.TubeGeometry(curve, 24, 0.018, 8), DARK, 0, 0, 0);
+    const mic = hm(new THREE.CapsuleGeometry(0.03, 0.1, 6, 12), 0x4a4252, 0.12, 0.26, 0, { roughness: 0.95 }); mic.rotation.z = Math.PI / 2; }
+  lens(new THREE.CylinderGeometry(0.045, 0.04, 0.09, 20), DARK, -0.27).position.y = 0.06;
+  // 錄影紅燈
+  const rec = hm(new THREE.SphereGeometry(0.018, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff4d4d, emissive: 0xff3030, emissiveIntensity: 1.2 }), 0.2, 0.11, 0.09);
+  // 側邊翻出來的小螢幕(鉸鏈在機身左側前緣):平常半開、REC + 時間碼;打招呼時翻到正面顯示笑臉
+  const lcd = new THREE.Group(); lcd.position.set(0.12, 0.0, 0.135); camHead.add(lcd);
+  { const p = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.13, 0.016, 2, 0.01), mat(DARK)); p.position.x = -0.1; p.castShadow = true; lcd.add(p); }
+  const lc = document.createElement('canvas'); lc.width = 96; lc.height = 64; const lg = lc.getContext('2d');
+  const lcdTex = new THREE.CanvasTexture(lc); lcdTex.colorSpace = THREE.SRGBColorSpace;
+  { const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.11), new THREE.MeshStandardMaterial({ map: lcdTex, emissive: 0xffffff, emissiveMap: lcdTex, emissiveIntensity: 0.35, roughness: 0.3 })); sc.position.set(-0.1, 0, 0.009); lcd.add(sc); }
+  let lcdMode = '', lcdSec = -1;
+  const drawLcd = (mode, sec) => {
+    if (mode === lcdMode && sec === lcdSec) return; lcdMode = mode; lcdSec = sec;
+    if (mode === 'smile') {
+      lg.fillStyle = '#ffd9e6'; lg.fillRect(0, 0, 96, 64);
+      lg.strokeStyle = '#3b2f2a'; lg.lineWidth = 4; lg.lineCap = 'round';
+      for (const x of [32, 64]) { lg.beginPath(); lg.arc(x, 30, 8, Math.PI * 1.1, Math.PI * 1.9); lg.stroke(); }   // ^ ^
+      lg.fillStyle = 'rgba(255,110,140,.55)'; for (const x of [20, 76]) { lg.beginPath(); lg.ellipse(x, 40, 7, 4, 0, 0, Math.PI * 2); lg.fill(); }
+      lg.beginPath(); lg.arc(48, 40, 6, 0.15 * Math.PI, 0.85 * Math.PI); lg.stroke();
+    } else {
+      lg.fillStyle = '#1d2240'; lg.fillRect(0, 0, 96, 64);
+      lg.strokeStyle = 'rgba(255,255,255,.5)'; lg.lineWidth = 1.5; for (const [x, y, dx, dy] of [[6, 6, 1, 1], [90, 6, -1, 1], [6, 58, 1, -1], [90, 58, -1, -1]]) { lg.beginPath(); lg.moveTo(x, y + dy * 8); lg.lineTo(x, y); lg.lineTo(x + dx * 8, y); lg.stroke(); }
+      if (sec % 2 === 0) { lg.fillStyle = '#ff4d4d'; lg.beginPath(); lg.arc(14, 15, 4, 0, Math.PI * 2); lg.fill(); }
+      lg.fillStyle = '#fff'; lg.font = 'bold 10px monospace'; lg.fillText('REC', 21, 19);
+      const m = Math.floor(sec / 60) % 60, ss = sec % 60; lg.font = '9px monospace'; lg.fillText(`00:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`, 30, 56);
+    }
+    lcdTex.needsUpdate = true;
+  };
+  // 打招呼:點一下觸發;動作期間轉向鏡頭、螢幕翻正、點頭兩下、歪頭,4.2 秒後混回原本的左右掃
+  const _p = new THREE.Vector3(), GREET = 4.2;
+  camGreet = { t0: -99, start() { const now = performance.now() / 1000; if (now - this.t0 > GREET - 0.6) this.t0 = now; } };
+  idleAnims.push((tt) => {
+    const now = performance.now() / 1000, g = now - camGreet.t0, on = g >= 0 && g < GREET;
+    // 平常:左右掃 ±45°(兩端稍停)+ 一點點點頭
+    const ph = (Math.sin(tt * 1.25) + 1) / 2, eased = ph * ph * (3 - 2 * ph);
+    let yaw = THREE.MathUtils.degToRad(-45 + 90 * eased), pitch = THREE.MathUtils.degToRad(4) * Math.sin(tt * 2.5 + 1), roll = 0, open = 0.5;
+    if (on) {
+      const w = Math.min(1, g / 0.4, (GREET - g) / 0.6), k = w * w * (3 - 2 * w);
+      t.worldToLocal(camera.getWorldPosition(_p)); _p.y -= 1.85;
+      const face = Math.max(-1.4, Math.min(1.4, Math.atan2(-_p.z, _p.x))), look = Math.atan2(_p.y, Math.hypot(_p.x, _p.z));
+      let nod = 0; for (const c of [0.85, 1.55]) { const u = (g - c) / 0.5; if (u > 0 && u < 1) nod -= Math.sin(u * Math.PI) * THREE.MathUtils.degToRad(18); }
+      const tilt = g > 2.2 ? Math.sin(Math.min(1, (g - 2.2) / 0.4) * Math.PI / 2) * THREE.MathUtils.degToRad(9) : 0;
+      yaw += (face - yaw) * k; pitch += (look * 0.6 + nod - pitch) * k; roll = tilt * k; open = 0.5 + (Math.PI / 2 + 0.15 - 0.5) * k;
+      rec.material.emissiveIntensity = Math.sin(g * 18) > 0 ? 1.6 : 0.2;
+    } else rec.material.emissiveIntensity = Math.sin(tt * 3) > -0.2 ? 1.2 : 0.15;
+    camHead.rotation.set(roll, yaw, pitch, 'YZX');
+    lcd.rotation.y = open;
+    drawLcd(on && g > 0.25 && g < GREET - 0.35 ? 'smile' : 'rec', Math.floor(tt));
+  });
 }
 
 // ---------- 地毯 / 滑板 ----------
@@ -1316,6 +1383,7 @@ canvas.addEventListener('pointerup', (e) => {
       return;
     }
   }
+  if (camRig && zoomT === 0 && raycaster.intersectObject(camRig, true).length) { camGreet.start(); uiSfx('hover'); return; }   // 點攝影機:打招呼
   if (raycaster.intersectObject(screenMesh).length) { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } }
   else if ((arcadeScreen && raycaster.intersectObject(arcadeScreen).length) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length)) { focusArcade = true; zoomGoal = 1; }
 });
@@ -1381,7 +1449,10 @@ canvas.addEventListener('pointermove', (e) => {
     const hit = raycaster.intersectObject(arcadeScreen)[0];
     if (hit && hit.uv) hv = arcadeButtonAt(hit.uv.x * 520, (1 - hit.uv.y) * 385);
   }
-  if (hv !== arcHover) { arcHover = hv; if (hv) uiSfx('hover'); canvas.style.cursor = hv ? 'pointer' : ''; }
+  if (hv !== arcHover) { arcHover = hv; if (hv) uiSfx('hover'); }
+  let onCam = false;
+  if (!hv && camRig && zoomT === 0 && !(story && story.active)) { ndc.set((e.clientX / canvas.clientWidth) * 2 - 1, -(e.clientY / canvas.clientHeight) * 2 + 1); raycaster.setFromCamera(ndc, camera); onCam = raycaster.intersectObject(camRig, true).length > 0; }
+  canvas.style.cursor = hv || onCam ? 'pointer' : '';
 });
 // 遊戲裡的 ♪ 靜音鈕會通知這一頁
 window.addEventListener('message', (e) => { if (e.origin !== location.origin || !e.data || e.data.type !== 'css-sound') return; bgm.on = !!e.data.on; bgmLevel(); });
@@ -1497,14 +1568,7 @@ function loop() {
     }
   }
 
-  // 攝影機頭左右掃 ±30°(約 8 秒一個來回),外加一點點上下點頭
-  if (camHead) {
-    // 掃描角度 ±45°、約 5 秒一個來回,並在兩端稍作停留(smoothstep 曲線)
-    const ph = (Math.sin(t * 1.25) + 1) / 2;
-    const eased = ph * ph * (3 - 2 * ph);
-    camHead.rotation.y = THREE.MathUtils.degToRad(-45 + 90 * eased);
-    camHead.rotation.z = THREE.MathUtils.degToRad(4) * Math.sin(t * 2.5 + 1);
-  }
+  // 攝影機頭的左右掃 / 打招呼:在攝影機那段的 idleAnims 裡
   // 貓頭自由左右看:偶爾轉頭、停一下、再轉回來(用幾個不同頻率的 sin 疊出不規則的節奏)
   {
     const look = 0.55 * Math.sin(t * 0.7) * Math.sin(t * 0.23 + 1.0) + 0.25 * Math.sin(t * 1.9 + 0.5) * Math.max(0, Math.sin(t * 0.31));
@@ -1603,4 +1667,4 @@ const loadT0 = performance.now();
   if ((pending.size === 0 && performance.now() - loadT0 > 400) || performance.now() - loadT0 > 6000) loadingEl.classList.add('done');
   else setTimeout(waitModels, 100);
 })();
-window.__room = { get camHeadY() { return camHead ? camHead.rotation.y : null; }, get arcade() { return arcadeModel; }, frames: 0, camera, controls, THREE, catUniforms, get zoomT() { return zoomT; }, setZoom(v) { zoomGoal = v; }, openGame, hideGame, fitGameRot, get poster() { return livePoster; } };
+window.__room = { get camHeadY() { return camHead ? camHead.rotation.y : null; }, get camHeadPitch() { return camHead ? camHead.rotation.z : null; }, greetCam() { camGreet.start(); }, get arcade() { return arcadeModel; }, frames: 0, camera, controls, THREE, catUniforms, get zoomT() { return zoomT; }, setZoom(v) { zoomGoal = v; }, openGame, hideGame, fitGameRot, get poster() { return livePoster; } };
