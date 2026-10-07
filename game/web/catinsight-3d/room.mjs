@@ -85,6 +85,7 @@ root.rotation.y = Math.PI / 2;   // 讓淡紫框牆在左、粉牆在右(鏡頭�
 scene.add(root);
 const animated = [];   // 進場動畫用:每個物件 scale 從 0 長出來
 let livePoster = null, liveN = 0;   // 牆上會動的照片:每幀重畫的函式
+let ivySway = null;                 // 層板上的黃金葛:垂下來的藤蔓隨風輕擺
 
 function box(w, h, d, color, { x = 0, y = 0, z = 0, r = 0.06, parent = root, shadow = true, seg = 3, ry = 0, rz = 0, rx = 0 } = {}) {
   const g = r > 0 ? new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2, h / 2, d / 2)) : new THREE.BoxGeometry(w, h, d);
@@ -190,11 +191,78 @@ box(SHELF_X1 - SHELF_X0, 0.12, 0.7, C.shelf, { x: (SHELF_X0 + SHELF_X1) / 2, y: 
     [[0.3, 0.75, -0.2, 0.9, 0.5], [-0.25, 0.9, 0.15, 1.3, -0.4], [0.05, 1.1, 0.3, 0.3, 0.9], [-0.1, 0.65, -0.3, 2.4, 0.3], [0.25, 1.0, 0.05, 1.9, -0.7]].forEach(([x, y, z, ry, rz]) => {
       const stem = cyl(0.012, 0.012, Math.hypot(x, y - 0.3, z), 0x2f7a46, { parent: p }); stem.position.set(x / 2, (y + 0.3) / 2, z / 2); stem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x, y - 0.3, z).normalize());
       const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), leafMat); leaf.scale.set(1, 0.08, 0.7); leaf.position.set(x, y, z); leaf.rotation.set(0, ry, rz); leaf.castShadow = true; p.add(leaf); }); }
-  { const iv = group(WX - 0.2, 2.35 + 0.04, 2.36); cyl(0.09, 0.07, 0.13, 0xf7a24a, { y: 0.065, parent: iv }); sphere(0.1, 0x3f9a5a, { y: 0.14, parent: iv });
-    [[-0.08, 0.55], [0.02, 0.75], [0.1, 0.45]].forEach(([x, len], k) => {                       // 三條藤蔓從盆邊垂到層板前面,葉子是壓扁的小球
-      const vine = cyl(0.006, 0.006, len, 0x2f7a46, { x, y: 0.12 - len / 2, z: 0.16, parent: iv });
-      for (let i = 0; i < Math.round(len / 0.09); i++) { const leaf = sphere(0.04, i % 2 ? 0x3f9a5a : 0x5fb87a, { x: x + Math.sin(i * 1.7 + k) * 0.035, y: 0.1 - i * 0.09, z: 0.16 + Math.cos(i * 1.3) * 0.03, parent: iv }); leaf.scale.set(1, 0.55, 1); }
-    }); }
+  // 層板右端(貓咪頭上)的黃金葛:陶瓷盆 + 盆裡一叢心形葉 + 五條藤蔓從層板前緣、側緣垂下來,葉子交錯、越往尾端越小,會隨風輕擺
+  { const iv = group(WX - 0.2, 2.35 + 0.04, 2.3);
+    // 盆:車床旋轉出來的輪廓(圓唇、往下收),桃粉色;底下一個小托盤、上面一層土
+    const potPts = [[0, 0.004], [0.062, 0.004], [0.07, 0.012], [0.084, 0.1], [0.094, 0.118], [0.1, 0.124], [0.1, 0.138], [0.093, 0.142], [0.087, 0.13], [0.0, 0.13]].map(([r, y]) => new THREE.Vector2(r, y));
+    const pot = new THREE.Mesh(new THREE.LatheGeometry(potPts, 40), mat(0xf4a58c, { roughness: 0.55 })); pot.castShadow = pot.receiveShadow = true; iv.add(pot);
+    cyl(0.088, 0.084, 0.012, 0xf7c9b8, { y: 0.006, parent: iv });
+    cyl(0.086, 0.086, 0.012, 0x4a3426, { y: 0.128, parent: iv });
+    // 心形葉(基部在原點、葉尖朝 +y,長 1):沿中脈對折一點、往前捲,中間淺邊緣深;有些葉子帶淡黃綠斑紋
+    const leafShape = new THREE.Shape(); leafShape.moveTo(0, 0.04);
+    leafShape.bezierCurveTo(0.2, -0.1, 0.58, 0.1, 0.5, 0.48); leafShape.quadraticCurveTo(0.38, 0.82, 0, 1.0);
+    leafShape.quadraticCurveTo(-0.38, 0.82, -0.5, 0.48); leafShape.bezierCurveTo(-0.58, 0.1, -0.2, -0.1, 0, 0.04);
+    const makeLeafGeo = (variegated) => {
+      const g = new THREE.ShapeGeometry(leafShape, 10), p = g.attributes.position, col = [], c = new THREE.Color();
+      const dark = new THREE.Color(0x2f8a4c), mid = new THREE.Color(0x4fb46a), cream = new THREE.Color(0xd9efa0);
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i);
+        p.setZ(i, Math.abs(x) * 0.22 + y * y * 0.18);                  // 對折 + 葉尖往前捲
+        c.copy(mid).lerp(dark, Math.min(1, Math.abs(x) * 2.2));         // 中脈淺、邊緣深
+        if (Math.abs(x) < 0.035) c.lerp(cream, 0.35);                    // 中脈
+        if (variegated) { const st = Math.sin(x * 9 + y * 5) * Math.sin(y * 7 - x * 3); if (st > 0.55) c.lerp(cream, 0.6); }
+        col.push(c.r, c.g, c.b);
+      }
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals(); return g;
+    };
+    const leafGeos = [makeLeafGeo(false), makeLeafGeo(true)];
+    const leafMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, side: THREE.DoubleSide });
+    const stemMat = mat(0x3d8a4e, { roughness: 0.7 });
+    const _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3(), _m = new THREE.Matrix4();
+    // 一片葉:base 位置、葉尖方向 tip、葉面朝向 face、大小
+    const addLeaf = (parent, base, tip, face, size, k) => {
+      _y.copy(tip).normalize(); _x.crossVectors(_y, face).normalize(); _z.crossVectors(_x, _y).normalize();
+      const leaf = new THREE.Mesh(leafGeos[k % 3 === 1 ? 1 : 0], leafMat); leaf.quaternion.setFromRotationMatrix(_m.makeBasis(_x, _y, _z));
+      leaf.position.copy(base); leaf.scale.setScalar(size); leaf.castShadow = true; parent.add(leaf); return leaf;
+    };
+    // 盆裡一叢:短莖往外拱,葉子朝外、微微朝上
+    for (let i = 0; i < 11; i++) {
+      const a = i / 11 * Math.PI * 2 + 0.3, r = 0.05 + (i % 3) * 0.018, up = 0.07 + (i % 4) * 0.025;
+      const base = new THREE.Vector3(Math.cos(a) * r, 0.135 + up, Math.sin(a) * r);
+      const out = new THREE.Vector3(Math.cos(a), 0.55 + (i % 2) * 0.35, Math.sin(a));
+      const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(Math.cos(a) * 0.015, 0.13, Math.sin(a) * 0.015), new THREE.Vector3(Math.cos(a) * r * 0.5, 0.135 + up * 1.1, Math.sin(a) * r * 0.5), base), 8, 0.0045, 5), stemMat);
+      iv.add(stem);
+      addLeaf(iv, base, out, new THREE.Vector3(Math.cos(a) * 0.4, 1, Math.sin(a) * 0.4), 0.098 + (i % 3) * 0.014, i);
+    }
+    // 垂下來的藤蔓:從盆邊越過層板前緣(-x)或側緣(+z)往下垂;每條一個擺動的軸心放在層板邊緣
+    const VINES = [ // [從哪個邊緣, 沿邊緣的位置, 長度]
+      ['front', -0.05, 0.62], ['front', 0.06, 0.9], ['front', -0.13, 0.42], ['end', -0.04, 0.78], ['end', 0.07, 0.5]];
+    const sway = [];
+    VINES.forEach(([edge, off, len], k) => {
+      const front = edge === 'front';
+      const P = (u, y, w = 0) => front ? new THREE.Vector3(u, y, off + w) : new THREE.Vector3(off + w, y, u);   // u:往邊緣外的距離,w:沿邊緣的偏移
+      const edgeU = front ? -0.22 : 0.17, sgn = front ? -1 : 1;
+      const pivot = new THREE.Group(); pivot.position.copy(P(edgeU, 0)); iv.add(pivot);
+      const pts = [P(sgn * 0.05, 0.14), P(edgeU * 0.75, 0.08), P(edgeU + sgn * 0.012, 0.005)];
+      const n = Math.max(4, Math.round(len / 0.12));
+      for (let i = 1; i <= n; i++) { const t = i / n; pts.push(P(edgeU + sgn * (0.025 + 0.02 * Math.sin(t * 5 + k)), -len * t + (t > 0.92 ? 0.03 : 0), 0.025 * Math.sin(t * 4 + k * 1.7))); }
+      pts.push(P(edgeU + sgn * 0.06, -len + 0.06, 0.02));               // 尾端往外翹一點
+      const local = pts.map((p) => p.clone().sub(pivot.position));
+      const curve = new THREE.CatmullRomCurve3(local);
+      const vine = new THREE.Mesh(new THREE.TubeGeometry(curve, 64, 0.0045, 6), stemMat); vine.castShadow = true; pivot.add(vine);
+      // 葉子:沿著藤交錯長,越往下越小;葉面朝房間(往邊緣外),葉尖往下、往外
+      const count = Math.round(len / 0.052);
+      for (let i = 0; i < count; i++) {
+        const t = 0.12 + (i / count) * 0.86, p = curve.getPoint(t), tan = curve.getTangent(t), side = i % 2 ? 1 : -1;
+        const outward = P(sgn, 0).sub(P(0, 0)).normalize();
+        const along = front ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+        const tip = tan.clone().multiplyScalar(0.8).addScaledVector(outward, 0.5).addScaledVector(along, side * 0.7);
+        addLeaf(pivot, p.clone().addScaledVector(along, side * 0.01), tip, outward.clone().addScaledVector(along, side * 0.3).add(new THREE.Vector3(0, 0.25, 0)), (0.086 - t * 0.032) * (0.9 + 0.2 * Math.sin(i * 2.3 + k)), i + k);
+      }
+      sway.push({ pivot, axis: front ? 'z' : 'x', dir: front ? 1 : -1, ph: k * 1.3, amp: 0.025 + len * 0.03 });
+    });
+    ivySway = (t) => { for (const v of sway) v.pivot.rotation[v.axis] = v.dir * v.amp * (Math.sin(t * 0.9 + v.ph) + 0.4 * Math.sin(t * 2.1 + v.ph * 2)); };
+  }
   // 層板上的小東西:幾本書、一個小盆栽、一台玩具貓、掌上遊戲機
   box(0.22, 0.34, 0.06, 0x8b7cff, { x: WX - 0.21, y: 2.35 + 0.21, z: 0.8, r: 0.01, seg: 1 });
   box(0.22, 0.30, 0.06, 0xf27a5a, { x: WX - 0.21, y: 2.35 + 0.19, z: 0.88, r: 0.01, seg: 1 });
@@ -1097,6 +1165,7 @@ function loop() {
 
   // 仙人掌彎曲:把時間餵給每根的著色器
   for (const lf of plantLeaves) lf.userData.uni.uTime.value = t;
+  if (ivySway) ivySway(t);
   if (playTag) {                                                          // PLAY 標記:上下漂浮 + 面向鏡頭(只轉 y 軸)
     playTag.position.y = ARCADE_H + 0.55 + 0.08 * Math.sin(t * 2.2);
     playTag.getWorldPosition(tagPos); tagLook.set(camera.position.x, tagPos.y, camera.position.z);
