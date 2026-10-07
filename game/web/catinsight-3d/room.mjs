@@ -555,42 +555,45 @@ for (const y of [2.55, 1.65]) {
 }
 // ---------- 層架上的東西 ----------
 {
-  // 粗邊線框:把每條邊做成圓管、頂點放小球(WebGL 的線寬固定 1px,不能加粗,所以用實體)
-  const thickEdges = (geometry, color, radius) => {
-    const g = new THREE.Group();
-    const edges = new THREE.EdgesGeometry(geometry);
-    const pos = edges.attributes.position;
-    const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.5, roughness: 0.4, toneMapped: false });   // 線框當螢光燈管:自發光
+  // 霓虹燈管:每條邊 = 外面一層有顏色的玻璃管 + 裡面一條很亮(接近白)的芯,轉角是發光的玻璃彎頭;
+  // 中間再一個半透明、會發光的小立體(全息核心),反方向慢慢轉;燈管偶爾輕輕閃一下
+  const neonMats = [];
+  const neonEdges = (geometry, color) => {
+    const g = new THREE.Group(), edges = new THREE.EdgesGeometry(geometry), pos = edges.attributes.position;
+    const coreCol = new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.55);
+    const core = new THREE.MeshStandardMaterial({ color: coreCol, emissive: coreCol, emissiveIntensity: 2.0, roughness: 0.3, toneMapped: false });
+    const glass = new THREE.MeshPhysicalMaterial({ color, emissive: color, emissiveIntensity: 0.25, roughness: 0.12, transparent: true, opacity: 0.38, clearcoat: 1, depthWrite: false });
+    neonMats.push(core);
     const seen = new Set();
     for (let i = 0; i < pos.count; i += 2) {
-      const a = new THREE.Vector3().fromBufferAttribute(pos, i);
-      const b = new THREE.Vector3().fromBufferAttribute(pos, i + 1);
-      const d = b.clone().sub(a);
-      const cylm = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, d.length(), 10), m);
-      cylm.position.copy(a).add(b).multiplyScalar(0.5);
-      cylm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
-      cylm.castShadow = true; g.add(cylm);
-      for (const v of [a, b]) {
-        const k = v.toArray().map((n) => n.toFixed(3)).join(',');
-        if (seen.has(k)) continue; seen.add(k);
-        const sp = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.05, 12, 10), m);
-        sp.position.copy(v); sp.castShadow = true; g.add(sp);
+      const a2 = new THREE.Vector3().fromBufferAttribute(pos, i), b2 = new THREE.Vector3().fromBufferAttribute(pos, i + 1), dv = b2.clone().sub(a2), mid = a2.clone().add(b2).multiplyScalar(0.5), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.clone().normalize());
+      for (const [r2, m2] of [[0.011, core], [0.03, glass]]) { const c2 = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2, dv.length(), 12), m2); c2.position.copy(mid); c2.quaternion.copy(q); if (m2 === core) c2.castShadow = true; g.add(c2); }
+      for (const v of [a2, b2]) {
+        const k = v.toArray().map((n) => n.toFixed(3)).join(','); if (seen.has(k)) continue; seen.add(k);
+        for (const [r2, m2] of [[0.013, core], [0.034, glass]]) { const sp = new THREE.Mesh(new THREE.SphereGeometry(r2, 14, 10), m2); sp.position.copy(v); g.add(sp); }
       }
     }
+    // 全息核心:同形狀縮小、半透明發光,反方向轉
+    const holo = new THREE.Mesh(geometry.clone().scale(0.42, 0.42, 0.42), new THREE.MeshPhysicalMaterial({ color, emissive: color, emissiveIntensity: 0.6, transparent: true, opacity: 0.32, roughness: 0.1, depthWrite: false, side: THREE.DoubleSide }));
+    g.add(holo); g.userData.holo = holo;
     return g;
   };
   // 立方體(粉)
   const g1 = group(-1.35, 3.10, L.z + 0.15);
-  const e1 = thickEdges(new THREE.BoxGeometry(0.5, 0.5, 0.5), C.wire1, 0.028);
+  const e1 = neonEdges(new THREE.BoxGeometry(0.5, 0.5, 0.5), C.wire1);
   e1.rotation.set(0.5, 0.6, 0.2); g1.add(e1);
   { const l = new THREE.PointLight(C.wire1, 2.2, 2.6, 2); l.position.y = 0.1; g1.add(l); }   // 粉紅光
   g1.userData.jump = { phase: 0.0, height: 0.32, baseY: 3.10 };
   // 四面體(青)
   const g2 = group(-0.45, 3.14, L.z + 0.15);   // 四面體半徑 0.42,離層架面(2.61)要留夠,才不會插進去
-  const e2 = thickEdges(new THREE.TetrahedronGeometry(0.42), C.wire2, 0.028);
+  const e2 = neonEdges(new THREE.TetrahedronGeometry(0.42), C.wire2);
   e2.rotation.set(0.3, 0.2, 0.4); g2.add(e2);
   { const l = new THREE.PointLight(C.wire2, 2.2, 2.6, 2); l.position.y = 0.1; g2.add(l); }   // 青色光
   g2.userData.jump = { phase: 1.1, height: 0.28, baseY: 3.14 };
+  idleAnims.push((t) => {
+    e1.userData.holo.rotation.set(-t * 0.6, -t * 0.9, 0); e2.userData.holo.rotation.set(t * 0.7, -t * 0.5, t * 0.3);
+    neonMats.forEach((m2, i) => { const fl = Math.sin(t * 41 + i * 3) > 0.985 ? 0.55 : 1; m2.emissiveIntensity = 2.0 * fl * (0.94 + 0.06 * Math.sin(t * 3.1 + i)); });   // 偶爾閃一下 + 輕微呼吸
+  });
   // 流體沙畫(像照片那種會流動的沙漏畫):黑框 + 弧形黑腳架 + 金色轉軸。配色「夜景城市的夕陽」:靛藍、紫、洋紅、珊瑚、少許金砂,泡在桃色→淡紫的液體裡。
   // 上面那團沙慢慢變薄、沙從幾個地方細細往下流、底下堆出沙丘;約 40 秒流完,整個畫框沿轉軸翻一圈,重新開始
   { const g3 = group(1.1, 2.61, L.z + 0.15);
@@ -1001,9 +1004,22 @@ let screenMesh, deskGroup;
 {
   const d = group(1.25, 0, -0.4);   // 往仙人掌(牆邊)方向移
   deskGroup = d;
-  box(2.9, 0.12, 1.3, C.desk, { y: 1.35, r: 0.05, parent: d });
-  for (const [x, z] of [[-1.3, 0.55], [-1.3, -0.55], [1.3, 0.55], [1.3, -0.55]]) {
-    cyl(0.05, 0.05, 1.3, C.deskLeg, { x, y: 0.65, z, parent: d });
+  // 桌子:淺色橡木桌面(和層板同一套木紋,桌面高度不變 = 1.41)+ 霧白鋼架(桌面下的框 + 兩端雪橇腳)+ 右邊一個薄抽屜(黃銅把手)
+  { const side = new THREE.MeshStandardMaterial({ map: woodTex(1024, 64, 'u'), roughness: 0.55 }), topM = new THREE.MeshStandardMaterial({ map: woodTex(1024, 460, 'u'), roughness: 0.5 }), endM = new THREE.MeshStandardMaterial({ color: 0xdcbf94, roughness: 0.65 });
+    const top = new THREE.Mesh(new RoundedBoxGeometry(2.9, 0.07, 1.3, 3, 0.02), [endM, endM, topM, topM, side, side]); top.position.y = 1.375; top.castShadow = top.receiveShadow = true; d.add(top); }
+  { const STEEL = 0xf3eff8, FOOT = 0x2a2340, sb = (w, h, dd, x, y, z, c = STEEL) => box(w, h, dd, c, { x, y, z, r: 0.012, parent: d, seg: 1 });
+    sb(2.7, 0.05, 0.04, 0, 1.315, 0.55); sb(2.7, 0.05, 0.04, 0, 1.315, -0.55);       // 桌面下的框(前後)
+    for (const sx of [-1, 1]) {
+      const x = sx * 1.28;
+      sb(0.05, 0.05, 1.18, x, 1.315, 0);                                               // 上橫桿
+      sb(0.05, 1.29, 0.05, x, 0.655, 0.52); sb(0.05, 1.29, 0.05, x, 0.655, -0.52);    // 兩支立柱
+      sb(0.06, 0.04, 1.18, x, 0.03, 0);                                                // 地上的橫桿
+      for (const z of [0.52, -0.52]) box(0.07, 0.012, 0.07, FOOT, { x, y: 0.006, z, r: 0.004, parent: d, seg: 1 });   // 腳墊
+    }
+    // 薄抽屜(桌面右下)
+    sb(0.62, 0.1, 0.55, 0.85, 1.29, 0.3, 0xf3eff8);
+    box(0.6, 0.085, 0.02, 0xe2c7a0, { x: 0.85, y: 1.288, z: 0.585, r: 0.008, parent: d, seg: 1 });
+    { const pull = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.014, 0.018, 1, 0.006), new THREE.MeshStandardMaterial({ color: 0xc9a25a, metalness: 0.85, roughness: 0.3 })); pull.position.set(0.85, 1.288, 0.603); d.add(pull); }
   }
   // 螢幕:超窄黑邊 + 薰衣草紫背殼(像彩色 iMac)、頂部小鏡頭、底部指示燈、一片折彎的鋁腳架。
   // 螢幕那片(screenMesh)大小位置都不能動:飛進電腦、捲動版的鏡頭都靠它
