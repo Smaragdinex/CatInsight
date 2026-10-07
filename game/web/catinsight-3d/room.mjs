@@ -718,24 +718,13 @@ for (const y of [2.55, 1.65]) {
   }
 }
 
-// ---------- 窗前層架的小東西(原本太空):上層熔岩燈、大圓柱水母缸;下層跑車模型、
+// ---------- 窗前層架的小東西(原本太空):上層大圓柱水母缸;下層跑車模型、
 //            藍色電鍍氣球狗、三盆多肉(串燈拿掉了)----------
 {
   const TOP = 2.61, LOW = 1.71, ZC = L.z + 0.12, FRONT = L.z + 0.15 + 0.35;
   const gold = new THREE.MeshStandardMaterial({ color: 0xe0b24e, metalness: 0.9, roughness: 0.25 });
   const M = (c, ex = {}) => mat(c, ex);
   const put = (geo, m2, x, y, z, parent, rot) => { const o = new THREE.Mesh(geo, m2); o.position.set(x, y, z); if (rot) o.rotation.set(...rot); o.castShadow = true; parent.add(o); return o; };
-  // 熔岩燈(上層):深紫金屬底座 + 粉紅玻璃瓶 + 裡面幾團會上下飄、會變形的發光蠟
-  { const g = group(0.3, TOP, ZC);
-    const baseM = M(0x3b2a5e, { metalness: 0.6, roughness: 0.3 });
-    put(new THREE.CylinderGeometry(0.05, 0.085, 0.13, 24), baseM, 0, 0.065, 0, g);
-    put(new THREE.CylinderGeometry(0.03, 0.045, 0.05, 24), baseM, 0, 0.415, 0, g);
-    const bottle = new THREE.Mesh(new THREE.LatheGeometry([[0.045, 0], [0.065, 0.06], [0.06, 0.16], [0.032, 0.26]].map(([r, y]) => new THREE.Vector2(r, y)), 32),
-      new THREE.MeshPhysicalMaterial({ color: 0xff8fc8, emissive: 0xff5fa8, emissiveIntensity: 0.3, transparent: true, opacity: 0.45, roughness: 0.1, clearcoat: 1, depthWrite: false }));
-    bottle.position.y = 0.13; g.add(bottle);
-    const blobs = [0, 1, 2, 3].map((i) => { const b = put(new THREE.SphereGeometry(0.022 + (i % 2) * 0.008, 16, 12), new THREE.MeshStandardMaterial({ color: 0xffa060, emissive: 0xff7a3c, emissiveIntensity: 1.1 }), 0, 0.17, 0, g); return { b, ph: i * 1.7, sp: 0.18 + i * 0.05 }; });
-    idleAnims.push((t) => { for (const { b, ph, sp } of blobs) { const u = 0.5 + 0.5 * Math.sin(t * sp + ph), y = 0.15 + u * 0.2, r = 0.06 - Math.abs(y - 0.24) * 0.12;
-      b.position.set(Math.sin(t * 0.3 + ph) * r * 0.4, y, Math.cos(t * 0.27 + ph) * r * 0.4); b.scale.set(1 + 0.15 * Math.sin(t * 0.9 + ph), 1.2 + 0.3 * Math.sin(t * 0.7 + ph * 2), 1); } }); }
   // 大圓柱水族箱(上層右邊,原本沙畫和鬧鐘的位置):像精品飯店那種發光水母缸。
   // 深色圓座 + 一圈藍色燈條、透明玻璃筒、整缸發光的藍色海水(上亮下深)、水面一圈會動的波光、底下白砂 + 幾顆石頭、一串串往上冒的小氣泡,
   // 裡面七隻粉紅發光水母:半透明的傘(會一縮一縮地游)+ 傘緣一圈亮邊、下面一團團雲霧般的口腕慢慢飄、幾條細觸手;水母在缸裡慢慢上下、繞圈
@@ -875,45 +864,46 @@ for (const y of [2.55, 1.65]) {
       put(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 14), chrome, 0, sz * 0.023, 0, w);
     }
   }
-  // 氣球狗(下層中間):造型模仿扭氣球狗,但材質是鏡面拋光的電鍍金屬(像不鏽鋼氣球狗雕塑)。
-  // 金屬看起來像金屬,靠的是「反射出真實周圍」:開場後用 CubeCamera 從狗的位置把整個房間拍成環境貼圖(粉牆、窗外夜景、層板都會映在身上),
-  // 拍好之前先用共用的室內環境貼圖。沒有透明漆(clearcoat 會多一層白白的塑膠感)。
-  // 每一段都是兩頭扭緊、中間鼓起來的長氣球;各段在扭結處互相重疊(不會有縫),腿兩兩靠在一起;自由端(腳、耳朵、口鼻、尾巴)是圓的
-  { const g = group(0.82, LOW, ZC + 0.02); g.rotation.y = -0.55; g.scale.setScalar(0.34);   // 口鼻(本地 +x)斜斜朝向房間
-    const blue = new THREE.MeshStandardMaterial({ color: 0x6fb2ff, metalness: 1, roughness: 0.04, envMap: reflectEnv(), envMapIntensity: 1.0 });
-    // 一段氣球:a → b,半徑 R。中間最鼓;扭結端(pinch)收細,自由端(round)是圓頭;tipTaper 讓自由端那頭漸細(口鼻)
-    const balloon = (a2, b2, R, endA = 'pinch', endB = 'pinch', tipTaper = 0) => {
-      const dv = b2.clone().sub(a2), L2 = dv.length(), pts = [], CA = endA === 'round' ? 0.32 : 0.46, CB = endB === 'round' ? 0.32 : 0.46;   // 扭結端收得長(整段鼓鼓的),圓頭端比較飽滿
-      const end = (kind, w) => kind === 'round' ? Math.sqrt(Math.max(0, 1 - (1 - w) ** 2)) : Math.pow(Math.sin(Math.PI / 2 * w), 0.62) * 0.92 + 0.08 * w;
-      for (let i = 0; i <= 48; i++) { const u = i / 48; let r = R;
-        if (u < CA) r = R * end(endA, u / CA); else if (u > 1 - CB) r = R * end(endB, (1 - u) / CB);
-        if (tipTaper) r *= 1 - tipTaper * Math.max(0, (u - 0.25) / 0.75);
-        pts.push(new THREE.Vector2(Math.max(0.0008, r), u * L2)); }
-      const o = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), blue); o.position.copy(a2); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
-    const blob = (p2, r2) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r2, 28, 20), blue); o.position.copy(p2); g.add(o); };
+  // 氣球狗(下層中間):照不鏽鋼氣球狗雕塑的造型(側面看頭朝左那種),鏡面粉紅電鍍。
+  // 金屬感靠反射真實房間:開場後用 CubeCamera 從狗的位置拍整個房間當環境貼圖,拍好之前先用共用的室內環境貼圖;沒有透明漆(會有塑膠感)。
+  // 造型重點:四條腿又胖又圓(兩兩併在一起、最鼓的地方靠近腳、往外微微張開)、身體和脖子細一點、兩片大耳朵是全身最大的一節、
+  // 口鼻往前略往上、尖端一個打結的小圓頭;尾巴往後上翹、尖端一個小尖角;每一節在扭結處收得很緊
+  { const g = group(0.84, LOW, ZC + 0.03); g.rotation.y = -0.5; g.scale.setScalar(0.56);   // 口鼻(本地 +x)斜斜朝向房間
+    const blue = new THREE.MeshStandardMaterial({ color: 0xffaccb, metalness: 1, roughness: 0.05, envMap: reflectEnv(), envMapIntensity: 1.0 });
+    // 一節氣球:從 a(扭結端)到 b。r(u) = R · u^pa · (1-u)^pb(正規化到最大 = R):扭結端收成尖;
+    // 次方越小整節越飽滿(像香腸,不會變成水滴形),pa、pb 也決定最鼓的位置(pa / (pa + pb))
+    const seg = (a2, b2, R, pa = 0.55, pb = 0.55) => {
+      const dv = b2.clone().sub(a2), L2 = dv.length(), pts = [], norm = Math.pow(pa / (pa + pb), pa) * Math.pow(pb / (pa + pb), pb);
+      for (let i = 0; i <= 56; i++) { const u = i / 56; pts.push(new THREE.Vector2(Math.max(0.0006, R * Math.pow(u, pa) * Math.pow(1 - u, pb) / norm), u * L2)); }
+      const o = new THREE.Mesh(new THREE.LatheGeometry(pts, 56), blue); o.position.copy(a2); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv.normalize()); o.castShadow = true; g.add(o); return o; };
+    const ball = (p2, r2) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r2, 24, 16), blue); o.position.copy(p2); g.add(o); return o; };
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
-    // 照片那種胖胖的存錢筒氣球狗:短粗直立的四條腿(兩兩貼在一起)、短粗的身體、往上的脖子、往前的短口鼻(尖鼻頭)、兩片又大又圓並排的耳朵、圓圓翹起的尾巴
-    const rubberM = M(0x141318, { roughness: 0.8 });
-    for (const sz of [-1, 1]) for (const x of [0.27, -0.27]) {
-      balloon(V(x, 0.025, sz * 0.092), V(x, 0.53, sz * 0.05), 0.112, 'round', 'pinch');   // 腿
-      const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.026, 20), rubberM); pad.position.set(x, 0.013, sz * 0.092); g.add(pad);   // 黑色止滑腳墊
+    const FJ = V(0.22, 0.47, 0), BJ = V(-0.3, 0.5, 0), HJ = V(0.24, 0.72, 0);       // 前腿 / 後腿 / 頭的扭結點
+    for (const sz of [-1, 1]) {
+      seg(V(0.22, 0.47, sz * 0.03), V(0.29, -0.005, sz * 0.085), 0.13, 0.42, 0.36);  // 前腿:最鼓的地方靠近腳
+      seg(V(-0.3, 0.5, sz * 0.03), V(-0.39, -0.005, sz * 0.085), 0.128, 0.42, 0.36); // 後腿:往後張
+      seg(V(0.24, 0.73, sz * 0.03), V(0.1, 1.1, sz * 0.085), 0.124, 0.42, 0.4);       // 耳朵:又大又圓
     }
-    balloon(V(0.33, 0.5, 0), V(-0.33, 0.5, 0), 0.112, 'pinch', 'pinch');                    // 身體
-    balloon(V(0.26, 0.47, 0), V(0.33, 0.86, 0), 0.105, 'pinch', 'pinch');                   // 脖子
-    balloon(V(0.29, 0.85, 0), V(0.68, 0.9, 0), 0.105, 'pinch', 'round', 0.45);                // 口鼻(往前漸細,圓頭)
-    { const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.022, 0.035, 20), blue); nose.position.set(0.69, 0.903, 0); nose.rotation.z = -Math.PI / 2 + 0.12; g.add(nose); blob(V(0.71, 0.905, 0), 0.016); }   // 鼻頭的小打結
-    for (const sz of [-1, 1]) balloon(V(0.33, 0.85, sz * 0.03), V(0.2, 1.26, sz * 0.07), 0.112, 'pinch', 'round');   // 耳朵
-    balloon(V(-0.28, 0.5, 0), V(-0.42, 0.88, 0), 0.105, 'pinch', 'round');                  // 尾巴(圓圓的一顆)
-    blob(V(0.29, 0.51, 0), 0.075); blob(V(-0.29, 0.51, 0), 0.075); blob(V(0.32, 0.86, 0), 0.075);   // 扭結處補圓,接縫看起來是擠在一起的
+    seg(V(0.21, 0.5, 0), V(-0.29, 0.52, 0), 0.085, 0.42, 0.42);                                   // 身體
+    seg(V(0.22, 0.48, 0), V(0.24, 0.72, 0), 0.088, 0.42, 0.42);                                   // 脖子
+    seg(V(0.25, 0.72, 0), V(0.62, 0.77, 0), 0.094, 0.42, 0.55);                        // 口鼻(兩頭都收,尖端接打結)
+    seg(V(-0.3, 0.52, 0), V(-0.37, 0.84, 0), 0.07, 0.42, 0.5);                        // 尾巴
+    ball(FJ, 0.03); ball(BJ, 0.03); ball(HJ, 0.03);                                 // 扭結處的小結
+    { const d = V(1, 0.13, 0).normalize(), tip = V(0.62, 0.77, 0);                    // 口鼻尖端:一小段頸 + 一圈打結 + 小圓頭
+      const nk = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.035, 16), blue); nk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); nk.position.copy(tip).addScaledVector(d, 0.012); g.add(nk);
+      const rg = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.006, 10, 24), blue); rg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); rg.position.copy(tip).addScaledVector(d, 0.03); g.add(rg);
+      ball(tip.clone().addScaledVector(d, 0.04), 0.013); }
+    { const d = V(-0.2, 1, 0).normalize(), tip = V(-0.37, 0.84, 0);                   // 尾巴尖端的小尖角
+      const cn = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.07, 16), blue); cn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); cn.position.copy(tip).addScaledVector(d, 0.025); g.add(cn); }
     // 從狗的位置拍真實房間當反射(開場動畫和 GLB 載完後各拍一次;拍的時候先把狗藏起來,才不會映到自己)
     const cubeRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
     const cubeCam = new THREE.CubeCamera(0.03, 40, cubeRT); scene.add(cubeCam);
     const shots = [3.5, 9];
     idleAnims.push((t) => {
       if (!shots.length || t < shots[0]) return; shots.shift();
-      g.updateWorldMatrix(true, false); g.localToWorld(cubeCam.position.set(0, 0.6, 0));
+      g.updateWorldMatrix(true, false); g.localToWorld(cubeCam.position.set(0, 0.55, 0));
       g.visible = false; cubeCam.update(renderer, scene); g.visible = true;
-      if (blue.envMap !== cubeRT.texture) { blue.envMap = cubeRT.texture; blue.envMapIntensity = 2.3; blue.needsUpdate = true; }
+      if (blue.envMap !== cubeRT.texture) { blue.envMap = cubeRT.texture; blue.envMapIntensity = 2.6; blue.needsUpdate = true; }
     });
   }
   // 三盆多肉(下層右邊):粉彩小盆 + 一圈圈尖葉
