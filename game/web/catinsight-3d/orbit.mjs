@@ -308,7 +308,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     el.innerHTML = `${head}<div class="opw"><div class="wgin"></div></div><div class="opshine"></div>`;
     el.addEventListener('click', () => { if (atEarth() && i !== cur()) goTo(i); });
     const obj = new CSS3DObject(el); const a = i * STEP;
-    obj.position.set(Math.sin(a) * R, RY, Math.cos(a) * R); obj.rotation.y = a; ring.add(obj);
+    obj.position.set(Math.sin(a) * R, RY, Math.cos(a) * R); obj.rotation.order = 'YXZ'; obj.rotation.y = a; ring.add(obj);
     return { el, obj, key: sl.key, host: el.querySelector('.wgin'), stop: null };
   });
 
@@ -380,7 +380,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), look = new THREE.Vector3();
   const setCam = (pos, tgt, near, far) => { camera.position.copy(pos); camera.near = near; camera.far = far; camera.updateProjectionMatrix(); camera.lookAt(tgt); };
   const slerpDir = (a, b, k, out) => out.copy(a).lerp(b, k).normalize();
-  let intro = null, earthSpin = 2.6;
+  let intro = null, earthSpin = 2.6, panelTilt = 0;
   function frame(now) {
     if (!open) return; raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now; pPrev = p;
@@ -471,9 +471,11 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       // 手機:鏡頭和面板同高、水平看過去 → 面板是正的,不會上寬下窄
       const PY = RY - 50;                                                                   // 鏡頭比面板中心低一點 → 面板在畫面上偏上
       const fin = portrait ? new THREE.Vector3(0, PY, dist) : new THREE.Vector3(mouse.sx * 90 * rv, 330 - mouse.sy * 50 * rv, dist);
-      const finLook = new THREE.Vector3(0, portrait ? PY : RY - 205, 0);              // 上方沒有文字了,鏡頭往下看一點 → 面板在畫面上移(手機看得到整塊)
+      const finLook = new THREE.Vector3(0, portrait ? PY : RY - 330, 0);              // 上方沒有文字了,鏡頭往下看一點 → 面板在畫面上移(手機看得到整塊)
       const startPos = D_FINAL.clone().multiplyScalar(ER * 5); startPos.y += EY;
       setCam(startPos.lerp(fin, k), new THREE.Vector3(0, EY, 0).lerp(finLook, k), 10, 60000);
+      // 桌機:鏡頭從上面往下看,面板往後仰同樣的角度 → 正對鏡頭,不會上寬下窄(手機鏡頭是水平的,不用仰)
+      panelTilt = portrait ? 0 : -Math.atan2(camera.position.y - RY, Math.max(1, camera.position.z - R));
       earthU.uFade.value = eF; eStars.material.uniforms.uFade.value = eF; eBand.material.uniforms.uFade.value = eF; eMoon.visible = eF > 0.5; eSun.material.opacity = 0.9 * eF; ringLine.material.opacity = 0.35 * rv;
       renderer.clearDepth(); renderer.render(eScene, camera);
     }
@@ -484,7 +486,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       if (rv > 0.95) setActive(cur()); else setActive(-1);
       panels.forEach((pp, i) => { const a = i * STEP + angle, f = Math.cos(a);
         const op = (f > -0.1 ? 0.35 + 0.65 * Math.pow((f + 0.1) / 1.1, 1.6) : Math.max(0, (f + 0.45) / 0.35) * 0.35) * rv;
-        pp.el.style.opacity = op.toFixed(3); pp.el.style.pointerEvents = op > 0.3 && rv > 0.95 ? 'auto' : 'none'; pp.obj.position.y = RY + Math.sin(t * 0.8 + i * 1.3) * 8 - (1 - rv) * 160; });
+        pp.el.style.opacity = op.toFixed(3); pp.el.style.pointerEvents = op > 0.3 && rv > 0.95 ? 'auto' : 'none'; pp.obj.position.y = RY + Math.sin(t * 0.8 + i * 1.3) * 8 - (1 - rv) * 160; pp.obj.rotation.x = panelTilt; });
       css.render(cssScene, camera);
     } else { cssLayer.style.visibility = 'hidden'; setActive(-1); }
     // ---- 介面:目前在哪一站、提示文字;面板的點點只在地球顯示 ----
