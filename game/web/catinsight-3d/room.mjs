@@ -2085,19 +2085,28 @@ const musicPanel = (() => {
     @keyframes mpspin { to { transform: rotate(360deg); } }
     .mp-t { font-size: 21px; font-weight: 800; letter-spacing: -.2px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mp-a { font-size: 14px; opacity: .65; margin-bottom: 20px; }
-    .mp-bar { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,.18); cursor: pointer; margin: 0 2px; }
+    .mp-bar { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,.18); cursor: pointer; margin: 0 2px; touch-action: none; transition: height .15s; }
+    .mp-bar::before { content: ''; position: absolute; left: 0; right: 0; top: -10px; bottom: -10px; }   /* 比較好點 / 拖 */
+    .mp-bar.drag, .mp-bar:hover { height: 7px; }
+    .mp-bar.drag i { background: var(--acc, #8b7cff); }
+    .mp-bar.drag i::after { transform: scale(1.35); background: var(--acc, #8b7cff); box-shadow: 0 0 14px var(--acc, #8b7cff); }
     .mp-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; background: #fff; }
-    .mp-bar i::after { content: ''; position: absolute; right: -6px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+    .mp-bar i::after { content: ''; position: absolute; right: -6px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); transition: transform .15s, background .15s; }
     .mp-tm { display: flex; justify-content: space-between; font-size: 11px; opacity: .55; margin: 8px 2px 16px; font-variant-numeric: tabular-nums; }
     .mp-c { display: flex; align-items: center; justify-content: center; gap: 26px; }
-    .mp-c button { border: 0; background: none; color: #fff; cursor: pointer; display: grid; place-items: center; padding: 0; opacity: .85; transition: opacity .2s, transform .15s; }
-    .mp-c button:hover { opacity: 1; } .mp-c button:active { transform: scale(.92); }
+    .mp-c button { width: 48px; height: 48px; border-radius: 50%; border: 0; background: transparent; color: #fff; cursor: pointer; display: grid; place-items: center; padding: 0; opacity: .85; -webkit-tap-highlight-color: transparent;
+      transition: opacity .2s, transform .14s cubic-bezier(.2,.8,.2,1), background .2s, color .2s, box-shadow .2s; }
+    .mp-c button:hover { opacity: 1; background: rgba(255,255,255,.12); }
+    .mp-c button.press { transform: scale(.88); background: var(--acc, #8b7cff); color: #fff; opacity: 1; box-shadow: 0 0 22px var(--acc, #8b7cff); }
     .mp-c svg { width: 26px; height: 26px; fill: currentColor; }
     .mp-c .mp-pp { width: 62px; height: 62px; border-radius: 50%; background: #fff; color: #15111f; opacity: 1; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+    .mp-c .mp-pp:hover { background: #fff; transform: scale(1.05); }
+    .mp-c .mp-pp.press { background: var(--acc, #8b7cff); color: #fff; transform: scale(.9); box-shadow: 0 0 28px var(--acc, #8b7cff); }
     .mp-c .mp-pp svg { width: 26px; height: 26px; }
     .mp-list { display: flex; justify-content: center; gap: 7px; margin-top: 18px; }
     .mp-list i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.25); cursor: pointer; transition: width .3s, background .3s; }
-    .mp-list i.on { width: 20px; border-radius: 4px; background: #fff; }
+    .mp-list i.on { width: 20px; border-radius: 4px; background: var(--acc, #fff); }
+    .mp-list i:hover { background: rgba(255,255,255,.6); }
     .mp-swipe { cursor: grab; user-select: none; -webkit-user-select: none; } .mp-swipe:active { cursor: grabbing; }
     .mp-swipe .mp-disc { pointer-events: none; }`;
   document.head.appendChild(st);
@@ -2123,18 +2132,42 @@ const musicPanel = (() => {
   let open = false, raf = 0;
   const sync = () => {
     const tr = radio.track; $('.mp-t').textContent = tr.title; $('.mp-a').textContent = tr.artist; $('.mp-label').style.backgroundImage = `url(${coverOf(tr)})`;
-    card.style.setProperty('--c1', (tr.cover || ['#3a2c5c'])[0]); disc.classList.toggle('on', radio.playing);
+    card.style.setProperty('--c1', (tr.cover || ['#3a2c5c'])[0]); card.style.setProperty('--acc', (tr.cover || ['#8b7cff', '#8b7cff'])[1]); disc.classList.toggle('on', radio.playing);
     pp.innerHTML = radio.playing ? I.pause : I.play; pp.setAttribute('aria-label', radio.playing ? 'Pause' : 'Play');
     if (list.children.length !== radio.count) list.innerHTML = Array.from({ length: radio.count }, (_, i) => `<i data-i="${i}"></i>`).join('');
     [...list.children].forEach((d, i) => d.classList.toggle('on', i === radio.index));
   };
-  const tick = () => { if (!open) return; raf = requestAnimationFrame(tick); const { cur, dur } = radio.time(); barI.style.width = (dur ? cur / dur * 100 : 0) + '%'; $('.mp-cur').textContent = fmt(cur); $('.mp-dur').textContent = fmt(dur); };
+  const tick = () => { if (!open) return; raf = requestAnimationFrame(tick); if (dragging) return; const { cur, dur } = radio.time(); barI.style.width = (dur ? cur / dur * 100 : 0) + '%'; $('.mp-cur').textContent = fmt(cur); $('.mp-dur').textContent = fmt(dur); };
   const show = () => { open = true; back.classList.add('on'); sync(); cancelAnimationFrame(raf); tick(); };
   const hide = () => { open = false; back.classList.remove('on'); cancelAnimationFrame(raf); };
   $('.mp-x').onclick = hide; back.addEventListener('click', (e) => { if (e.target === back) hide(); });
-  pp.onclick = () => radio.toggle(); $('.mp-pv').onclick = () => radio.skip(-1); $('.mp-nx').onclick = () => radio.skip(1);
-  list.addEventListener('click', (e) => { const i = e.target.dataset && e.target.dataset.i; if (i !== undefined) radio.go(+i); });
-  $('.mp-bar').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); radio.seek((e.clientX - r.left) / r.width); });
+  // 按鈕回饋音效(合成的短音,跟音響同一個 AudioContext;關掉音效時不響)
+  const sfx = (kind) => { const c = bgm.ctx; if (!c || c.state !== 'running' || !bgm.on) return; const t = c.currentTime, out = c.createGain(); out.connect(c.destination);
+    const tone = (f0, f1, at, dur, vol, type = 'sine') => { const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t + at); o.frequency.exponentialRampToValueAtTime(f1, t + at + dur);
+      g.gain.setValueAtTime(0, t + at); g.gain.linearRampToValueAtTime(vol, t + at + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur); o.connect(g); g.connect(out); o.start(t + at); o.stop(t + at + dur + 0.02); };
+    if (kind === 'play') { tone(420, 760, 0, 0.09, 0.12); tone(760, 980, 0.05, 0.08, 0.06); }               // 播放:往上的「啵」
+    else if (kind === 'pause') { tone(700, 360, 0, 0.11, 0.11); }                                           // 暫停:往下的「啵」
+    else if (kind === 'next') { tone(880, 880, 0, 0.05, 0.07, 'triangle'); tone(1320, 1320, 0.055, 0.06, 0.06, 'triangle'); }   // 下一首:兩聲往上
+    else if (kind === 'prev') { tone(1320, 1320, 0, 0.05, 0.06, 'triangle'); tone(880, 880, 0.055, 0.06, 0.07, 'triangle'); }   // 上一首:兩聲往下
+    else if (kind === 'tick') { tone(2200, 1800, 0, 0.03, 0.05); }                                         // 拖進度條 / 點小點
+    else if (kind === 'whoosh') { const len = Math.floor(c.sampleRate * 0.28), nb = c.createBuffer(1, len, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+      const src = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain(); src.buffer = nb; bp.type = 'bandpass'; bp.Q.value = 1.2; bp.frequency.setValueAtTime(600, t); bp.frequency.exponentialRampToValueAtTime(3200, t + 0.26); g.gain.value = 0.16;
+      src.connect(bp); bp.connect(g); g.connect(out); src.start(t); } };
+  // 按下去:變成這首歌的主色 + 縮一下,放開 0.18 秒後恢復
+  const press = (btn, kind, act) => { btn.addEventListener('pointerdown', () => { btn.classList.add('press'); }); 
+    const up = () => setTimeout(() => btn.classList.remove('press'), 180); btn.addEventListener('pointerup', up); btn.addEventListener('pointerleave', () => btn.classList.remove('press'));
+    btn.addEventListener('click', () => { sfx(typeof kind === 'function' ? kind() : kind); act(); }); };
+  press(pp, () => (radio.playing ? 'pause' : 'play'), () => radio.toggle());
+  press($('.mp-pv'), 'prev', () => radio.skip(-1)); press($('.mp-nx'), 'next', () => radio.skip(1));
+  list.addEventListener('click', (e) => { const i = e.target.dataset && e.target.dataset.i; if (i !== undefined && +i !== radio.index) { sfx(+i > radio.index ? 'next' : 'prev'); radio.go(+i); } });
+  // 進度條:可以點、也可以拖(拖的時候變色變粗,時間跟著跑,放開才跳過去)
+  const bar = $('.mp-bar'); let dragging = false;
+  const frac = (e) => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+  const preview = (f) => { const { dur } = radio.time(); barI.style.width = (f * 100) + '%'; $('.mp-cur').textContent = fmt(f * dur); };
+  bar.addEventListener('pointerdown', (e) => { dragging = true; bar.classList.add('drag'); try { bar.setPointerCapture(e.pointerId); } catch (err) {} preview(frac(e)); sfx('tick'); e.stopPropagation(); });
+  bar.addEventListener('pointermove', (e) => { if (dragging) preview(frac(e)); });
+  const release = (e) => { if (!dragging) return; dragging = false; bar.classList.remove('drag'); radio.seek(frac(e)); sfx('tick'); };
+  bar.addEventListener('pointerup', release); bar.addEventListener('pointercancel', () => { dragging = false; bar.classList.remove('drag'); });
   window.addEventListener('keydown', (e) => { if (open && e.key === 'Escape') { e.stopImmediatePropagation(); hide(); } }, true);
   // 左右滑切歌(滑鼠拖、手機 / iPad 手指滑都可以):往左滑 = 下一首、往右滑 = 上一首;拖的時候唱片跟著手指移動,放開後滑出去再從另一邊滑回來
   card.style.touchAction = 'pan-y';
@@ -2147,7 +2180,7 @@ const musicPanel = (() => {
     if (sw.on) { sw.dx = dx; wrap.style.transition = 'none'; wrap.style.transform = `translateX(${dx}px) rotate(${dx * 0.02}deg)`; wrap.style.opacity = String(1 - Math.min(0.6, Math.abs(dx) / 400)); } });
   let swipedAt = 0;
   const endSwipe = () => { if (!sw) return; const { dx, on } = sw; sw = null; if (!on) return; swipedAt = performance.now();
-    if (Math.abs(dx) > 60) { const dir = dx < 0 ? 1 : -1; wrap.style.transition = 'transform .22s ease-in, opacity .22s'; wrap.style.transform = `translateX(${-dir * 320}px)`; wrap.style.opacity = '0';
+    if (Math.abs(dx) > 60) { const dir = dx < 0 ? 1 : -1; sfx('whoosh'); wrap.style.transition = 'transform .22s ease-in, opacity .22s'; wrap.style.transform = `translateX(${-dir * 320}px)`; wrap.style.opacity = '0';
       setTimeout(() => { radio.skip(dir); wrap.style.transition = 'none'; wrap.style.transform = `translateX(${dir * 320}px)`; requestAnimationFrame(() => { wrap.style.transition = 'transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s'; wrap.style.transform = ''; wrap.style.opacity = '1'; }); }, 220); }
     else { wrap.style.transition = 'transform .3s cubic-bezier(.2,.8,.2,1), opacity .3s'; wrap.style.transform = ''; wrap.style.opacity = '1'; } };
   window.addEventListener('pointerup', endSwipe); window.addEventListener('pointercancel', endSwipe);
