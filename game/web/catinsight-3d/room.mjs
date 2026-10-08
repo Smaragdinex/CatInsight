@@ -2498,7 +2498,8 @@ var Q = (() => {
   const weak = soft || /intel.*(hd|uhd) graphics|mali-(t|g[0-5]\d\b)|adreno.*\b[2-5]\d\d\b|powervr/i.test(gpu) || cores <= 2 || mem <= 2;
   const forced = new URLSearchParams(location.search).get('q');
   let level = forced ? ({ low: 0, med: 1, medium: 1, high: 2 }[forced] ?? 2) : (soft ? 0 : weak ? 1 : 2);   // 軟體算圖(沒有顯示卡加速)直接從「低」開始
-  const q = { level, gpu, fx: true, screenEvery: 1, auto: !forced };
+  const qs = new URLSearchParams(location.search).get('qstart'); if (!forced && qs) level = { low: 0, med: 1, high: 2 }[qs] ?? level;   // 測試用:指定起始等級但保留自動偵測
+  const q = { level, gpu, fx: true, screenEvery: 1, auto: !forced, slow: 0, benched: false };
   const apply = (lv) => {
     q.level = lv; const dpr = window.devicePixelRatio || 1, cap = [1, 1.5, 2][lv];
     const pr = Math.min(dpr, cap); window.__qPR = cap;
@@ -2520,7 +2521,8 @@ var Q = (() => {
     if (!winStart) { winStart = now; frames = 0; return; }
     frames++;
     if (now - winStart >= 3000) { const fps = frames * 1000 / (now - winStart); winStart = 0;
-      if (fps < 40) { apply(q.level - 1); startAt = now + 1500; console.info('[quality] fps ' + fps.toFixed(1) + ' → level ' + q.level); } }
+      // 載入時已經測過了;之後只有一直很卡(連兩次低於 25 fps)才再降,避免看到畫面一直切換
+      if (fps < 25) { if (++q.slow >= 2) { q.slow = 0; apply(q.level - 1); startAt = now + 1500; console.info('[quality] fps ' + fps.toFixed(1) + ' → level ' + q.level); } } else q.slow = 0; }
   };
   q.apply = apply;
   apply(level);
@@ -2540,7 +2542,22 @@ loop();
 // 等兩個模型都載好再收掉 loading(最多等 6 秒,網路慢就先進房間、模型稍後出現)
 const loadT0 = performance.now();
 (function waitModels() {
-  if ((pending.size === 0 && performance.now() - loadT0 > 400) || performance.now() - loadT0 > 6000) loadingEl.classList.add('done');
+  if ((pending.size === 0 && performance.now() - loadT0 > 400) || performance.now() - loadT0 > 6000) benchmark();
   else setTimeout(waitModels, 100);
 })();
+// 載入畫面還蓋著的時候測電腦:先暖機 0.6 秒(第一次畫要編譯 shader),再量 1.2 秒的幀數;低於 40 fps 就降一級再量,直到夠順或已經最低
+// (都在載入畫面後面做,看不到畫質切換;一般電腦 2~4 秒)
+function benchmark() {
+  if (!Q.auto) { loadingEl.classList.add('done'); return; }
+  loadingEl.textContent = 'optimizing for your device…';
+  const t0 = performance.now();
+  const measure = (warm, dur, cb) => { let n = 0, start = 0; const f = (now) => { if (!start) { if (now - t0 < 0 || now - measure.at < warm) { requestAnimationFrame(f); return; } start = now; }
+      n++; if (now - start < dur) requestAnimationFrame(f); else cb(n * 1000 / (now - start)); }; measure.at = performance.now(); requestAnimationFrame(f); };
+  const step = (warm) => measure(warm, 1200, (fps) => {
+    console.info('[quality] loading benchmark: level ' + Q.level + ', ' + fps.toFixed(1) + ' fps');
+    if (fps < 40 && Q.level > 0 && (performance.now() - t0 < 10000 || fps < 15)) { Q.apply(Q.level - 1); step(400); }   // 最多降兩級、最多 10 秒(很慢的電腦量一次就要好幾秒)
+    else { Q.benched = true; loadingEl.classList.add('done'); }
+  });
+  step(600);
+}
 window.__room = { speaker, get cat() { return catModel; }, get camHeadY() { return camHead ? camHead.rotation.y : null; }, get camHeadPitch() { return camHead ? camHead.rotation.z : null; }, greetCam() { camGreet.start(); }, get arcade() { return arcadeModel; }, frames: 0, camera, controls, THREE, catUniforms, get zoomT() { return zoomT; }, setZoom(v) { zoomGoal = v; }, openGame, hideGame, fitGameRot, get poster() { return livePoster; } };

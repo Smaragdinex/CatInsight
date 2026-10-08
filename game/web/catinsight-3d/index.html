@@ -35,7 +35,7 @@
   .brand span { opacity: .65; font-weight: 500; }
   #loading {
     position: fixed; inset: 0; display: grid; place-items: center; z-index: 9; background: #2a1f4e;
-    transition: opacity .6s; font-size: 14px; letter-spacing: .3px; opacity: .9;
+    transition: opacity .6s; font-size: 14px; letter-spacing: .3px; opacity: .97;   /* 幾乎不透明:載入時在後面測畫質、切換也看不到 */
   }
   #loading.done { opacity: 0; pointer-events: none; }
   .cta { position: fixed; right: 28px; bottom: 34px; z-index: 5; display: flex; gap: 10px; }
@@ -298,6 +298,6 @@
   <button id="next" aria-label="forward">›</button>
 </div>
 <div id="loading">building the room…</div>
-<script type="module" src="./room.mjs?v=511"></script>
+<script type="module" src="./room.mjs?v=512"></script>
 </body>
 </html>
