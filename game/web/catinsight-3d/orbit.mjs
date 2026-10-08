@@ -346,7 +346,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       target -= d * 0.0032; lastRot = performance.now(); clearTimeout(snapTimer); snapTimer = setTimeout(() => { target = Math.round(target / STEP) * STEP; }, 160); return;
     }
     if (pT <= 0 && d < 0) { exitAcc += -d; if (exitAcc > 260) { exitAcc = 0; onExit && onExit(); } return; }
-    exitAcc = 0; pT = Math.max(0, Math.min(1, pT + d / 2200));
+    exitAcc = 0; pT = Math.max(0, Math.min(1, Math.max(p - 0.3, Math.min(p + 0.3, pT + d / 2200))));   // 目標最多領先目前位置 0.3,不會一次衝到底
   }, { passive: false });
   // 拖曳:旅程中上下拖 = 往前 / 往後飛;在地球上左右拖 = 轉面板
   let drag = null;
@@ -377,7 +377,8 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   function frame(now) {
     if (!open) return; raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now; pPrev = p;
-    p += (pT - p) * Math.min(1, dt * 2.2); if (Math.abs(pT - p) < 1e-4) p = pT;
+    // 旅程速度有上限:滑鼠滑很快也照正常速度飛(整趟至少約 8 秒),慢慢滑就跟著滑、尾端緩下來
+    { const MAXV = 0.12, d = (pT - p) * Math.min(1, dt * 2.2); p += Math.max(-MAXV * dt, Math.min(MAXV * dt, d)); if (Math.abs(pT - p) < 1e-4) p = pT; }
     // 進場:一開始畫面只露出房間電腦螢幕那一塊(位置、大小一模一樣),鏡頭的視野也對齊那一塊;約 1.1 秒內擴大到整個畫面 → 像是穿進螢幕
     const W = innerWidth, H = innerHeight; let camAspect = W / H;
     if (intro) {
