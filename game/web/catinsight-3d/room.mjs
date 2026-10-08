@@ -1856,8 +1856,6 @@ function drawScreen(t) {
     g.fillStyle = `rgba(${p.c[0] | 0},${p.c[1] | 0},${p.c[2] | 0},${a.toFixed(3)})`; g.fillRect(px - sz / 2, py - sz / 2, sz, sz);
   }
   g.globalCompositeOperation = 'source-over';
-  g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '600 13px -apple-system, Helvetica, Arial'; g.textAlign = 'center';
-  g.fillText('CATINSIGHT  ·  EXPLORE', cx, Hh - 18); g.textAlign = 'left';
   screenTex.needsUpdate = true;
 }
 let lastTick = 0;
