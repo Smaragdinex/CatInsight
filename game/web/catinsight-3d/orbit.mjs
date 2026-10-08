@@ -90,7 +90,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 5; scene.add(pts); return { pts, m, spd: 0 }; };
   const warp = makeWarp(gScene, 5200);                                                       // 銀河段的星塵(多一點)
   let gStreak = null, sWarp = null;                                                          // 銀河段的光速線、太陽系段的星塵(第一次用到時建立)
-  let pPrev = 0, readyAt = 0, mv = 0;                                                       // readyAt:畫面放大完成的時間(之後顆粒才慢慢出現);mv:目前「有沒有在動」(0~1)
+  let pPrev = 0, readyAt = 0, mv = 0, wheelGate = true, lastWheel = 0;                                                       // readyAt:畫面放大完成的時間(之後顆粒才慢慢出現);mv:目前「有沒有在動」(0~1)
   // 超空間光速線(像星際大戰跳躍):跟著相機的細長光線,從畫面中心往外拉長飛過;進入太陽系那一刻最強,在太陽系裡捲動時也會出現
   const makeStreaks = (scene) => { const N2 = 1100, pos = new Float32Array(N2 * 6), end = new Float32Array(N2 * 2), col = new Float32Array(N2 * 6);
     for (let i = 0; i < N2; i++) { const a = Math.random() * 6.283, r = 0.04 + Math.pow(Math.random(), 0.6) * 0.95, z = -Math.random(), b = 0.5 + Math.random() * 0.5, w = Math.random() < 0.7;
@@ -341,7 +341,12 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   // 滾輪:旅程中 = 往前 / 往後飛;到了地球 = 轉面板(停下來 160ms 後對齊最近一塊)
   let snapTimer = 0;
   root.addEventListener('wheel', (e) => {
-    e.preventDefault(); e.stopPropagation(); if (intro) return;                       // 畫面還在從螢幕放大時,滾輪先不算
+    e.preventDefault(); e.stopPropagation();
+    // 進來時那一下滾動(含觸控板放開後的慣性)不算:要等滾輪停 0.35 秒以上、重新開始滾,才開始旅程 → 不會一進來就被慣性甩進去、顆粒亂噴
+    // 用事件本身的時間(真的滾動的時間)算間隔:剛進來第一幀會卡一下(編譯 shader),卡住期間累積的滾動會一次送進來,用處理時間算會誤判成「停過」
+    const nowW = e.timeStamp || performance.now();
+    if (intro || wheelGate) { if (!intro && performance.now() - readyAt > 600 && nowW - lastWheel > 350) wheelGate = false; else { lastWheel = nowW; return; } }
+    lastWheel = nowW;
     const d = Math.max(-90, Math.min(90, Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX));
     if (atEarth()) {
       if (d < 0 && cur() === 0 && settled() && performance.now() - lastRot > 600) { pT = 0.995 + d / 2200; return; }   // 在第一塊再往上 → 離開地球
@@ -489,7 +494,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   }
   return {
     get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
-    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyAt = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
+    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
       intro = rect && rect.w > 20 ? { rect, t0: performance.now() } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       raf = requestAnimationFrame(frame); },
     hide() { open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
