@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=41';
+import { createOrbit } from './orbit.mjs?v=42';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -1871,8 +1871,8 @@ canvas.addEventListener('wheel', (e) => {
   // 房間裡往前滾一下 = 跟點 Explore 小點一樣,直接飛進電腦螢幕(不會停在半路);飛的過程中再滾都不算,
   // 等完全進到全螢幕(orbit.mjs 會擋掉進場那一下的慣性)才開始往下旅程。在街機選單上往回滾 = 退回房間
   if (focusArcade && zoomGoal >= 1) { if (e.deltaY < -4) zoomGoal = 0; return; }
-  if (zoomGoal > 0 || zoomT > 0) return;
-  if (e.deltaY > 4) { focusArcade = false; zoomGoal = 1; }
+  if (zoomGoal > 0 || zoomT > 0 || prepping) return;
+  if (e.deltaY > 4) enterScreen();
 }, { passive: false });
 function updateZoom(dt) {
   zoomT += (zoomGoal - zoomT) * Math.min(1, dt * 2.5);
@@ -1939,6 +1939,36 @@ let slide = 0, uiOn = false, navLockUntil = 0, wheelLockUntil = 0;
 const ORBIT = !STORY && !new URLSearchParams(location.search).has('slides');
 // 銀河旅程(第二份銀河、太陽系、地球、行星貼圖…)開網頁時先不建,等鏡頭開始往電腦螢幕飛(點螢幕 / 中間鍵 / 滾輪)才建立,網頁打開比較快
 let orbit = null;
+// 進電腦螢幕(點 Explore 小點、點螢幕、往前滾、› 按鈕都走這裡):第一次要先把銀河旅程建好、暖機(shader 在背景編譯、各場景先畫一次),
+// 好了才開始飛 → 不會飛到一半卡住、進場時畫面跳一下或顆粒衝一下。等超過 0.12 秒才在螢幕中間轉一顆小毛線球
+let prepping = false, orbitReady = false;
+const prepEl = (() => {
+  const st = document.createElement('style');
+  st.textContent = `.prep { position: fixed; left: 50%; top: 50%; z-index: 8; width: 54px; height: 54px; margin: -27px 0 0 -27px; opacity: 0; transition: opacity .25s; pointer-events: none; }
+    .prep.on { opacity: 1; } .prep svg { width: 100%; height: 100%; display: block; animation: prepSpin 1.1s linear infinite; filter: drop-shadow(0 6px 12px rgba(0,0,0,.35)); }
+    @keyframes prepSpin { to { transform: rotate(360deg); } }`;
+  document.head.appendChild(st);
+  const el = document.createElement('div'); el.className = 'prep'; const y = document.querySelector('#loading .yarn'); if (y) el.appendChild(y.cloneNode(true));
+  document.body.appendChild(el); return el;
+})();
+// 準備(建立 + 暖機)只做一次;滑鼠移到 Explore 小點上就先在背景開始準備,點下去通常已經好了
+let prepPromise = null;
+function prepareOrbit() {
+  if (!ORBIT || story) return Promise.resolve();
+  if (!prepPromise) prepPromise = new Promise((res) => requestAnimationFrame(() => setTimeout(async () => {
+    try { await ensureOrbit().warm(); } catch (e) { console.warn('orbit warm-up', e); }
+    orbitReady = true; res();
+  }, 0)));
+  return prepPromise;
+}
+function enterScreen() {
+  if (story) { story.goto(1); return; }
+  focusArcade = false;
+  if (!ORBIT || orbitReady) { zoomGoal = 1; return; }
+  if (prepping) return; prepping = true;
+  const t = setTimeout(() => { if (screenMesh) { const r = screenRectPx(); prepEl.style.left = (r.x + r.w / 2) + 'px'; prepEl.style.top = (r.y + r.h / 2) + 'px'; } prepEl.classList.add('on'); }, 120);
+  prepareOrbit().then(() => { clearTimeout(t); prepEl.classList.remove('on'); prepping = false; if (!uiOn && !gameOn) { focusArcade = false; zoomGoal = 1; } });
+}
 // 下載那塊併進第一塊(WELCOME);Privacy / Support / Get the App 按鈕搬到地球那頁
 function ensureOrbit() { if (ORBIT && !orbit) { orbit = createOrbit({ host: ui, slides: SLIDES.filter((s) => s.key !== 'app'), cta: document.querySelector('.cta'), sfx: ctaSfx, mountWidget, onExit: () => hideUI() }); window.__orbit = orbit; } return orbit; }
 if (ORBIT) ui.classList.add('orbit-mode');
@@ -1977,8 +2007,7 @@ function holdButton(id, dir) {
     if (story && !storyBusy()) { story.goto(Math.round(story.target) + dir); return; }
     if (uiOn) { uiNav(dir); return; }
     if (dir > 0 && focusArcade && zoomGoal >= 1) return;                 // 正在看街機選單:› 不要把鏡頭甩去電腦
-    if (dir > 0) focusArcade = false;
-    zoomGoal = dir > 0 ? 1 : 0;                                          // 房間裡:› 直接飛進電腦螢幕(跟點 Explore 小點一樣),‹ 退回房間;不再停在半路
+    if (dir > 0) enterScreen(); else zoomGoal = 0;                                         // 房間裡:› 直接飛進電腦螢幕(跟點 Explore 小點一樣),‹ 退回房間;不再停在半路
   };
   el.addEventListener('pointerup', release);
   el.addEventListener('pointercancel', () => { if (timer) { clearInterval(timer); timer = null; } });
@@ -1991,7 +2020,7 @@ document.getElementById('brand').onclick = (e) => {
   if (gameOn) hideGame(); else if (uiOn) hideUI(); else { focusArcade = false; zoomGoal = 0; }
   if (story) story.goto(0);
 };
-document.getElementById('mid').onclick = () => { if (story && !storyBusy()) { story.goto(story.active ? 0 : 1); return; } if (gameOn) hideGame(); else if (uiOn) hideUI(); else { focusArcade = false; zoomGoal = zoomGoal >= 1 ? 0 : 1; } };
+document.getElementById('mid').onclick = () => { if (story && !storyBusy()) { story.goto(story.active ? 0 : 1); return; } if (gameOn) hideGame(); else if (uiOn) hideUI(); else if (zoomGoal >= 1) { focusArcade = false; zoomGoal = 0; } else enterScreen(); };
 window.addEventListener('keydown', (e) => {
   if (gameOn) { if (e.key === 'Escape') hideGame(); return; }
   if (arcadeMenu && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(); return; }
@@ -2020,7 +2049,7 @@ canvas.addEventListener('pointerup', (e) => {
   }
   if (camRig && zoomT === 0 && raycaster.intersectObject(camRig, true).length) { camGreet.start(); return; }   // 點攝影機:打招呼
   if (speaker.group && zoomT === 0 && raycaster.intersectObject(speaker.group, true).length) { if (!radio.playing) radio.play(); musicPanel.show(); return; }   // 點音響:打開中間的播放器(沒在播就開始播)
-  if (raycaster.intersectObject(screenMesh).length) { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } }
+  if (raycaster.intersectObject(screenMesh).length) enterScreen();
   else if ((arcadeScreen && raycaster.intersectObject(arcadeScreen).length) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length)) { focusArcade = true; zoomGoal = 1; }
 });
 
@@ -2309,7 +2338,7 @@ const hints = (() => {
     document.body.appendChild(el); list.push({ anchor, el, ph: list.length * 1.7 }); return el;
   };
   add(arcadeModel, 0, ARCADE_H + 0.16, 1.22, 'Play', () => { focusArcade = true; zoomGoal = 1; });
-  add(screenMesh, 0.62, 0.36, 0.03, 'Explore', () => { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } });
+  add(screenMesh, 0.62, 0.36, 0.03, 'Explore', () => enterScreen()).addEventListener('pointerenter', () => prepareOrbit());
   add(camHead, 0, 0.4, 0, 'Interact', () => { camGreet.start(); });
   add(speaker.group, 0.12, 0.4, 0.06, 'Music', () => { if (!radio.playing) radio.play(); musicPanel.show(); });
   const v = new THREE.Vector3();

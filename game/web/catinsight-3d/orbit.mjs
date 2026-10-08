@@ -124,7 +124,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 5; scene.add(pts); return { pts, m, spd: 0 }; };
   const warp = makeWarp(gScene, 5200);                                                       // 銀河段的星塵(多一點)
   let gStreak = null, sWarp = null;                                                          // 銀河段的光速線、太陽系段的星塵(第一次用到時建立)
-  let pPrev = 0, readyAt = 0, mv = 0, wheelGate = true, lastWheel = 0;                                                       // readyAt:畫面放大完成的時間(之後顆粒才慢慢出現);mv:目前「有沒有在動」(0~1)
+  let pPrev = 0, readyAt = 0, readyT = 0, mv = 0, wheelGate = true, lastWheel = 0;                                                       // readyAt:畫面放大完成的時間(之後顆粒才慢慢出現);mv:目前「有沒有在動」(0~1)
   // 超空間光速線(像星際大戰跳躍):跟著相機的細長光線,從畫面中心往外拉長飛過;進入太陽系那一刻最強,在太陽系裡捲動時也會出現
   const makeStreaks = (scene) => { const N2 = 1100, pos = new Float32Array(N2 * 6), end = new Float32Array(N2 * 2), col = new Float32Array(N2 * 6);
     for (let i = 0; i < N2; i++) { const a = Math.random() * 6.283, r = 0.04 + Math.pow(Math.random(), 0.6) * 0.95, z = -Math.random(), b = 0.5 + Math.random() * 0.5, w = Math.random() < 0.7;
@@ -420,16 +420,18 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     if (!open) return; raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now; pPrev = p;
     // ready:放大完成後 1.5 秒內顆粒慢慢出現;mv:只有真的在飛的時候才是 1(光速線只在這時候出現,停下來 0.3 秒內收掉)
-    const ready = intro ? 0 : ss(0, 1500, now - readyAt);
+    // 進場和顆粒淡入都用「每幀最多 0.05 秒」累加的時間:電腦卡一下也不會整段跳過、突然冒出一堆在飛的顆粒
+    if (!intro) readyT += dt * 1000;
+    const ready = intro ? 0 : ss(0, 1500, readyT);
     // 旅程速度有上限:滑鼠滑很快也照正常速度飛(整趟至少約 8 秒),慢慢滑就跟著滑、尾端緩下來
     { const MAXV = 0.12, d = (pT - p) * Math.min(1, dt * 2.2); p += Math.max(-MAXV * dt, Math.min(MAXV * dt, d)); if (Math.abs(pT - p) < 1e-4) p = pT; }
     // 進場:一開始畫面只露出房間電腦螢幕那一塊(位置、大小一模一樣),鏡頭的視野也對齊那一塊;約 1.1 秒內擴大到整個畫面 → 像是穿進螢幕
     const W = innerWidth, H = innerHeight; let camAspect = W / H, galH = renderer.domElement.height;
     if (intro) {
-      const k = ease((now - intro.t0) / 1100), r = intro.rect, rx = r.x * (1 - k), ry = r.y * (1 - k), rw = r.w + (W - r.w) * k, rh = r.h + (H - r.h) * k;
+      intro.e += dt; const k = ease(intro.e / 1.1), r = intro.rect, rx = r.x * (1 - k), ry = r.y * (1 - k), rw = r.w + (W - r.w) * k, rh = r.h + (H - r.h) * k;
       camAspect = rw / rh; camera.aspect = camAspect; camera.setViewOffset(rw, rh, -rx, -ry, W, H); galH *= rh / H;   // 粒子大小照「銀河實際畫的高度」算,剛進來時和螢幕上一樣大
       root.style.clipPath = `inset(${ry.toFixed(1)}px ${(W - rx - rw).toFixed(1)}px ${(H - ry - rh).toFixed(1)}px ${rx.toFixed(1)}px round ${(8 * (1 - k)).toFixed(1)}px)`;
-      if (k >= 1) { intro = null; camera.clearViewOffset(); camera.aspect = W / H; root.style.clipPath = ''; covering = true; readyAt = now; }
+      if (k >= 1) { intro = null; camera.clearViewOffset(); camera.aspect = W / H; root.style.clipPath = ''; covering = true; readyAt = now; readyT = 0; }
     }
     const aspect = W / H, portrait = aspect < 0.8, fit = Math.max(1, 1.3 / camAspect);
     { const vNow = Math.abs(p - pPrev) / Math.max(dt, 1e-3), target2 = ss(0.004, 0.03, vNow); mv += (target2 - mv) * Math.min(1, dt * (target2 > mv ? 8 : 5)); }
@@ -535,9 +537,24 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   }
   return {
     get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
-    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
-      intro = rect && rect.w > 20 ? { rect, t0: performance.now() } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
+    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyT = 0; warp.spd = 0; if (sWarp) sWarp.spd = 0;   // 上次離開時還在飛的速度歸零,不然進來會先衝一下
+      readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
+      intro = rect && rect.w > 20 ? { rect, t0: performance.now(), e: 0 } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       raf = requestAnimationFrame(frame); },
+    // 進場前先暖機:shader 在背景編譯(不卡畫面)、銀河 / 太陽系 / 地球各先畫一次 → 第一次飛進來不會卡一下、畫面不會跳
+    async warm() {
+      resize(); loadEarth();
+      if (!gStreak) gStreak = makeStreaks(gScene);
+      if (!sWarp) sWarp = makeWarp(sScene, 3200);
+      if (!sStreak) sStreak = makeStreaks(sScene);
+      camera.position.copy(GAL_CAM.pos); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+      gal.update(performance.now() / 1000, 1, renderer.domElement.height);
+      try { if (renderer.compileAsync) await Promise.all([renderer.compileAsync(gScene, camera), renderer.compileAsync(sScene, camera), renderer.compileAsync(eScene, camera), renderer.compileAsync(postScene, postCam)]); } catch (e) {}
+      if (galRT.width !== renderer.domElement.width || galRT.height !== renderer.domElement.height) galRT.setSize(renderer.domElement.width, renderer.domElement.height);
+      renderer.setRenderTarget(galRT); renderer.setClearColor(0x020309, 1); renderer.clear(); renderer.render(gScene, camera); renderer.setRenderTarget(null);
+      renderer.render(postScene, postCam); renderer.render(sScene, camera); renderer.render(eScene, camera);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    },
     hide() { closeDoc(); open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
     step, goTo, exit: onExit, travel(v) { pT = Math.max(0, Math.min(1, v)); },
   };
