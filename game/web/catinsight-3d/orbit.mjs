@@ -17,6 +17,8 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   // 旅程的進度 p(0 = 看著整個銀河、1 = 到地球、面板出現):各段的範圍
   const G_END = 0.44, S_START = 0.34, S_END = 0.8, E_START = 0.76, REVEAL = 0.9, OVERVIEW = 0.56;
   // ---------- 外框 ----------
+  // 行星 / 太陽 / 月亮 / 地球貼圖都經過這個 manager → 載入畫面可以等它們下載完(texProgress)
+  let texDone = 0, texTotal = 0; const texLM = new THREE.LoadingManager(); texLM.onProgress = (u, l, t) => { texDone = l; texTotal = t; };
   const root = document.createElement('div'); root.className = 'orbit'; host.appendChild(root);
   const canvas = document.createElement('canvas'); canvas.className = 'orbit-gl'; root.appendChild(canvas);
   const cssLayer = document.createElement('div'); cssLayer.className = 'orbit-css'; root.appendChild(cssLayer);
@@ -188,7 +190,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
         #include <colorspace_fragment>
       }` });
   const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(22, 64, 48), sunMat); sScene.add(sunMesh);
-  new THREE.TextureLoader().load(new URL('./planets/2k_sun.jpg', import.meta.url).href, (t) => { t.colorSpace = THREE.SRGBColorSpace; sunMat.uniforms.uTex.value = t; sunMat.uniforms.uHas.value = 1; }, undefined, () => {});
+  new THREE.TextureLoader(texLM).load(new URL('./planets/2k_sun.jpg', import.meta.url).href, (t) => { t.colorSpace = THREE.SRGBColorSpace; sunMat.uniforms.uTex.value = t; sunMat.uniforms.uHas.value = 1; }, undefined, () => {});
   const sunGlow1 = sprite(0xfff0d0, 90, 0.85), sunGlow2 = sprite(0xffb060, 230, 0.35), sunGlow3 = sprite(0xff8a3a, 650, 0.12); sScene.add(sunGlow1, sunGlow2, sunGlow3);
   sScene.add(new THREE.PointLight(0xfff4e6, 3.4, 0, 0)); sScene.add(new THREE.AmbientLight(0x223355, 0.06));   // 環境光很弱 → 行星背光那面是暗的
   // 行星表面:用 3D 雜訊在球面上畫(沒有接縫),依行星特徵上色;第一次用到前在閒置時間畫好
@@ -234,7 +236,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   const D_FINAL = new THREE.Vector3(0, 0.16, 1).normalize();
   const SUN_DIR = new THREE.Vector3(Math.sin(0.9), 0, Math.cos(0.9));                        // 從地球看太陽(世界方向)
   const EARTH_POS = SUN_DIR.clone().multiplyScalar(-125);
-  const PLANET_DIR = new URL('./planets/', import.meta.url).href, ploader = new THREE.TextureLoader();
+  const PLANET_DIR = new URL('./planets/', import.meta.url).href, ploader = new THREE.TextureLoader(texLM);
   const loadReal = (file, cb, fail) => ploader.load(PLANET_DIR + file, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; cb(t); }, undefined, () => { if (fail) fail(); });
   const sMats = [sunMat];
   const planetObjs = PLANETS.map((pl) => {
@@ -266,7 +268,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   sScene.add(belt);
   // 月亮(three.js 範例附的月球貼圖):太陽系那段繞著地球、地球那段在左上方的遠處
   const moonMat = new THREE.MeshStandardMaterial({ color: 0xbfbfbf, roughness: 1, metalness: 0, transparent: true }), eMoonMat = new THREE.MeshStandardMaterial({ color: 0xbfbfbf, roughness: 1, metalness: 0 });
-  new THREE.TextureLoader().setCrossOrigin('anonymous').load(TEX + 'moon_1024.jpg', (t) => { t.colorSpace = THREE.SRGBColorSpace; [moonMat, eMoonMat].forEach((m) => { m.map = t; m.color.set(0xffffff); m.needsUpdate = true; }); }, undefined, () => {});
+  new THREE.TextureLoader(texLM).setCrossOrigin('anonymous').load(TEX + 'moon_1024.jpg', (t) => { t.colorSpace = THREE.SRGBColorSpace; [moonMat, eMoonMat].forEach((m) => { m.map = t; m.color.set(0xffffff); m.needsUpdate = true; }); }, undefined, () => {});
   const sMoon = new THREE.Mesh(new THREE.SphereGeometry(1.35, 48, 32), moonMat); sScene.add(sMoon); sMats.push(moonMat);
 
   // =====================================================================
@@ -284,7 +286,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     g.fillStyle = '#e8eef5'; g.fillRect(0, 0, 512, 16); g.fillRect(0, 240, 512, 16); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
   const black = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); black.needsUpdate = true;
   const earthU = { uDay: { value: fallbackDay }, uNight: { value: black }, uSpec: { value: black }, uClouds: { value: black }, uSun: { value: SUN_DIR }, uFade: { value: 1 } };
-  const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
+  const loader = new THREE.TextureLoader(texLM); loader.setCrossOrigin('anonymous');
   const loadTex = (name, key, srgb) => loader.load(TEX + name, (t) => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; earthU[key].value = t; }, undefined, () => {});
   let texLoaded = false;
   const loadEarth = () => { if (texLoaded) return; texLoaded = true; loadTex('earth_atmos_2048.jpg', 'uDay', true); loadTex('earth_lights_2048.png', 'uNight', true); loadTex('earth_specular_2048.jpg', 'uSpec', false); loadTex('earth_clouds_1024.png', 'uClouds', false); };
@@ -542,6 +544,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       intro = rect && rect.w > 20 ? { rect, t0: performance.now(), e: 0 } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       raf = requestAnimationFrame(frame); },
     // 進場前先暖機:shader 在背景編譯(不卡畫面)、銀河 / 太陽系 / 地球各先畫一次 → 第一次飛進來不會卡一下、畫面不會跳
+    texProgress: () => [texDone, texTotal],
     async warm() {
       resize(); loadEarth();
       if (!gStreak) gStreak = makeStreaks(gScene);

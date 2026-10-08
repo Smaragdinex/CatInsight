@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=42';
+import { createOrbit } from './orbit.mjs?v=43';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -989,11 +989,11 @@ const arcadeCanvas = document.createElement('canvas'); arcadeCanvas.width = 520;
 // 共用的 GLB 載入器:Draco 解碼器只載一次並預先載入;載入狀態顯示在開頭的 loading 文字,失敗時印出原因(不然模型不見了也不知道為什麼)
 const loadingEl = document.getElementById('loading');
 const pending = new Set();
-// 載入百分比:房間程式跑起來 15% → 模型載完到 70% → 測電腦到 100%;顯示的數字會慢慢跟上目標(畫面忙的時候會停一下,毛線球照樣在滾)
+// 載入百分比:房間程式跑起來 15% → 模型載完到 60% → 測電腦到 75% → 銀河旅程(建好、暖機、行星 / 地球貼圖)到 100%;顯示的數字會慢慢跟上目標(畫面忙的時候會停一下,毛線球照樣在滾)
 const loadP = (() => { const el = loadingEl && loadingEl.querySelector('.lpct'); let target = 15, shown = 0, started = 0, finished = 0;
   const f = () => { if (loadingEl.classList.contains('done')) { if (el) el.textContent = '100%'; return; } shown += Math.max(0, (target - shown) * 0.08); if (shown < target - 0.05 && shown < 99) shown = Math.min(target, shown + 0.15); if (el) el.textContent = Math.floor(Math.min(shown, 99)) + '%'; requestAnimationFrame(f); };
   requestAnimationFrame(f);
-  return { set(v) { target = Math.max(target, Math.min(100, v)); }, model(st) { if (st === 'start') started++; else finished++; target = Math.max(target, 15 + 55 * finished / Math.max(1, started)); } }; })();
+  return { set(v) { target = Math.max(target, Math.min(100, v)); }, model(st) { if (st === 'start') started++; else finished++; target = Math.max(target, 15 + 45 * finished / Math.max(1, started)); } }; })();
 const noteLoad = (name, state) => { if (state === 'done') pending.delete(name); else pending.add(name); loadP.model(state); };
 const glbLoader = (() => {
   const draco = new DRACOLoader(); draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/libs/draco/'); draco.preload();
@@ -2657,17 +2657,30 @@ const loadT0 = performance.now();
 })();
 // 載入畫面還蓋著的時候測電腦:先暖機 0.6 秒(第一次畫要編譯 shader),再量 1.2 秒的幀數;低於 40 fps 就降一級再量,直到夠順或已經最低
 // (都在載入畫面後面做,看不到畫質切換;一般電腦 2~4 秒)
+// 銀河旅程不再等點螢幕才建:載入畫面最後一段就建好、暖機,行星 / 地球貼圖也等下載完(最多等 12 秒,網路慢就先進房間、貼圖之後補上)
+function finishLoad() {
+  loadP.set(76);
+  const done = () => { loadP.set(100); setTimeout(() => loadingEl.classList.add('done'), 250); };
+  if (!ORBIT || story) { done(); return; }
+  prepareOrbit().then(() => {
+    loadP.set(84);
+    const t0 = performance.now();
+    const wait = () => { const [d, t] = orbit.texProgress(); if (t) loadP.set(84 + 15 * d / t);
+      if ((t && d >= t) || performance.now() - t0 > 12000) done(); else setTimeout(wait, 120); };
+    wait();
+  });
+}
 function benchmark() {
-  loadP.set(72);
-  if (!Q.auto) { loadP.set(100); loadingEl.classList.add('done'); return; }
+  loadP.set(62);
+  if (!Q.auto) { finishLoad(); return; }
   const t0 = performance.now();
   const measure = (warm, dur, cb) => { let n = 0, start = 0; const f = (now) => { if (!start) { if (now - t0 < 0 || now - measure.at < warm) { requestAnimationFrame(f); return; } start = now; }
       n++; if (now - start < dur) requestAnimationFrame(f); else cb(n * 1000 / (now - start)); }; measure.at = performance.now(); requestAnimationFrame(f); };
   const step = (warm) => measure(warm, 1200, (fps) => {
     console.info('[quality] loading benchmark: level ' + Q.level + ', ' + fps.toFixed(1) + ' fps');
-    loadP.set(86 + (2 - Q.level) * 5);
+    loadP.set(66 + (2 - Q.level) * 4);
     if (fps < 40 && Q.level > 0 && (performance.now() - t0 < 10000 || fps < 15)) { Q.apply(Q.level - 1); step(400); }   // 最多降兩級、最多 10 秒(很慢的電腦量一次就要好幾秒)
-    else { Q.benched = true; loadP.set(100); setTimeout(() => loadingEl.classList.add('done'), 250); }
+    else { Q.benched = true; finishLoad(); }
   });
   step(600);
 }
