@@ -368,7 +368,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   root.addEventListener('click', (e) => { if (drag && drag.moved) e.stopPropagation(); }, true);
 
   function resize() {
-    const w = innerWidth, h = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = innerWidth, h = innerHeight, dpr = Math.min(devicePixelRatio || 1, window.__qPR || 2);   // 低階電腦時解析度上限跟房間一樣
     renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); css.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
     allPoints.forEach((pp) => { pp.material.uniforms.uPR.value = dpr; });

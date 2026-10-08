@@ -9,14 +9,14 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=35';
+import { createOrbit } from './orbit.mjs?v=36';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
 // 畫面濾鏡:發光物的光暈、調色、暗角、底片顆粒(預設開;網址加 ?nofx 看沒有濾鏡的樣子)
 const FX = !new URLSearchParams(location.search).has('nofx');
-let composer = null, fxGrade = null;
+let composer = null, fxGrade = null, fxSetPR = null;
 let story = null;
 
 // ---------- 配色(參考圖) ----------
@@ -1575,6 +1575,7 @@ const plantLeaves = [];   // (舊的彎曲仙人掌用;現在的仙人掌不會�
 let catHead = null;            // 舊介面保留(不再使用)
 const catUniforms = { uBlink: { value: 0 }, uHead: { value: 0 }, uTail: { value: 0 }, uNeck: { value: 0.44 }, uBlend: { value: 0.12 }, uPivot: { value: new THREE.Vector2(0.0, 0.05) } };   // 模型座標:脖子約 y=0.44~0.56,頭中心 xz≈(0, 0.05)
 let catModel = null;
+const furShells = [];                                  // 貓咪的毛絨外層(低階電腦會少畫幾層)
 const blink = { next: 2, start: -9, twice: false };   // 貓咪眨眼的時間表
 {
   const b = group(2.25, 0, 2.45);
@@ -1697,7 +1698,7 @@ const blink = { next: 2, start: -9, twice: false };   // 貓咪眨眼的時間�
     const FILL = { emissive: 0x9a6a44, emissiveIntensity: 0.4 };
     const body = new THREE.Mesh(geo, patchKitty(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, ...FILL }))); body.castShadow = true; body.receiveShadow = false; m.add(body);   // 不接收自己的影子(不然大頭會在胸口投一圈黑)
     const SHELLS = matchMedia('(pointer: coarse)').matches ? 5 : 8;
-    for (let i = 1; i <= SHELLS; i++) { const sh2 = new THREE.Mesh(geo, patchKitty(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, ...FILL }), { k: i / SHELLS, len: 0.034 })); sh2.receiveShadow = false; sh2.frustumCulled = false; m.add(sh2); }
+    for (let i = 1; i <= SHELLS; i++) { const sh2 = furShells[furShells.push(null) - 1] = new THREE.Mesh(geo, patchKitty(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, ...FILL }), { k: i / SHELLS, len: 0.034 })); sh2.receiveShadow = false; sh2.frustumCulled = false; m.add(sh2); }
     // ---- 小零件(頂點直接放在模型座標,和身體吃同一段頭轉變形)----
     const part = (g0, mat2, p0, q0, s0, eyeC = null) => { const g2 = g0.clone(); g2.applyMatrix4(new THREE.Matrix4().compose(p0, q0 || new THREE.Quaternion(), s0 || V3(1, 1, 1)));
       if (eyeC) { const n = g2.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) a.set([eyeC.x, eyeC.y, eyeC.z], i * 3); g2.setAttribute('aEyeC', new THREE.BufferAttribute(a, 3)); }
@@ -1829,8 +1830,10 @@ for (let i = 0; i < 120; i++) { px = stepPrice(px, 3.2); series.push(px); }
 const monitorGal = createGalaxy();
 const galCam = new THREE.PerspectiveCamera(GAL_CAM.fov, 1.42 / 0.86, 1, 20000); galCam.position.copy(GAL_CAM.pos); galCam.lookAt(0, 0, 0);
 const galClear = new THREE.Color();
+let screenN = 0;
 function drawScreen() {
-  if (uiOn && orbit && orbit.covering) return;                                     // 已經在銀河裡了,房間的螢幕不用畫
+  if (uiOn && orbit && orbit.covering) return;
+  if (screenN++ % Q.screenEvery !== 0) return;                                       // 低階電腦:螢幕上的銀河隔幾幀才更新一次                                     // 已經在銀河裡了,房間的螢幕不用畫
   monitorGal.update(performance.now() / 1000, 1, galRT.height);
   const prev = renderer.getRenderTarget(), ca = renderer.getClearAlpha(); renderer.getClearColor(galClear);
   renderer.setRenderTarget(galRT); renderer.setClearColor(0x020309, 1); renderer.clear(); renderer.render(monitorGal.scene, galCam);
@@ -2419,7 +2422,8 @@ function loop() {
     if (!story.active) updateZoom(dt);                                    // 還在房間:照舊左右慢慢轉
     story.update(dt, t); hints.step(t); story.render();
   } else if (orbit && orbit.covering) { updateZoom(dt); }                     // 銀河畫面蓋滿整個螢幕時,房間不用畫
-  else { if (story) story.idle(); updateZoom(dt); hints.step(t); if (composer) { fxGrade.uniforms.uTime.value = t; composer.render(dt); } else renderer.render(scene, camera); }
+  else { if (story) story.idle(); updateZoom(dt); hints.step(t); if (composer && Q.fx) { fxGrade.uniforms.uTime.value = t; composer.render(dt); } else renderer.render(scene, camera); }
+  Q.tick();
 }
 // 街機在用(飛過去 / 選單 / 遊戲中)時,捲動版不接滾輪
 const storyBusy = () => gameOn || (focusArcade && (zoomGoal > 0 || zoomT > 0));
@@ -2480,7 +2484,52 @@ if (FX) {
   const composerRender = composer.render.bind(composer), composerSize = composer.setSize.bind(composer);
   composer.render = (dt) => { scene.background = null; darken(); renderer.setClearColor(0x000000, 1); bloomComposer.render(dt); restore(); renderer.setClearColor(0x000000, 0); scene.background = bgTex; composerRender(dt); };
   composer.setSize = (W, H) => { composerSize(W, H); bloomComposer.setSize(W, H); };
+  fxSetPR = (p2) => { composer.setPixelRatio(p2); bloomComposer.setPixelRatio(p2 * 0.5); };
 }
+// ---------- 自動畫質:偵測電腦,低階的自動降畫質 ----------
+// 1. 開頭先看顯示卡名稱 / CPU 核心數 / 記憶體(內建顯卡、軟體算圖、2 核心、2 GB → 從「中」開始)
+// 2. 房間載完後量幾秒實際的幀數,低於 40 fps 就降一級,降完再量;只降不升(不會一直跳來跳去)
+// 等級:2 高(原本的樣子)/ 1 中(毛 4 層、螢幕銀河每 2 幀更新 + 解析度 0.7、畫面解析度最多 1.5 倍)/ 0 低(毛 2 層、銀河每 3 幀 + 0.5、解析度 1 倍、關光暈)
+// 網址加 ?q=high / ?q=med / ?q=low 可以手動指定(會關掉自動降級)
+var Q = (() => {
+  let gpu = ''; try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); gpu = String((ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) || ''); } catch (e) {}
+  const cores = navigator.hardwareConcurrency || 4, mem = navigator.deviceMemory || 8;
+  const soft = /swiftshader|llvmpipe|software|basic render/i.test(gpu);
+  const weak = soft || /intel.*(hd|uhd) graphics|mali-(t|g[0-5]\d\b)|adreno.*\b[2-5]\d\d\b|powervr/i.test(gpu) || cores <= 2 || mem <= 2;
+  const forced = new URLSearchParams(location.search).get('q');
+  let level = forced ? ({ low: 0, med: 1, medium: 1, high: 2 }[forced] ?? 2) : (soft ? 0 : weak ? 1 : 2);   // 軟體算圖(沒有顯示卡加速)直接從「低」開始
+  const q = { level, gpu, fx: true, screenEvery: 1, auto: !forced };
+  const apply = (lv) => {
+    q.level = lv; const dpr = window.devicePixelRatio || 1, cap = [1, 1.5, 2][lv];
+    const pr = Math.min(dpr, cap); window.__qPR = cap;
+    if (renderer.getPixelRatio() !== pr) { renderer.setPixelRatio(pr); if (fxSetPR) fxSetPR(pr); resize(); }
+    q.fx = lv > 0; q.screenEvery = [3, 2, 1][lv];
+    const sz = [0.5, 0.7, 1][lv]; galRT.setSize(Math.round(1180 * sz), Math.round(715 * sz));
+    // 毛:高 = 全部;中 = 每隔一層;低 = 只留最外面兩層附近
+    const n = furShells.length; furShells.forEach((m, i) => { if (m) m.visible = lv === 2 ? true : lv === 1 ? i % 2 === 1 : (i === n - 1 || i === Math.floor(n / 2)); });
+    document.documentElement.dataset.quality = ['low', 'med', 'high'][lv];
+  };
+  // 量幀數:房間載完、分頁在前面、沒在玩街機 / 沒在銀河裡才算;每 3 秒看一次平均
+  // 用真實時間算(迴圈裡的 dt 有上限,很慢的電腦會被算成比較快)
+  let frames = 0, winStart = 0, startAt = 0;
+  q.tick = () => {
+    const now = performance.now();
+    if (!q.auto || q.level === 0 || document.hidden || gameOn || uiOn || !loadingEl.classList.contains('done')) { frames = 0; winStart = 0; return; }
+    if (!startAt) startAt = now + 1500;                                                // 載完先等 1.5 秒(剛開始會有編譯 shader 的卡頓)
+    if (now < startAt) { winStart = 0; return; }
+    if (!winStart) { winStart = now; frames = 0; return; }
+    frames++;
+    if (now - winStart >= 3000) { const fps = frames * 1000 / (now - winStart); winStart = 0;
+      if (fps < 40) { apply(q.level - 1); startAt = now + 1500; console.info('[quality] fps ' + fps.toFixed(1) + ' → level ' + q.level); } }
+  };
+  q.apply = apply;
+  apply(level);
+  if (furShells.length) apply(level);                                                  // 貓咪的毛建好之後再套一次
+  return q;
+})();
+window.__quality = Q;
+// 貓咪是非同步建的:建好後補套一次目前的等級
+setTimeout(() => Q.apply(Q.level), 3000);
 if (STORY) {
   const ln = document.createElement('link'); ln.rel = 'stylesheet'; ln.href = './story.css?v=2'; document.head.appendChild(ln);
   const { initStory } = await import('./story.mjs?v=3');
