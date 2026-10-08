@@ -11,7 +11,7 @@ import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
 import { createOrbit } from './orbit.mjs?v=25';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
-import { makeRadio } from './radio.mjs?v=2';
+import { makeRadio } from './radio.mjs?v=4';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
 // 畫面濾鏡:發光物的光暈、調色、暗角、底片顆粒(預設開;網址加 ?nofx 看沒有濾鏡的樣子)
@@ -1933,7 +1933,7 @@ function setSlide(i) {
   [...uiDots.children].forEach((d, k) => d.classList.toggle('on', k === slide));
   activateSlide(slide);                                          // 只跑目前這頁的 widget 動畫
 }
-function showUI() { uiOn = true; ui.classList.add('on'); document.body.classList.add('ui-on'); navLockUntil = performance.now() + 900; if (orbit) orbit.show(screenRectPx()); else setSlide(0); }
+function showUI() { uiOn = true; ui.classList.add('on'); document.body.classList.add('ui-on'); navLockUntil = performance.now() + 900; if (orbit) orbit.show(screenRectPx()); else setSlide(0); if (!radio.playing) radio.play(); }   // 進入銀河就開始放音樂
 function hideUI() { uiOn = false; ui.classList.remove('on'); document.body.classList.remove('ui-on'); zoomGoal = 0; wheelLockUntil = performance.now() + 1000; if (orbit) orbit.hide(); else deactivate(); }
 function uiNav(dir) {
   if (orbit) { orbit.step(dir); return; }
@@ -2057,6 +2057,7 @@ function setBgm(want) {
 document.addEventListener('visibilitychange', () => { if (!bgm.ctx) return; if (document.hidden) bgm.ctx.suspend(); else if (bgm.want || radio.playing) bgm.ctx.resume(); });
 // ---------- 音響:播放清單(radio.mjs 即時合成的音樂,跟街機共用同一個 AudioContext)+ 左下角的「正在播放」小膠囊 ----------
 const radio = makeRadio(() => { bgmUnlock(); return bgm.ctx; });
+['pointerup', 'touchend', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, () => radio.prime(), { capture: true, passive: true }));
 window.__radio = radio;
 const nowPlaying = (() => {
   const st = document.createElement('style');
@@ -2084,9 +2085,9 @@ const nowPlaying = (() => {
   document.body.appendChild(el);
   const bars = [...el.querySelectorAll('.eq i')], pp = el.querySelector('.pp');
   el.querySelector('.pv').onclick = () => radio.skip(-1); el.querySelector('.nx').onclick = () => radio.skip(1); pp.onclick = () => radio.toggle();
-  let used = true;                                                                  // 一開始就顯示(可以直接從這裡播放)
+  let used = false;                                                                 // 第一次播放(按音響或進入銀河)之後才顯示
   const sync = () => {
-    used = used || radio.playing;
+    used = used || radio.playing || radio.wanted;
     el.querySelector('.tt b').textContent = radio.track.title; el.querySelector('.tt span').textContent = `${radio.track.artist} · ${radio.index + 1}/${radio.count}`;
     pp.innerHTML = radio.playing ? I.pause : I.play; pp.setAttribute('aria-label', radio.playing ? 'Pause' : 'Play');
     el.querySelectorAll('.pv, .nx').forEach((b) => { b.hidden = radio.count < 2; });   // 清單只有一首時先藏起來

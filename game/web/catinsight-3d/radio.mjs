@@ -75,7 +75,7 @@ export const PLAYLIST = [
 void midnightWindow;
 
 export function makeRadio(getCtx) {
-  let ctx = null, master = null, analyser = null, ix = 0, playing = false, data = null, el = null, pauseTimer = 0;
+  let ctx = null, master = null, analyser = null, ix = 0, playing = false, data = null, el = null, pauseTimer = 0, primed = false;
   const listeners = new Set(), emit = () => listeners.forEach((f) => f());
   const ensure = () => {
     ctx = getCtx(); if (!ctx) return false;
@@ -87,13 +87,16 @@ export function makeRadio(getCtx) {
   };
   const fade = (to, sec) => { const t = ctx.currentTime, g = master.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(to, t + sec); };
   const load = () => { const url = PLAYLIST[ix].url; if (el.src !== url) { el.src = url; el.currentTime = 0; } };
-  const start = () => { clearTimeout(pauseTimer); load(); const pr = el.play(); if (pr && pr.catch) pr.catch(() => {}); };
+  // 瀏覽器擋自動播放時(例如不是在點擊裡呼叫):回到暫停狀態,播放列上按一下播放就好
+  const start = () => { clearTimeout(pauseTimer); load(); const pr = el.play(); if (pr && pr.catch) pr.catch(() => { if (playing) { playing = false; fade(0, 0.1); emit(); } }); };
   const api = {
-    autoPaused: false,
+    autoPaused: false, wanted: false,                                                // wanted:有人要求播放過(播放列從這時候開始顯示)
     get playing() { return playing; }, get track() { return PLAYLIST[ix]; }, get index() { return ix; }, get count() { return PLAYLIST.length; },
-    play() { if (!ensure()) return; if (!playing) { playing = true; start(); fade(0.9, 1.2); } api.autoPaused = false; emit(); },
+    play() { api.wanted = true; if (!ensure()) return; if (!playing) { playing = true; start(); fade(0.9, 1.2); } api.autoPaused = false; emit(); },
     pause(auto = false) { if (!playing || !ctx) return; playing = false; api.autoPaused = auto; fade(0, 0.6); clearTimeout(pauseTimer); pauseTimer = setTimeout(() => { if (!playing) el.pause(); }, 650); emit(); },
     toggle() { playing ? api.pause() : api.play(); },
+    // 在第一次點擊裡先把 <audio> 靜音地播一下再停(Safari / iPhone 要在點擊裡播過,之後才能自動播放,例如進入銀河時)
+    prime() { if (primed || playing || !ensure()) return; primed = true; load(); const pr = el.play(); if (pr && pr.then) pr.then(() => { if (!playing) el.pause(); }).catch(() => { primed = false; }); },
     // 上一首 / 下一首:播放中就淡出 → 換歌 → 淡入;暫停中只換歌(按播放才開始)
     skip(d) { ix = (ix + d + PLAYLIST.length) % PLAYLIST.length;
       if (playing && ctx) { fade(0, 0.35); setTimeout(() => { if (!playing) return; el.src = PLAYLIST[ix].url; start(); fade(0.9, 0.8); }, 380); }
