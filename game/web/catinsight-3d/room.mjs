@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=37';
+import { createOrbit } from './orbit.mjs?v=38';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -1935,7 +1935,8 @@ let slide = 0, uiOn = false, navLockUntil = 0, wheelLockUntil = 0;
 const ORBIT = !STORY && !new URLSearchParams(location.search).has('slides');
 // 銀河旅程(第二份銀河、太陽系、地球、行星貼圖…)開網頁時先不建,等鏡頭開始往電腦螢幕飛(點螢幕 / 中間鍵 / 滾輪)才建立,網頁打開比較快
 let orbit = null;
-function ensureOrbit() { if (ORBIT && !orbit) { orbit = createOrbit({ host: ui, slides: SLIDES, mountWidget, onExit: () => hideUI() }); window.__orbit = orbit; } return orbit; }
+// 下載那塊併進第一塊(WELCOME);Privacy / Support / Get the App 按鈕搬到地球那頁
+function ensureOrbit() { if (ORBIT && !orbit) { orbit = createOrbit({ host: ui, slides: SLIDES.filter((s) => s.key !== 'app'), cta: document.querySelector('.cta'), mountWidget, onExit: () => hideUI() }); window.__orbit = orbit; } return orbit; }
 if (ORBIT) ui.classList.add('orbit-mode');
 function setSlide(i) {
   slide = Math.max(0, Math.min(SLIDE_COUNT - 1, i));

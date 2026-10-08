@@ -154,6 +154,16 @@
   #screen-ui .odots i { width: 8px; height: 8px; border-radius: 99px; background: rgba(255,255,255,.3); cursor: pointer; transition: width .3s, background .3s; }
   #screen-ui .odots i.on { width: 26px; background: var(--c); box-shadow: 0 0 12px var(--c); }
   #screen-ui .ocredit { position: absolute; right: 14px; text-align: right; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 10px; opacity: .38; letter-spacing: .3px; pointer-events: auto; }
+  /* Privacy / Support / Get the App:房間裡不顯示,搬到地球(面板那頁)右下;版權小字改到左下 */
+  body > .cta { display: none; }
+  #screen-ui .cta { position: absolute; right: 24px; left: auto; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); display: flex; opacity: 0; visibility: hidden; transition: none; text-shadow: none; }
+  #screen-ui .cta .ghost { background: rgba(255,255,255,.12); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  #screen-ui .ocredit { right: auto; left: 14px; text-align: left; }
+  #screen-ui .op-hero .free { opacity: .55; margin-top: 12px; }
+  @media (max-width: 640px) {
+    #screen-ui .cta { right: auto; left: 50%; transform: translateX(-50%); bottom: auto; top: calc(40px + env(safe-area-inset-top, 0px)); gap: 8px; }
+    #screen-ui .cta a { padding: 7px 12px; font-size: 12px; border-radius: 10px; white-space: nowrap; }
+  }
   /* 上方的標題、三個站名、提示文字都不顯示(面板才能往上、手機看得完整);只留面板的小點 */
   #screen-ui .orbit-ui .ot, #screen-ui .ostages, #screen-ui .ohint { display: none; }
   #screen-ui .ohint { font-size: 12px; letter-spacing: 1px; opacity: .5; white-space: nowrap; }
@@ -314,6 +324,6 @@
   <div class="yarn-floor"></div>
   <div class="lpct">0%</div>
 </div></div>
-<script type="module" src="./room.mjs?v=516"></script>
+<script type="module" src="./room.mjs?v=517"></script>
 </body>
 </html>

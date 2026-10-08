@@ -10,7 +10,7 @@ const APP_STORE = 'https://apps.apple.com/app/id6763914049';
 // 地球貼圖(NASA 藍色彈珠影像,three.js 範例附的版本);載不到時用程式畫的替代貼圖
 const TEX = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r174/examples/textures/planets/';
 
-export function createOrbit({ host, slides, mountWidget, onExit }) {
+export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
   const N = slides.length, STEP = Math.PI * 2 / N, R = 1080, PW = 540, PH = 720, RY = -170;   // 面板圈的半徑、面板大小、面板圈的高度
   const ER = 300;                                                                            // 地球場景裡的地球半徑
   // 旅程的進度 p(0 = 看著整個銀河、1 = 到地球、面板出現):各段的範圍
@@ -26,6 +26,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     <div class="ohint"></div></div>
     <div class="ocredit">Planet textures © Solar System Scope (CC BY 4.0) · Earth & Moon: NASA</div>`;
   root.appendChild(chrome);
+  if (cta) chrome.appendChild(cta);                                                          // 房間右下的 Privacy / Support / Get the App 搬進來,到地球(面板那頁)才出現
   const dots = [...chrome.querySelectorAll('.odots i')], stageEls = [...chrome.querySelectorAll('.ostages span')], hintEl = chrome.querySelector('.ohint'), dotsEl = chrome.querySelector('.odots');
   dots.forEach((d) => d.addEventListener('click', (e) => { e.stopPropagation(); if (atEarth()) goTo(+d.dataset.i); }));
   stageEls.forEach((s, k) => { s.style.pointerEvents = 'auto'; s.style.cursor = 'pointer'; s.addEventListener('click', (e) => { e.stopPropagation(); pT = [0, OVERVIEW, 1][k]; }); });
@@ -300,7 +301,8 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   const panels = slides.map((sl, i) => {
     const el = document.createElement('div'); el.className = `opanel op-${sl.key}`; el.style.setProperty('--c', sl.color); el.style.width = PW + 'px'; el.style.height = PH + 'px';
     const head = sl.key === 'hero'
-      ? `<div class="oph"><img class="opicon" src="/assets/icon-180.png" alt=""><div class="eyebrow">WELCOME</div><h3>${sl.title}</h3><p>${sl.text}</p><div class="zh">${sl.zh}</div></div>`
+      ? `<div class="oph"><img class="opicon" src="/assets/icon-180.png" alt=""><div class="eyebrow">WELCOME</div><h3>${sl.title}</h3><p>${sl.text}</p><div class="zh">${sl.zh}</div>` +
+        `<a class="store" href="${APP_STORE}"> Download on the App Store</a><div class="zh free">Free · Android coming soon · 免費下載,Android 即將推出</div></div>`
       : `<div class="oph"><div class="eyebrow">${String(i).padStart(2, '0')} · ${sl.eyebrow}</div><h3>${sl.title}</h3><p>${sl.text}</p><div class="zh">${sl.zh}</div>` +
         (sl.cta ? `<a class="store" href="${APP_STORE}"> Download on the App Store</a>` : '') + `</div>`;
     el.innerHTML = `${head}<div class="opw"><div class="wgin"></div></div><div class="opshine"></div>`;
@@ -491,6 +493,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     const stage = p < (S_START + G_END) / 2 ? 0 : p < (E_START + S_END) / 2 ? 1 : 2;
     stageEls.forEach((s, k) => s.classList.toggle('on', k === stage));
     dotsEl.style.opacity = rv.toFixed(2); dotsEl.style.pointerEvents = rv > 0.95 ? 'auto' : 'none';
+    if (cta) { cta.style.opacity = rv.toFixed(2); cta.style.pointerEvents = rv > 0.95 ? 'auto' : 'none'; cta.style.visibility = rv > 0.01 ? 'visible' : 'hidden'; }
     const hint = atEarth() ? 'Scroll or drag to explore · 滾動或拖曳瀏覽' : 'Scroll down to travel · 往下捲動前進';
     if (hintEl.textContent !== hint) hintEl.textContent = hint;
   }
