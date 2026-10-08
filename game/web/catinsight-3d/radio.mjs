@@ -65,7 +65,6 @@ function midnightWindow(ctx, out) {
 const M = (f) => new URL('./music/' + f, import.meta.url).href;
 export const PLAYLIST = [
   { title: 'Relax Beat', artist: 'Arulo', mood: 'Ambient beat', url: M('relax-beat.m4a') },
-  { title: 'Tides Turning', artist: 'Arulo', mood: 'Electropop', url: M('tides-turning.m4a') },
   { title: 'Vastness', artist: 'Andrew Ev', mood: 'Ambient · Space', url: M('vastness.m4a') },
   { title: 'Opalescent', artist: 'Eugenio Mininni', mood: 'Ambient', url: M('opalescent.m4a') },
   { title: 'Finding Myself', artist: 'Michael Ramir C.', mood: 'Ambient · Warm', url: M('finding-myself.m4a') },

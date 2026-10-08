@@ -11,7 +11,7 @@ import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
 import { createOrbit } from './orbit.mjs?v=27';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
-import { makeRadio } from './radio.mjs?v=4';
+import { makeRadio } from './radio.mjs?v=5';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
 // 畫面濾鏡:發光物的光暈、調色、暗角、底片顆粒(預設開;網址加 ?nofx 看沒有濾鏡的樣子)
