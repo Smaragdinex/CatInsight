@@ -90,7 +90,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 5; scene.add(pts); return { pts, m, spd: 0 }; };
   const warp = makeWarp(gScene, 5200);                                                       // 銀河段的星塵(多一點)
   let gStreak = null, sWarp = null;                                                          // 銀河段的光速線、太陽系段的星塵(第一次用到時建立)
-  let pPrev = 0;
+  let pPrev = 0, readyAt = 0, mv = 0;                                                       // readyAt:畫面放大完成的時間(之後顆粒才慢慢出現);mv:目前「有沒有在動」(0~1)
   // 超空間光速線(像星際大戰跳躍):跟著相機的細長光線,從畫面中心往外拉長飛過;進入太陽系那一刻最強,在太陽系裡捲動時也會出現
   const makeStreaks = (scene) => { const N2 = 1100, pos = new Float32Array(N2 * 6), end = new Float32Array(N2 * 2), col = new Float32Array(N2 * 6);
     for (let i = 0; i < N2; i++) { const a = Math.random() * 6.283, r = 0.04 + Math.pow(Math.random(), 0.6) * 0.95, z = -Math.random(), b = 0.5 + Math.random() * 0.5, w = Math.random() < 0.7;
@@ -323,6 +323,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   function rotate(dir) { target = (Math.round(target / STEP) - dir) * STEP; lastRot = performance.now(); }
   // ‹ › 按鈕 / 方向鍵:旅程中跳到下一站(銀河 → 太陽系全景 → 地球);在地球上轉面板,第一塊再往回 = 回太陽系;在銀河再往回 = 回房間
   function step(dir) {
+    if (intro) return;
     if (atEarth()) { if (dir < 0 && cur() === 0) { pT = OVERVIEW; return; } rotate(dir); return; }
     const stops = [0, OVERVIEW, 1];
     if (dir > 0) pT = stops.find((s) => s > pT + 0.01) ?? 1;
@@ -340,7 +341,8 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   // 滾輪:旅程中 = 往前 / 往後飛;到了地球 = 轉面板(停下來 160ms 後對齊最近一塊)
   let snapTimer = 0;
   root.addEventListener('wheel', (e) => {
-    e.preventDefault(); e.stopPropagation(); const d = Math.max(-90, Math.min(90, Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX));
+    e.preventDefault(); e.stopPropagation(); if (intro) return;                       // 畫面還在從螢幕放大時,滾輪先不算
+    const d = Math.max(-90, Math.min(90, Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX));
     if (atEarth()) {
       if (d < 0 && cur() === 0 && settled() && performance.now() - lastRot > 600) { pT = 0.995 + d / 2200; return; }   // 在第一塊再往上 → 離開地球
       target -= d * 0.0032; lastRot = performance.now(); clearTimeout(snapTimer); snapTimer = setTimeout(() => { target = Math.round(target / STEP) * STEP; }, 160); return;
@@ -350,7 +352,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   }, { passive: false });
   // 拖曳:旅程中上下拖 = 往前 / 往後飛;在地球上左右拖 = 轉面板
   let drag = null;
-  root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs, .ostages')) return; drag = { x: e.clientX, y: e.clientY, t: target, pT, moved: false, earth: atEarth() }; });
+  root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs, .ostages')) return; if (intro) return; drag = { x: e.clientX, y: e.clientY, t: target, pT, moved: false, earth: atEarth() }; });
   window.addEventListener('pointermove', (e) => {
     mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1;
     if (!drag || !open) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
@@ -377,6 +379,8 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   function frame(now) {
     if (!open) return; raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now; pPrev = p;
+    // ready:放大完成後 1.5 秒內顆粒慢慢出現;mv:只有真的在飛的時候才是 1(光速線只在這時候出現,停下來 0.3 秒內收掉)
+    const ready = intro ? 0 : ss(0, 1500, now - readyAt);
     // 旅程速度有上限:滑鼠滑很快也照正常速度飛(整趟至少約 8 秒),慢慢滑就跟著滑、尾端緩下來
     { const MAXV = 0.12, d = (pT - p) * Math.min(1, dt * 2.2); p += Math.max(-MAXV * dt, Math.min(MAXV * dt, d)); if (Math.abs(pT - p) < 1e-4) p = pT; }
     // 進場:一開始畫面只露出房間電腦螢幕那一塊(位置、大小一模一樣),鏡頭的視野也對齊那一塊;約 1.1 秒內擴大到整個畫面 → 像是穿進螢幕
@@ -385,9 +389,10 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       const k = ease((now - intro.t0) / 1100), r = intro.rect, rx = r.x * (1 - k), ry = r.y * (1 - k), rw = r.w + (W - r.w) * k, rh = r.h + (H - r.h) * k;
       camAspect = rw / rh; camera.aspect = camAspect; camera.setViewOffset(rw, rh, -rx, -ry, W, H);
       root.style.clipPath = `inset(${ry.toFixed(1)}px ${(W - rx - rw).toFixed(1)}px ${(H - ry - rh).toFixed(1)}px ${rx.toFixed(1)}px round ${(8 * (1 - k)).toFixed(1)}px)`;
-      if (k >= 1) { intro = null; camera.clearViewOffset(); camera.aspect = W / H; root.style.clipPath = ''; covering = true; }
+      if (k >= 1) { intro = null; camera.clearViewOffset(); camera.aspect = W / H; root.style.clipPath = ''; covering = true; readyAt = now; }
     }
     const aspect = W / H, portrait = aspect < 0.8, fit = Math.max(1, 1.3 / camAspect);
+    { const vNow = Math.abs(p - pPrev) / Math.max(dt, 1e-3), target2 = ss(0.004, 0.03, vNow); mv += (target2 - mv) * Math.min(1, dt * (target2 > mv ? 8 : 5)); }
     allPoints.forEach((pp) => { pp.material.uniforms.uTime.value = t; });
     const gF = 1 - ss(S_START, G_END, p), sF = ss(S_START, G_END, p) * (1 - ss(E_START, S_END, p)), eF = ss(E_START, S_END, p), rv = ss(REVEAL, 1.0, p);
     renderer.clear();
@@ -407,10 +412,10 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       const v = Math.abs(p - pPrev) / Math.max(dt, 1e-3); warp.spd += (v - warp.spd) * Math.min(1, dt * 4);
       warp.pts.position.copy(camera.position); warp.pts.quaternion.copy(camera.quaternion); warp.pts.scale.setScalar(Math.max(3, dist * 0.9));
       warp.m.uniforms.uOff.value += dt * (0.06 + warp.spd * 9); warp.m.uniforms.uViewH.value = renderer.domElement.height;
-      warp.m.uniforms.uAmt.value = Math.min(1, 0.2 + warp.spd * 16) * ss(0.02, 0.12, gp) * (1 - ss(0.88, 1, gp)) * gF;
+      warp.m.uniforms.uAmt.value = Math.min(1, 0.2 + warp.spd * 16) * (1 - ss(0.88, 1, gp)) * gF * ready;   // 停著的時候還是有一點顆粒在飄
       // 銀河段也有光速線:捲動時才出現,捲越快越長越亮
       if (!gStreak) gStreak = makeStreaks(gScene);
-      const gAmt = Math.min(1, warp.spd * 12) * ss(0.02, 0.12, gp) * (1 - ss(0.9, 1, gp)) * gF;
+      const gAmt = Math.min(1, warp.spd * 12) * mv * (1 - ss(0.9, 1, gp)) * gF * ready;
       gStreak.obj.visible = gAmt > 0.01; gStreak.obj.position.copy(camera.position); gStreak.obj.quaternion.copy(camera.quaternion); gStreak.obj.scale.setScalar(Math.max(3, dist * 0.9));
       gStreak.m.uniforms.uOff.value += dt * (0.08 + warp.spd * 11); gStreak.m.uniforms.uLen.value = Math.min(0.5, 0.02 + warp.spd * 3.2); gStreak.m.uniforms.uAmt.value = gAmt;
       gal.coreGlow.material.opacity *= 1 - ss(0.15, 0.6, gp); gal.diskGlow.material.opacity *= 1 - ss(0.15, 0.6, gp);   // 靠近之後核心 / 盤面的柔光是一大片平面,淡掉(核心的星星還在)
@@ -440,13 +445,13 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       // 光速線:跳進太陽系那一刻(p ≈ 0.41)最強;之後在太陽系裡捲得快也會出現
       if (!sStreak) sStreak = makeStreaks(sScene);
       const jump = Math.exp(-Math.pow((p - 0.41) / 0.045, 2)), sv = Math.abs(p - pPrev) / Math.max(dt, 1e-3); sStreak.spd += (sv - sStreak.spd) * Math.min(1, dt * 4);
-      const sAmt = Math.min(1, jump * 1.2 + sStreak.spd * 9) * sF;
+      const sAmt = Math.min(1, jump * 1.2 + sStreak.spd * 9) * mv * sF * ready;           // 停在中間時不出現光速線
       sStreak.obj.visible = sAmt > 0.01; sStreak.obj.position.copy(camera.position); sStreak.obj.quaternion.copy(camera.quaternion); sStreak.obj.scale.setScalar(Math.max(4, pos.distanceTo(tgt) * 0.9));
       sStreak.m.uniforms.uOff.value += dt * (0.08 + jump * 2.4 + sStreak.spd * 10); sStreak.m.uniforms.uLen.value = Math.min(0.55, 0.02 + jump * 0.45 + sStreak.spd * 3); sStreak.m.uniforms.uAmt.value = sAmt;
       if (!sWarp) sWarp = makeWarp(sScene, 3200);                                                // 太陽系段也有星塵
       sWarp.pts.position.copy(camera.position); sWarp.pts.quaternion.copy(camera.quaternion); sWarp.pts.scale.setScalar(Math.max(4, pos.distanceTo(tgt) * 0.9));
       sWarp.m.uniforms.uOff.value += dt * (0.05 + jump * 1.6 + sStreak.spd * 8); sWarp.m.uniforms.uViewH.value = renderer.domElement.height;
-      sWarp.m.uniforms.uAmt.value = Math.min(1, 0.12 + jump * 1.2 + sStreak.spd * 14) * sF;
+      sWarp.m.uniforms.uAmt.value = Math.min(1, 0.12 + (jump * 1.2 + sStreak.spd * 14) * mv) * sF * ready;
       const lineFade = 1 - ss(0.5, 0.9, b);                                            // 靠近地球時軌道線淡掉,不會橫過地球
       sMats.forEach((m) => { m.opacity = (m.userData.op ?? 1) * sF * (m.userData.line ? lineFade : 1); });
       sunMat.uniforms.uTime.value = t; sunMat.uniforms.uFade.value = sF; sunGlow1.material.opacity = 0.85 * sF; sunGlow2.material.opacity = 0.35 * sF * (1 - ss(0.05, 0.5, b)); sunGlow3.material.opacity = 0.12 * sF * (1 - ss(0.05, 0.5, b));   // 飛向地球時太陽的大光暈淡掉,畫面才不會一片棕 sBand.material.uniforms.uFade.value = sF; sStars.material.uniforms.uFade.value = sF; belt.material.uniforms.uFade.value = sF;
@@ -484,7 +489,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   }
   return {
     get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
-    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
+    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyAt = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
       intro = rect && rect.w > 20 ? { rect, t0: performance.now() } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       raf = requestAnimationFrame(frame); },
     hide() { open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
