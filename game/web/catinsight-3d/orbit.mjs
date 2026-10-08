@@ -23,7 +23,8 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   chrome.innerHTML = `<div class="ot"><b>CatInsight</b> <span>Stock</span><i>· features</i></div>
     <div class="ob"><div class="ostages"><span>Milky Way · 銀河系</span><i></i><span>Solar System · 太陽系</span><i></i><span>Earth · 地球</span></div>
     <div class="odots">${slides.map((s, i) => `<i data-i="${i}" style="--c:${s.color}"></i>`).join('')}</div>
-    <div class="ohint"></div></div>`;
+    <div class="ohint"></div></div>
+    <div class="ocredit">Planet textures © Solar System Scope (CC BY 4.0) · Earth & Moon: NASA</div>`;
   root.appendChild(chrome);
   const dots = [...chrome.querySelectorAll('.odots i')], stageEls = [...chrome.querySelectorAll('.ostages span')], hintEl = chrome.querySelector('.ohint'), dotsEl = chrome.querySelector('.odots');
   dots.forEach((d) => d.addEventListener('click', (e) => { e.stopPropagation(); if (atEarth()) goTo(+d.dataset.i); }));
@@ -139,17 +140,19 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     float vn3(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
       return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y), mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
     float fbm3(vec3 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn3(p); p *= 2.03; a *= 0.5; } return s; }`;
-  const sunMat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uFade: { value: 1 } }, transparent: true,
-    vertexShader: `varying vec3 vP, vN, vW; void main() { vP = position; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `uniform float uTime, uFade; varying vec3 vP, vN, vW; ${NOISE_GLSL}
+  const sunMat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uFade: { value: 1 }, uTex: { value: null }, uHas: { value: 0 } }, transparent: true,
+    vertexShader: `varying vec3 vP, vN, vW; varying vec2 vUv; void main() { vUv = uv; vP = position; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float uTime, uFade, uHas; uniform sampler2D uTex; varying vec3 vP, vN, vW; varying vec2 vUv; ${NOISE_GLSL}
       void main() { vec3 q = normalize(vP); float g = fbm3(q * 6.0 + vec3(0.0, uTime * 0.05, uTime * 0.02)); float gr = vn3(q * 42.0 + uTime * 0.3);
         float spots = smoothstep(0.63, 0.7, fbm3(q * 3.0 + 7.0)); float mu = max(dot(normalize(vN), normalize(cameraPosition - vW)), 0.0), limb = pow(mu, 0.45);
         vec3 col = mix(vec3(1.0, 0.36, 0.05), vec3(1.0, 0.9, 0.62), limb) * (0.68 + 0.5 * g + 0.2 * gr) * (1.0 - spots * 0.6);
+        if (uHas > 0.5) { vec3 tx = texture2D(uTex, vUv + vec2(uTime * 0.003, 0.0)).rgb; col = tx * mix(vec3(1.0, 0.55, 0.25), vec3(1.25, 1.1, 0.95), limb) * (0.8 + 0.4 * g) * 1.6; }   // 真實太陽貼圖 + 翻動的雜訊 + 臨邊昏暗
         gl_FragColor = vec4(col * 1.3, uFade);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }` });
   const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(22, 64, 48), sunMat); sScene.add(sunMesh);
+  new THREE.TextureLoader().load(new URL('./planets/2k_sun.jpg', import.meta.url).href, (t) => { t.colorSpace = THREE.SRGBColorSpace; sunMat.uniforms.uTex.value = t; sunMat.uniforms.uHas.value = 1; }, undefined, () => {});
   const sunGlow1 = sprite(0xfff0d0, 90, 0.85), sunGlow2 = sprite(0xffb060, 230, 0.35), sunGlow3 = sprite(0xff8a3a, 650, 0.12); sScene.add(sunGlow1, sunGlow2, sunGlow3);
   sScene.add(new THREE.PointLight(0xfff4e6, 3.4, 0, 0)); sScene.add(new THREE.AmbientLight(0x223355, 0.06));   // 環境光很弱 → 行星背光那面是暗的
   // 行星表面:用 3D 雜訊在球面上畫(沒有接縫),依行星特徵上色;第一次用到前在閒置時間畫好
@@ -182,19 +185,21 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     neptune: (x, y, z, lat, lon) => { let c = hex(0x3f62c8).map((v) => v * (0.9 + 0.12 * Math.sin(lat * 9 + pnoise(x * 3, y * 3, z * 3) * 2))); const dx = (((lon - 2.2 + Math.PI) % (Math.PI * 2)) - Math.PI) * Math.cos(lat) / 0.16, dy = (lat + 0.35) / 0.07; return dx * dx + dy * dy < 1 ? c.map((v) => v * 0.55) : c; },
   };
   const PLANETS = [
-    { name: 'mercury', r: 2.4, d: 55, sp: 1.6, col: 0x8d8a86 },
-    { name: 'venus', r: 4.6, d: 85, sp: 1.2, col: 0xe2c690 },
+    { name: 'mercury', file: '2k_mercury.jpg', r: 2.4, d: 55, sp: 1.6, col: 0x8d8a86 },
+    { name: 'venus', file: '2k_venus_atmosphere.jpg', r: 4.6, d: 85, sp: 1.2, col: 0xe2c690 },
     { name: 'earth', r: 5, d: 125, earth: true },
-    { name: 'mars', r: 3.3, d: 165, sp: 0.8, col: 0xb85e36 },
-    { name: 'jupiter', r: 15, d: 255, sp: 0.4, col: 0xd2b08a, big: true },
-    { name: 'saturn', r: 12, d: 345, sp: 0.3, col: 0xdcc394, big: true, ring: true },
-    { name: 'uranus', r: 7.5, d: 430, sp: 0.22, col: 0x9fd8e0 },
-    { name: 'neptune', r: 7.2, d: 505, sp: 0.18, col: 0x4466cc },
+    { name: 'mars', file: '2k_mars.jpg', r: 3.3, d: 165, sp: 0.8, col: 0xb85e36 },
+    { name: 'jupiter', file: '2k_jupiter.jpg', r: 15, d: 255, sp: 0.4, col: 0xd2b08a, big: true },
+    { name: 'saturn', file: '2k_saturn.jpg', r: 12, d: 345, sp: 0.3, col: 0xdcc394, big: true, ring: true },
+    { name: 'uranus', file: '2k_uranus.jpg', r: 7.5, d: 430, sp: 0.22, col: 0x9fd8e0 },
+    { name: 'neptune', file: '2k_neptune.jpg', r: 7.2, d: 505, sp: 0.18, col: 0x4466cc },
   ];
   // 地球固定在這個位置:從地球看太陽的方向 = 相機最後靠近地球的方向往右轉約 50°(白天在右、夜晚在左,看得到城市燈光)
   const D_FINAL = new THREE.Vector3(0, 0.16, 1).normalize();
   const SUN_DIR = new THREE.Vector3(Math.sin(0.9), 0, Math.cos(0.9));                        // 從地球看太陽(世界方向)
   const EARTH_POS = SUN_DIR.clone().multiplyScalar(-125);
+  const PLANET_DIR = new URL('./planets/', import.meta.url).href, ploader = new THREE.TextureLoader();
+  const loadReal = (file, cb) => ploader.load(PLANET_DIR + file, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; cb(t); }, undefined, () => {});
   const sMats = [sunMat];
   const planetObjs = PLANETS.map((pl) => {
     const g = new THREE.Group(); sScene.add(g); pl.a0 = Math.random() * 6.283;
@@ -208,7 +213,8 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
         const rgeo = new THREE.RingGeometry(pl.r * RI, pl.r * RO, 160, 1), uv = rgeo.attributes.uv, pos = rgeo.attributes.position;
         for (let k = 0; k < pos.count; k++) { const rr = Math.hypot(pos.getX(k), pos.getY(k)); uv.setXY(k, (rr / pl.r - RI) / (RO - RI), 0.5); }
         const ring = new THREE.Mesh(rgeo, new THREE.MeshStandardMaterial({ map: rt, transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: 1, emissive: 0x6a5a40, emissiveIntensity: 0.25 }));
-        ring.rotation.x = -Math.PI / 2 + 0.47; g.add(ring); sMats.push(ring.material); }
+        ring.rotation.x = -Math.PI / 2 + 0.47; g.add(ring); sMats.push(ring.material);
+        loadReal('2k_saturn_ring_alpha.png', (t) => { ring.material.map = t; ring.material.needsUpdate = true; }); }
     }
     // 軌道線(很細很淡)
     const pts = []; for (let k = 0; k <= 200; k++) { const a = k / 200 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * pl.d, 0, Math.sin(a) * pl.d)); }
@@ -216,9 +222,11 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     line.material.userData.op = line.material.opacity; line.material.userData.line = true; sScene.add(line); sMats.push(line.material);
     return { pl, g };
   });
+  // 行星貼圖:Solar System Scope(CC BY 4.0,放在 ./planets/);載不到的行星用下面程式畫的表面
+  PLANETS.forEach((pl) => { if (pl.file) loadReal(pl.file, (t) => { pl.real = true; pl.mesh.material.map = t; pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }); });
   let planetTexDone = false;
   const buildPlanetTex = () => { if (planetTexDone) return; planetTexDone = true;
-    PLANETS.forEach((pl) => { if (pl.earth) return; pl.mesh.material.map = planetTex(pl.big ? 512 : 256, pl.big ? 256 : 128, SHADES[pl.name]); pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }); };
+    PLANETS.forEach((pl) => { if (pl.earth || pl.real) return; pl.mesh.material.map = planetTex(pl.big ? 512 : 256, pl.big ? 256 : 128, SHADES[pl.name]); pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }); };
   (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(buildPlanetTex, { timeout: 4000 });
   const belt = makePoints(4000, (i, v, c) => { const r = 195 + Math.random() * 35, a = Math.random() * 6.283; v.set(Math.cos(a) * r, gauss() * 3, Math.sin(a) * r); c.setRGB(0.55, 0.5, 0.45).multiplyScalar(0.6 + Math.random() * 0.5); return 0.4 + Math.random() * 0.6; }, 0.22);
   sScene.add(belt);
