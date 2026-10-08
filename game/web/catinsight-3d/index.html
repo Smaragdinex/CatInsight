@@ -35,8 +35,16 @@
   .brand span { opacity: .65; font-weight: 500; }
   #loading {
     position: fixed; inset: 0; display: grid; place-items: center; z-index: 9; background: #2a1f4e;
-    transition: opacity .6s; font-size: 14px; letter-spacing: .3px; opacity: .97;   /* 幾乎不透明:載入時在後面測畫質、切換也看不到 */
+    transition: opacity .6s; opacity: .97;   /* 幾乎不透明:載入時在後面測畫質、切換也看不到 */
   }
+  /* 載入畫面:一顆毛線球左右滾 + 百分比(動畫只用 transform,畫面在忙的時候也照樣順) */
+  #loading .ld { display: grid; justify-items: center; gap: 10px; }
+  #loading .yarn-roll { width: 64px; height: 64px; animation: yarnMove 2.2s ease-in-out infinite alternate; will-change: transform; }
+  #loading .yarn { width: 64px; height: 64px; display: block; animation: yarnSpin 2.2s ease-in-out infinite alternate; will-change: transform; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)); }
+  #loading .yarn-floor { width: 60px; height: 8px; margin-top: -4px; border-radius: 50%; background: rgba(0,0,0,.28); animation: yarnMove 2.2s ease-in-out infinite alternate; }
+  #loading .lpct { color: #fff; font: 600 15px/1 "Avenir Next", "SF Pro Text", system-ui, sans-serif; letter-spacing: 1px; opacity: .85; font-variant-numeric: tabular-nums; }
+  @keyframes yarnMove { from { transform: translateX(-56px); } to { transform: translateX(56px); } }
+  @keyframes yarnSpin { from { transform: rotate(-125deg); } to { transform: rotate(125deg); } }
   #loading.done { opacity: 0; pointer-events: none; }
   .cta { position: fixed; right: 28px; bottom: 34px; z-index: 5; display: flex; gap: 10px; }
   .cta a { text-decoration: none; padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: 14px; }
@@ -297,7 +305,15 @@
   </button>
   <button id="next" aria-label="forward">›</button>
 </div>
-<div id="loading">building the room…</div>
-<script type="module" src="./room.mjs?v=513"></script>
+<div id="loading" aria-label="Loading"><div class="ld">
+  <div class="yarn-roll"><svg class="yarn" viewBox="0 0 80 80" overflow="visible" aria-hidden="true">
+    <circle cx="40" cy="40" r="32" fill="#ff8fb3"/>
+    <g fill="none" stroke-linecap="round"><path d="M14 30 Q40 14 66 30" stroke="#ffd3e0" stroke-width="3"/><path d="M10 42 Q40 24 70 42" stroke="#e8577f" stroke-width="3"/><path d="M14 54 Q40 36 66 54" stroke="#ffd3e0" stroke-width="3"/>
+      <path d="M26 12 Q14 40 30 70" stroke="#e8577f" stroke-width="3"/><path d="M42 9 Q28 40 46 72" stroke="#ffd3e0" stroke-width="3"/><path d="M56 13 Q44 40 60 66" stroke="#e8577f" stroke-width="3"/></g>
+    <circle cx="40" cy="40" r="32" fill="none" stroke="#c43d68" stroke-width="2" opacity=".5"/><path d="M62 60 Q72 70 66 76" fill="none" stroke="#e8577f" stroke-width="3" stroke-linecap="round"/></svg></div>
+  <div class="yarn-floor"></div>
+  <div class="lpct">0%</div>
+</div></div>
+<script type="module" src="./room.mjs?v=514"></script>
 </body>
 </html>

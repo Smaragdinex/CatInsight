@@ -989,7 +989,12 @@ const arcadeCanvas = document.createElement('canvas'); arcadeCanvas.width = 520;
 // 共用的 GLB 載入器:Draco 解碼器只載一次並預先載入;載入狀態顯示在開頭的 loading 文字,失敗時印出原因(不然模型不見了也不知道為什麼)
 const loadingEl = document.getElementById('loading');
 const pending = new Set();
-const noteLoad = (name, state) => { if (state === 'done') pending.delete(name); else pending.add(name); if (loadingEl) loadingEl.textContent = pending.size ? `loading ${[...pending].join(' + ')}…` : 'building the room…'; };
+// 載入百分比:房間程式跑起來 15% → 模型載完到 70% → 測電腦到 100%;顯示的數字會慢慢跟上目標(畫面忙的時候會停一下,毛線球照樣在滾)
+const loadP = (() => { const el = loadingEl && loadingEl.querySelector('.lpct'); let target = 15, shown = 0, started = 0, finished = 0;
+  const f = () => { if (loadingEl.classList.contains('done')) { if (el) el.textContent = '100%'; return; } shown += Math.max(0, (target - shown) * 0.08); if (shown < target - 0.05 && shown < 99) shown = Math.min(target, shown + 0.15); if (el) el.textContent = Math.floor(Math.min(shown, 99)) + '%'; requestAnimationFrame(f); };
+  requestAnimationFrame(f);
+  return { set(v) { target = Math.max(target, Math.min(100, v)); }, model(st) { if (st === 'start') started++; else finished++; target = Math.max(target, 15 + 55 * finished / Math.max(1, started)); } }; })();
+const noteLoad = (name, state) => { if (state === 'done') pending.delete(name); else pending.add(name); loadP.model(state); };
 const glbLoader = (() => {
   const draco = new DRACOLoader(); draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.174.0/examples/jsm/libs/draco/'); draco.preload();
   const loader = new GLTFLoader(); loader.setDRACOLoader(draco); return loader;
@@ -2302,7 +2307,7 @@ const ccur = (() => {
   document.documentElement.addEventListener('mouseleave', () => { p.inside = false; });
   window.addEventListener('blur', () => { p.inside = false; });
   return { p, step(dt) {
-    const on = !gameOn;                                            // 遊戲(iframe)裡用系統游標,圓圈跟不進去
+    const on = !gameOn && loadingEl.classList.contains('done');    // 遊戲(iframe)裡用系統游標,圓圈跟不進去;載入中也用系統游標(載入時畫面忙,圓圈會跟不上、看起來卡)
     document.body.classList.toggle('ccur-on', on);
     const k = 1 - Math.exp(-dt * 22); p.rx += (p.x - p.rx) * k; p.ry += (p.y - p.ry) * k;   // 圓圈慢一點點跟上,中心點直接跟著滑鼠
     ring.style.transform = `translate3d(${p.rx}px, ${p.ry}px, 0)`; dot.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
@@ -2581,15 +2586,16 @@ const loadT0 = performance.now();
 // 載入畫面還蓋著的時候測電腦:先暖機 0.6 秒(第一次畫要編譯 shader),再量 1.2 秒的幀數;低於 40 fps 就降一級再量,直到夠順或已經最低
 // (都在載入畫面後面做,看不到畫質切換;一般電腦 2~4 秒)
 function benchmark() {
-  if (!Q.auto) { loadingEl.classList.add('done'); return; }
-  loadingEl.textContent = 'optimizing for your device…';
+  loadP.set(72);
+  if (!Q.auto) { loadP.set(100); loadingEl.classList.add('done'); return; }
   const t0 = performance.now();
   const measure = (warm, dur, cb) => { let n = 0, start = 0; const f = (now) => { if (!start) { if (now - t0 < 0 || now - measure.at < warm) { requestAnimationFrame(f); return; } start = now; }
       n++; if (now - start < dur) requestAnimationFrame(f); else cb(n * 1000 / (now - start)); }; measure.at = performance.now(); requestAnimationFrame(f); };
   const step = (warm) => measure(warm, 1200, (fps) => {
     console.info('[quality] loading benchmark: level ' + Q.level + ', ' + fps.toFixed(1) + ' fps');
+    loadP.set(86 + (2 - Q.level) * 5);
     if (fps < 40 && Q.level > 0 && (performance.now() - t0 < 10000 || fps < 15)) { Q.apply(Q.level - 1); step(400); }   // 最多降兩級、最多 10 秒(很慢的電腦量一次就要好幾秒)
-    else { Q.benched = true; loadingEl.classList.add('done'); }
+    else { Q.benched = true; loadP.set(100); setTimeout(() => loadingEl.classList.add('done'), 250); }
   });
   step(600);
 }
