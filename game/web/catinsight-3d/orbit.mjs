@@ -73,7 +73,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   const sunMark = sprite(0xffe7b0, 10, 0); sunMark.position.copy(gal.sunLocal); gal.disk.add(sunMark);
   const sunW = new THREE.Vector3(), diskN = new THREE.Vector3();
   // 飛進銀河時的星塵:一團跟著相機的顆粒,從遠處畫面中心往外散開、從身邊飛過(往下捲越快,飛得越快、越明顯)
-  const warp = (() => { const N2 = 2200, pos = new Float32Array(N2 * 3), col = new Float32Array(N2 * 3), size = new Float32Array(N2);
+  const makeWarp = (scene, N2) => { const pos = new Float32Array(N2 * 3), col = new Float32Array(N2 * 3), size = new Float32Array(N2);
     const PAL = [[1, 0.93, 0.8], [0.8, 0.86, 1], [1, 0.82, 0.62], [0.55, 0.36, 0.24], [0.95, 0.97, 1]];
     for (let i = 0; i < N2; i++) { const a = Math.random() * 6.283, r = 0.03 + Math.pow(Math.random(), 0.7) * 0.75; pos.set([Math.cos(a) * r, Math.sin(a) * r, -Math.random()], i * 3);
       const c = PAL[Math.floor(Math.random() * PAL.length)], b = 0.5 + Math.random() * 0.6; col.set([c[0] * b, c[1] * b, c[2] * b], i * 3); size[i] = 0.6 + Math.random() * 1.8; }
@@ -87,7 +87,9 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }` });
-    const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 5; gScene.add(pts); return { pts, m, spd: 0 }; })();
+    const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 5; scene.add(pts); return { pts, m, spd: 0 }; };
+  const warp = makeWarp(gScene, 5200);                                                       // 銀河段的星塵(多一點)
+  let gStreak = null, sWarp = null;                                                          // 銀河段的光速線、太陽系段的星塵(第一次用到時建立)
   let pPrev = 0;
   // 超空間光速線(像星際大戰跳躍):跟著相機的細長光線,從畫面中心往外拉長飛過;進入太陽系那一刻最強,在太陽系裡捲動時也會出現
   const makeStreaks = (scene) => { const N2 = 1100, pos = new Float32Array(N2 * 6), end = new Float32Array(N2 * 2), col = new Float32Array(N2 * 6);
@@ -404,7 +406,12 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       const v = Math.abs(p - pPrev) / Math.max(dt, 1e-3); warp.spd += (v - warp.spd) * Math.min(1, dt * 4);
       warp.pts.position.copy(camera.position); warp.pts.quaternion.copy(camera.quaternion); warp.pts.scale.setScalar(Math.max(3, dist * 0.9));
       warp.m.uniforms.uOff.value += dt * (0.06 + warp.spd * 9); warp.m.uniforms.uViewH.value = renderer.domElement.height;
-      warp.m.uniforms.uAmt.value = Math.min(1, 0.15 + warp.spd * 14) * ss(0.02, 0.12, gp) * (1 - ss(0.88, 1, gp)) * gF;
+      warp.m.uniforms.uAmt.value = Math.min(1, 0.2 + warp.spd * 16) * ss(0.02, 0.12, gp) * (1 - ss(0.88, 1, gp)) * gF;
+      // 銀河段也有光速線:捲動時才出現,捲越快越長越亮
+      if (!gStreak) gStreak = makeStreaks(gScene);
+      const gAmt = Math.min(1, warp.spd * 12) * ss(0.02, 0.12, gp) * (1 - ss(0.9, 1, gp)) * gF;
+      gStreak.obj.visible = gAmt > 0.01; gStreak.obj.position.copy(camera.position); gStreak.obj.quaternion.copy(camera.quaternion); gStreak.obj.scale.setScalar(Math.max(3, dist * 0.9));
+      gStreak.m.uniforms.uOff.value += dt * (0.08 + warp.spd * 11); gStreak.m.uniforms.uLen.value = Math.min(0.5, 0.02 + warp.spd * 3.2); gStreak.m.uniforms.uAmt.value = gAmt;
       gal.coreGlow.material.opacity *= 1 - ss(0.15, 0.6, gp); gal.diskGlow.material.opacity *= 1 - ss(0.15, 0.6, gp);   // 靠近之後核心 / 盤面的柔光是一大片平面,淡掉(核心的星星還在)
       sunMark.material.opacity = ss(0.3, 0.9, gp) * gF; sunMark.scale.setScalar(dist * 0.045);          // 太陽:畫面上一直是一顆小亮星(約 2.5°),交接時剛好接上太陽系那顆
       if (galRT.width !== renderer.domElement.width || galRT.height !== renderer.domElement.height) galRT.setSize(renderer.domElement.width, renderer.domElement.height);
@@ -435,6 +442,10 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       const sAmt = Math.min(1, jump * 1.2 + sStreak.spd * 9) * sF;
       sStreak.obj.visible = sAmt > 0.01; sStreak.obj.position.copy(camera.position); sStreak.obj.quaternion.copy(camera.quaternion); sStreak.obj.scale.setScalar(Math.max(4, pos.distanceTo(tgt) * 0.9));
       sStreak.m.uniforms.uOff.value += dt * (0.08 + jump * 2.4 + sStreak.spd * 10); sStreak.m.uniforms.uLen.value = Math.min(0.55, 0.02 + jump * 0.45 + sStreak.spd * 3); sStreak.m.uniforms.uAmt.value = sAmt;
+      if (!sWarp) sWarp = makeWarp(sScene, 3200);                                                // 太陽系段也有星塵
+      sWarp.pts.position.copy(camera.position); sWarp.pts.quaternion.copy(camera.quaternion); sWarp.pts.scale.setScalar(Math.max(4, pos.distanceTo(tgt) * 0.9));
+      sWarp.m.uniforms.uOff.value += dt * (0.05 + jump * 1.6 + sStreak.spd * 8); sWarp.m.uniforms.uViewH.value = renderer.domElement.height;
+      sWarp.m.uniforms.uAmt.value = Math.min(1, 0.12 + jump * 1.2 + sStreak.spd * 14) * sF;
       const lineFade = 1 - ss(0.5, 0.9, b);                                            // 靠近地球時軌道線淡掉,不會橫過地球
       sMats.forEach((m) => { m.opacity = (m.userData.op ?? 1) * sF * (m.userData.line ? lineFade : 1); });
       sunMat.uniforms.uTime.value = t; sunMat.uniforms.uFade.value = sF; sunGlow1.material.opacity = 0.85 * sF; sunGlow2.material.opacity = 0.35 * sF * (1 - ss(0.05, 0.5, b)); sunGlow3.material.opacity = 0.12 * sF * (1 - ss(0.05, 0.5, b));   // 飛向地球時太陽的大光暈淡掉,畫面才不會一片棕 sBand.material.uniforms.uFade.value = sF; sStars.material.uniforms.uFade.value = sF; belt.material.uniforms.uFade.value = sF;
