@@ -1868,7 +1868,11 @@ canvas.addEventListener('wheel', (e) => {
   if (story && !storyBusy()) return;                                      // 捲動版:滾輪交給 story.mjs
   e.preventDefault();
   if (performance.now() < wheelLockUntil) return;                        // 剛從螢幕退出:忽略滾輪慣性
-  zoomGoal = Math.max(0, Math.min(1, zoomGoal + e.deltaY * 0.0015));   // 和介紹頁同方向:往前滾 = 前進
+  // 房間裡往前滾一下 = 跟點 Explore 小點一樣,直接飛進電腦螢幕(不會停在半路);飛的過程中再滾都不算,
+  // 等完全進到全螢幕(orbit.mjs 會擋掉進場那一下的慣性)才開始往下旅程。在街機選單上往回滾 = 退回房間
+  if (focusArcade && zoomGoal >= 1) { if (e.deltaY < -4) zoomGoal = 0; return; }
+  if (zoomGoal > 0 || zoomT > 0) return;
+  if (e.deltaY > 4) { focusArcade = false; zoomGoal = 1; }
 }, { passive: false });
 function updateZoom(dt) {
   zoomT += (zoomGoal - zoomT) * Math.min(1, dt * 2.5);
@@ -1957,8 +1961,8 @@ ui.addEventListener('wheel', (e) => { if (story || ORBIT) return; e.preventDefau
 let touchY0 = null;
 ui.addEventListener('touchstart', (e) => { touchY0 = e.touches[0].clientY; }, { passive: true });
 ui.addEventListener('touchend', (e) => { if (story || ORBIT || touchY0 === null) return; const dy = touchY0 - e.changedTouches[0].clientY; touchY0 = null; if (Math.abs(dy) > 40) uiNav(dy > 0 ? 1 : -1); });
-// 底部控制列:‹ / › 等於滾輪往回 / 往前,中間鍵在房間 ↔ 螢幕之間切換
-// 在房間裡:點一下 = 像滾一格(前進 1/3),按住不放 = 持續慢慢靠近/退遠;在介紹頁:點一下翻一頁
+// 底部控制列:‹ / › 往回 / 往前,中間鍵在房間 ↔ 螢幕之間切換
+// 在房間裡:› 直接飛進電腦螢幕、‹ 退回房間(不停在半路);在介紹頁:點一下翻一頁
 function holdButton(id, dir) {
   const el = document.getElementById(id);
   let timer = null, t0 = 0, moved = false;
@@ -1966,17 +1970,15 @@ function holdButton(id, dir) {
     e.preventDefault(); el.setPointerCapture(e.pointerId);
     t0 = performance.now(); moved = false;
     if (uiOn || gameOn || (story && !storyBusy())) return;
-    timer = setInterval(() => {
-      if (performance.now() - t0 < 220) return;                     // 220ms 內放開算點一下
-      moved = true; zoomGoal = Math.max(0, Math.min(1, zoomGoal + dir * 0.02));   // 每 30ms 一小步 ≈ 1.5 秒走完
-    }, 30);
   });
   const release = () => {
     if (timer) { clearInterval(timer); timer = null; }
     if (gameOn) { if (dir < 0) hideGame(); return; }
     if (story && !storyBusy()) { story.goto(Math.round(story.target) + dir); return; }
     if (uiOn) { uiNav(dir); return; }
-    if (!moved) zoomGoal = Math.max(0, Math.min(1, zoomGoal + dir * 0.34));
+    if (dir > 0 && focusArcade && zoomGoal >= 1) return;                 // 正在看街機選單:› 不要把鏡頭甩去電腦
+    if (dir > 0) focusArcade = false;
+    zoomGoal = dir > 0 ? 1 : 0;                                          // 房間裡:› 直接飛進電腦螢幕(跟點 Explore 小點一樣),‹ 退回房間;不再停在半路
   };
   el.addEventListener('pointerup', release);
   el.addEventListener('pointercancel', () => { if (timer) { clearInterval(timer); timer = null; } });
