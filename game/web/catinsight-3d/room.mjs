@@ -9,9 +9,9 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=24';
+import { createOrbit } from './orbit.mjs?v=25';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
-import { makeRadio } from './radio.mjs?v=1';
+import { makeRadio } from './radio.mjs?v=2';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
 // 畫面濾鏡:發光物的光暈、調色、暗角、底片顆粒(預設開;網址加 ?nofx 看沒有濾鏡的樣子)
@@ -2084,10 +2084,10 @@ const nowPlaying = (() => {
   document.body.appendChild(el);
   const bars = [...el.querySelectorAll('.eq i')], pp = el.querySelector('.pp');
   el.querySelector('.pv').onclick = () => radio.skip(-1); el.querySelector('.nx').onclick = () => radio.skip(1); pp.onclick = () => radio.toggle();
-  let used = false;
+  let used = true;                                                                  // 一開始就顯示(可以直接從這裡播放)
   const sync = () => {
     used = used || radio.playing;
-    el.querySelector('.tt b').textContent = radio.track.title; el.querySelector('.tt span').textContent = `${radio.track.mood} · ${radio.index + 1}/${radio.count}`;
+    el.querySelector('.tt b').textContent = radio.track.title; el.querySelector('.tt span').textContent = `${radio.track.artist} · ${radio.index + 1}/${radio.count}`;
     pp.innerHTML = radio.playing ? I.pause : I.play; pp.setAttribute('aria-label', radio.playing ? 'Pause' : 'Play');
     el.querySelectorAll('.pv, .nx').forEach((b) => { b.hidden = radio.count < 2; });   // 清單只有一首時先藏起來
   };

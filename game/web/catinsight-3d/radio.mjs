@@ -1,4 +1,4 @@
-// radio.mjs — 房間音響的播放清單:音樂全部在瀏覽器裡用 Web Audio 即時合成(不下載任何有版權的音檔),每次播都不完全一樣。
+// radio.mjs — 房間音響的播放清單:Mixkit 免費授權的曲子(./music/*.m4a),用 <audio> 串流再接進 Web Audio(淡入淡出、律動條)。下面還留著一首即時合成的曲子。
 // 一首歌 = 一個 make(ctx, out) 函式,回傳 { stop(at) };播放器負責排程、淡入淡出、換歌。
 // 用法:const radio = makeRadio(() => audioContext); radio.toggle();  radio.level() 給畫面做律動
 
@@ -61,28 +61,44 @@ function midnightWindow(ctx, out) {
   return { stop(at) { clearInterval(timer); for (const n of nodes) { try { n.stop(at); } catch (e) {} } } };
 }
 
+// 播放清單:Mixkit 免費授權的曲子(轉成 96k m4a,放在 ./music/);用 <audio> 串流(不用整首解碼進記憶體),接進 Web Audio 做淡入淡出和律動條
+const M = (f) => new URL('./music/' + f, import.meta.url).href;
 export const PLAYLIST = [
-  { title: 'Midnight Window', artist: 'CatInsight FM', mood: 'Ambient · Relax', make: midnightWindow },
+  { title: 'Relax Beat', artist: 'Arulo', mood: 'Ambient beat', url: M('relax-beat.m4a') },
+  { title: 'Tides Turning', artist: 'Arulo', mood: 'Electropop', url: M('tides-turning.m4a') },
+  { title: 'Vastness', artist: 'Andrew Ev', mood: 'Ambient · Space', url: M('vastness.m4a') },
+  { title: 'Opalescent', artist: 'Eugenio Mininni', mood: 'Ambient', url: M('opalescent.m4a') },
+  { title: 'Finding Myself', artist: 'Michael Ramir C.', mood: 'Ambient · Warm', url: M('finding-myself.m4a') },
+  { title: 'Home', artist: 'Eugenio Mininni', mood: 'Ambient · Warm', url: M('home.m4a') },
 ];
+// 舊的合成曲(midnightWindow)留著,之後想放回清單可以加 { title: 'Midnight Window', ..., make: midnightWindow }
+void midnightWindow;
 
 export function makeRadio(getCtx) {
-  let ctx = null, master = null, analyser = null, cur = null, ix = 0, playing = false, data = null;
+  let ctx = null, master = null, analyser = null, ix = 0, playing = false, data = null, el = null, pauseTimer = 0;
   const listeners = new Set(), emit = () => listeners.forEach((f) => f());
   const ensure = () => {
     ctx = getCtx(); if (!ctx) return false;
     if (!master) { master = ctx.createGain(); master.gain.value = 0; const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
-      analyser = ctx.createAnalyser(); analyser.fftSize = 256; data = new Uint8Array(analyser.frequencyBinCount); master.connect(comp); comp.connect(analyser); analyser.connect(ctx.destination); }
+      analyser = ctx.createAnalyser(); analyser.fftSize = 256; data = new Uint8Array(analyser.frequencyBinCount); master.connect(comp); comp.connect(analyser); analyser.connect(ctx.destination);
+      el = new Audio(); el.preload = 'auto'; el.crossOrigin = 'anonymous'; ctx.createMediaElementSource(el).connect(master);
+      el.addEventListener('ended', () => { if (playing) api.skip(1); }); }
     if (ctx.state !== 'running') ctx.resume(); return true;
   };
   const fade = (to, sec) => { const t = ctx.currentTime, g = master.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(to, t + sec); };
-  const startTrack = () => { if (cur) cur.stop(ctx.currentTime + 1.3); cur = PLAYLIST[ix].make(ctx, master); };
+  const load = () => { const url = PLAYLIST[ix].url; if (el.src !== url) { el.src = url; el.currentTime = 0; } };
+  const start = () => { clearTimeout(pauseTimer); load(); const pr = el.play(); if (pr && pr.catch) pr.catch(() => {}); };
   const api = {
     autoPaused: false,
     get playing() { return playing; }, get track() { return PLAYLIST[ix]; }, get index() { return ix; }, get count() { return PLAYLIST.length; },
-    play() { if (!ensure()) return; if (!playing) { startTrack(); playing = true; fade(0.85, 2.5); } api.autoPaused = false; emit(); },
-    pause(auto = false) { if (!playing || !ctx) return; playing = false; api.autoPaused = auto; fade(0, 1.2); const c = cur; cur = null; if (c) c.stop(ctx.currentTime + 1.3); emit(); },
+    play() { if (!ensure()) return; if (!playing) { playing = true; start(); fade(0.9, 1.2); } api.autoPaused = false; emit(); },
+    pause(auto = false) { if (!playing || !ctx) return; playing = false; api.autoPaused = auto; fade(0, 0.6); clearTimeout(pauseTimer); pauseTimer = setTimeout(() => { if (!playing) el.pause(); }, 650); emit(); },
     toggle() { playing ? api.pause() : api.play(); },
-    skip(d) { ix = (ix + d + PLAYLIST.length) % PLAYLIST.length; if (playing) { fade(0, 0.8); setTimeout(() => { if (!playing) return; startTrack(); fade(0.85, 1.6); }, 850); } emit(); },
+    // 上一首 / 下一首:播放中就淡出 → 換歌 → 淡入;暫停中只換歌(按播放才開始)
+    skip(d) { ix = (ix + d + PLAYLIST.length) % PLAYLIST.length;
+      if (playing && ctx) { fade(0, 0.35); setTimeout(() => { if (!playing) return; el.src = PLAYLIST[ix].url; start(); fade(0.9, 0.8); }, 380); }
+      else if (el) { el.src = PLAYLIST[ix].url; }
+      emit(); },
     level() { if (!playing || !analyser) return 0; analyser.getByteFrequencyData(data); let s = 0; for (let i = 2; i < 40; i++) s += data[i]; return s / (38 * 255); },
     bands(n) { const out = new Array(n).fill(0); if (!playing || !analyser) return out; analyser.getByteFrequencyData(data); for (let i = 0; i < n; i++) { const a = 2 + Math.floor(i * 40 / n), b = 2 + Math.floor((i + 1) * 40 / n); let s = 0; for (let k = a; k < b; k++) s += data[k]; out[i] = s / ((b - a) * 255); } return out; },
     onChange(f) { listeners.add(f); },

@@ -145,7 +145,7 @@
   @media (max-width: 640px) { #screen-ui .ostages { font-size: 9px; gap: 6px; letter-spacing: 1px; } #screen-ui .ostages i { width: 12px; } }
   #screen-ui .odots i { width: 8px; height: 8px; border-radius: 99px; background: rgba(255,255,255,.3); cursor: pointer; transition: width .3s, background .3s; }
   #screen-ui .odots i.on { width: 26px; background: var(--c); box-shadow: 0 0 12px var(--c); }
-  #screen-ui .ocredit { position: absolute; left: 14px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 10px; opacity: .38; letter-spacing: .3px; pointer-events: auto; }
+  #screen-ui .ocredit { position: absolute; right: 14px; text-align: right; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 10px; opacity: .38; letter-spacing: .3px; pointer-events: auto; }
   #screen-ui .ohint { font-size: 12px; letter-spacing: 1px; opacity: .5; white-space: nowrap; }
   #screen-ui .track { position: absolute; inset: 0; transition: transform .75s cubic-bezier(.65,0,.25,1); will-change: transform; }
   #screen-ui .slide { position: absolute; left: 0; right: 0; height: 100%; display: grid; place-items: center; padding: 0 24px; }
@@ -296,6 +296,6 @@
   <button id="next" aria-label="forward">›</button>
 </div>
 <div id="loading">building the room…</div>
-<script type="module" src="./room.mjs?v=493"></script>
+<script type="module" src="./room.mjs?v=494"></script>
 </body>
 </html>
