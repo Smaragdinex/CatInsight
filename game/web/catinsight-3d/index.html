@@ -97,9 +97,10 @@
   }
   #screen-ui.on { opacity: 1; pointer-events: auto; }
   /* 銀河球 + 環繞的功能面板(orbit.mjs);舊的一頁一頁版本用 ?slides */
-  #screen-ui.orbit-mode { background: #05060f; background-image: none; }
+  /* 銀河模式:不淡入,一開始只露出電腦螢幕那一塊(clip-path,在 orbit.mjs 裡動畫),其他地方還是房間 */
+  #screen-ui.orbit-mode { background: transparent; background-image: none; transition: none; }
   #screen-ui.orbit-mode .track, #screen-ui.orbit-mode .num, #screen-ui.orbit-mode .dots { display: none; }
-  #screen-ui .orbit { position: absolute; inset: 0; opacity: 0; transition: opacity .7s ease; }
+  #screen-ui .orbit { position: absolute; inset: 0; opacity: 0; }
   #screen-ui .orbit.on { opacity: 1; }
   #screen-ui .orbit-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #screen-ui .orbit-css { position: absolute; inset: 0; }
@@ -294,6 +295,6 @@
   <button id="next" aria-label="forward">›</button>
 </div>
 <div id="loading">building the room…</div>
-<script type="module" src="./room.mjs?v=480"></script>
+<script type="module" src="./room.mjs?v=486"></script>
 </body>
 </html>

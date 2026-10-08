@@ -9,7 +9,8 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=13';
+import { createOrbit } from './orbit.mjs?v=19';
+import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=3';
 import { makeRadio } from './radio.mjs?v=1';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
@@ -1313,6 +1314,8 @@ let camHead = null, camRig = null, camGreet = null;
 // ---------- 書桌 / 螢幕 / 鍵盤 ----------
 const screenCanvas = document.createElement('canvas'); screenCanvas.width = 640; screenCanvas.height = 400;
 const screenTex = new THREE.CanvasTexture(screenCanvas); screenTex.colorSpace = THREE.SRGBColorSpace; screenTex.anisotropy = 8;
+// 電腦螢幕畫的是 galaxy.mjs 的銀河(和飛進去之後的是同一個):每幀用同一個鏡頭畫進這張貼圖
+const galRT = new THREE.WebGLRenderTarget(1180, 715, { samples: 4, type: THREE.HalfFloatType });
 let screenMesh, deskGroup;
 {
   const d = group(1.25, 0, -0.4);   // 往仙人掌(牆邊)方向移
@@ -1347,7 +1350,7 @@ let screenMesh, deskGroup;
   box(1.5, 0.05, 0.034, 0xcbb8f0, { y: 0.405, z: 0.028, r: 0.012, parent: m });                    // 下巴
   cyl(0.008, 0.008, 0.004, 0x0d0b12, { y: 1.355, z: 0.044, rx: Math.PI / 2, parent: m });          // 鏡頭
   { const led = new THREE.Mesh(new THREE.CircleGeometry(0.005, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x9ff0c8, emissiveIntensity: 0.6 })); led.position.set(0.66, 0.405, 0.046); m.add(led); }
-  screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.42, 0.86), new THREE.MeshBasicMaterial({ map: screenTex }));
+  screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.42, 0.86), new THREE.MeshBasicMaterial({ map: galRT.texture }));
   screenMesh.position.set(0, 0.9, 0.045);
   m.add(screenMesh);
   // 大桌墊(鍵盤 + 滑鼠都放在上面):薰衣草奶油色、細點格、幾個小貓掌
@@ -1815,48 +1818,22 @@ const PX_MIN = 220, PX_MAX = 300, PX_MID = 260;
 const stepPrice = (v, amp) => Math.max(PX_MIN, Math.min(PX_MAX, v + (Math.random() - 0.5) * amp + (PX_MID - v) * 0.02));
 let px = 250;
 for (let i = 0; i < 120; i++) { px = stepPrice(px, 3.2); series.push(px); }
-// 電腦螢幕:一個慢慢轉、往前傾的棒旋銀河(和飛進去之後的畫面同一套真實配色):暖黃白的核球、藍白旋臂 + 粉紅星雲、旋臂內緣的暗塵埃帶
-const GAL = (() => {
-  const P = [], gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
-  const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
-  const CORE = [[255, 246, 226], [255, 226, 168], [255, 194, 120]], ARM = [207, 224, 255], DUSTY = [217, 184, 138], HII = [255, 127, 176];
-  for (let i = 0; i < 1500; i++) {                                        // 核球
-    const r = Math.min(1.4, -Math.log(1 - Math.random() * 0.98) * 0.32), u = Math.random() * 2 - 1, a = Math.random() * 6.283;
-    const k = Math.min(1, r / 0.55);
-    P.push({ x: Math.sqrt(1 - u * u) * Math.cos(a) * r * 1.15, y: u * r * 0.55, z: Math.sqrt(1 - u * u) * Math.sin(a) * r, c: mix(mix(CORE[0], CORE[1], Math.min(1, k * 1.8)), CORE[2], Math.max(0, k - 0.4)), s: 1 + Math.random() * 1.3 });
-  }
-  const PITCH = Math.tan(13 * Math.PI / 180), R0 = 0.45, RMAX = 1.9;
-  for (let i = 0; i < 4200; i++) {                                        // 旋臂
-    const major = i % 4 < 2, arm = i % 4, t = Math.pow(Math.random(), 0.8), r = R0 + t * (RMAX - R0), th = arm * Math.PI / 2 + Math.log(r / R0) / PITCH * 0.42;
-    let off = gauss() * r * (major ? 0.2 : 0.26); if (off < -r * 0.03 && off > -r * 0.09 && Math.random() < 0.75) off = -r * 0.12;
-    const a = th + off / r; let c = mix(DUSTY, ARM, Math.min(1, t * 1.6)), s = (major ? 0.9 : 0.7) + Math.random() * 1.0;
-    if (Math.random() < 0.035 && Math.abs(off) < r * 0.05) { c = HII; s *= 1.7; } else if (Math.random() < 0.02) c = [255, 255, 255];
-    if (!major) c = c.map((v) => v * 0.75);
-    P.push({ x: Math.cos(a) * r, y: gauss() * 0.03, z: Math.sin(a) * r, c, s });
-  }
-  P.forEach((p) => { p.ph = Math.random() * 6.28; });
-  const bg = Array.from({ length: 140 }, () => [Math.random(), Math.random(), Math.random() * 6.28]);
-  return { P, bg };
-})();
-function drawScreen(t) {
-  const g = screenCanvas.getContext('2d');
-  const W = screenCanvas.width, Hh = screenCanvas.height, cx = W / 2, cy = Hh / 2 - 6, S = 122;
-  g.globalCompositeOperation = 'source-over'; g.fillStyle = '#04050b'; g.fillRect(0, 0, W, Hh);
-  for (const [bx, by, ph] of GAL.bg) { g.fillStyle = `rgba(220,225,255,${0.25 + 0.25 * Math.sin(t * 1.3 + ph)})`; g.fillRect(bx * W, by * Hh, 1.5, 1.5); }
-  const gr = g.createRadialGradient(cx, cy, 0, cx, cy, S * 0.9); gr.addColorStop(0, 'rgba(255,225,170,.6)'); gr.addColorStop(0.4, 'rgba(255,190,120,.18)'); gr.addColorStop(1, 'rgba(255,170,100,0)');
-  g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
-  g.globalCompositeOperation = 'lighter';
-  const ry = t * 0.12, cr = Math.cos(ry), sr = Math.sin(ry), tx = 0.95, ctx = Math.cos(tx), stx = Math.sin(tx), tz = 0.16, cz = Math.cos(tz), sz2 = Math.sin(tz);
-  for (const p of GAL.P) {
-    const x1 = p.x * cr - p.z * sr, z1 = p.x * sr + p.z * cr;           // 盤面自轉
-    const y2 = p.y * ctx - z1 * stx, z2 = p.y * stx + z1 * ctx;          // 往前傾
-    const x = x1 * cz - y2 * sz2, y = x1 * sz2 + y2 * cz, z = z2;
-    const k = 3.2 / (3.2 - z * 0.5), px = cx + x * S * k, py = cy - y * S * k;
-    const tw = 0.6 + 0.4 * Math.sin(t * 2 + p.ph), a = Math.min(1, tw * 0.95), sz = p.s * 1.2 * k * (0.75 + 0.25 * tw);
-    g.fillStyle = `rgba(${p.c[0] | 0},${p.c[1] | 0},${p.c[2] | 0},${a.toFixed(3)})`; g.fillRect(px - sz / 2, py - sz / 2, sz, sz);
-  }
-  g.globalCompositeOperation = 'source-over';
-  screenTex.needsUpdate = true;
+// 電腦螢幕:和飛進去之後同一個銀河(galaxy.mjs,固定亂數種子、同一個時鐘、同一個鏡頭);畫進 galRT,螢幕貼這張圖
+const monitorGal = createGalaxy();
+const galCam = new THREE.PerspectiveCamera(GAL_CAM.fov, 1.42 / 0.86, 1, 20000); galCam.position.copy(GAL_CAM.pos); galCam.lookAt(0, 0, 0);
+const galClear = new THREE.Color();
+function drawScreen() {
+  if (uiOn && orbit && orbit.covering) return;                                     // 已經在銀河裡了,房間的螢幕不用畫
+  monitorGal.update(performance.now() / 1000, 1, galRT.height);
+  const prev = renderer.getRenderTarget(), ca = renderer.getClearAlpha(); renderer.getClearColor(galClear);
+  renderer.setRenderTarget(galRT); renderer.setClearColor(0x020309, 1); renderer.clear(); renderer.render(monitorGal.scene, galCam);
+  renderer.setRenderTarget(prev); renderer.setClearColor(galClear, ca);
+}
+// 電腦螢幕在畫面上的位置和大小(px):飛進去時,銀河畫面從這一塊開始擴大
+function screenRectPx() {
+  const v = new THREE.Vector3(), xs = [], ys = []; screenMesh.updateWorldMatrix(true, false);
+  for (const [x, y] of [[-0.71, -0.43], [0.71, -0.43], [0.71, 0.43], [-0.71, 0.43]]) { v.set(x, y, 0).applyMatrix4(screenMesh.matrixWorld).project(camera); xs.push((v.x + 1) / 2 * innerWidth); ys.push((1 - v.y) / 2 * innerHeight); }
+  return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
 }
 let lastTick = 0;
 function tickSeries(now) {
@@ -1949,7 +1926,7 @@ function setSlide(i) {
   [...uiDots.children].forEach((d, k) => d.classList.toggle('on', k === slide));
   activateSlide(slide);                                          // 只跑目前這頁的 widget 動畫
 }
-function showUI() { uiOn = true; ui.classList.add('on'); document.body.classList.add('ui-on'); navLockUntil = performance.now() + 900; if (orbit) orbit.show(); else setSlide(0); }
+function showUI() { uiOn = true; ui.classList.add('on'); document.body.classList.add('ui-on'); navLockUntil = performance.now() + 900; if (orbit) orbit.show(screenRectPx()); else setSlide(0); }
 function hideUI() { uiOn = false; ui.classList.remove('on'); document.body.classList.remove('ui-on'); zoomGoal = 0; wheelLockUntil = performance.now() + 1000; if (orbit) orbit.hide(); else deactivate(); }
 function uiNav(dir) {
   if (orbit) { orbit.step(dir); return; }
@@ -2392,7 +2369,7 @@ if (FX) {
   //    直接對整張畫面做光暈的話,被桌燈照得很亮的桌面也會暈成一片白
   // 貓咪模型有一點金黃自發光(0.3)只是為了顏色,不算發光物;很亮的大螢幕(街機、電腦)暈開要弱一點
   const glows = (m) => m && m.colorWrite !== false && (m.isMeshBasicMaterial || (m.emissive && m.emissiveIntensity >= 0.5 && m.emissive.getHex() !== 0));
-  const gainOf = (o) => (o.userData.bloomGain !== undefined ? o.userData.bloomGain : o === arcadeScreen ? 0.18 : o === screenMesh ? 0.3 : o === arcadeMarquee ? 0.35 : 1);   // 物件可以自己用 userData.bloomGain 指定
+  const gainOf = (o) => (o.userData.bloomGain !== undefined ? o.userData.bloomGain : o === arcadeScreen ? 0.18 : o === screenMesh ? 0 : o === arcadeMarquee ? 0.35 : 1);   // 物件可以自己用 userData.bloomGain 指定
   const black = new THREE.MeshBasicMaterial({ color: 0x000000 }), swapped = [], hidden = [], glowMats = new Map();
   const glowMat = (m, g) => {          // 發光圖用的版本:只留自發光(表面被燈照亮的部分不算),再乘上強度
     const key = m.uuid + g; let c = glowMats.get(key);
