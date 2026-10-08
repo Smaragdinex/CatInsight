@@ -1867,11 +1867,12 @@ const scrPos = new THREE.Vector3(), scrNormal = new THREE.Vector3(), endPos = ne
 canvas.addEventListener('wheel', (e) => {
   if (story && !storyBusy()) return;                                      // 捲動版:滾輪交給 story.mjs
   e.preventDefault();
-  if (performance.now() < wheelLockUntil) return;                        // 剛從螢幕退出:忽略滾輪慣性
+  if (performance.now() < wheelLockUntil) return;                        // 剛從螢幕退出:忽略滾輪慣性(很短,只擋退出那一下)
   // 房間裡往前滾一下 = 跟點 Explore 小點一樣,直接飛進電腦螢幕(不會停在半路);飛的過程中再滾都不算,
   // 等完全進到全螢幕(orbit.mjs 會擋掉進場那一下的慣性)才開始往下旅程。在街機選單上往回滾 = 退回房間
   if (focusArcade && zoomGoal >= 1) { if (e.deltaY < -4) zoomGoal = 0; return; }
-  if (zoomGoal > 0 || zoomT > 0 || prepping) return;
+  // 鏡頭正在退回房間(zoomT > 0、zoomGoal = 0)時往前滾也可以直接再進去,可以來回;從街機退回途中不行(鏡頭目標會跳)
+  if (zoomGoal > 0 || prepping || (focusArcade && zoomT > 0)) return;
   if (e.deltaY > 4) enterScreen();
 }, { passive: false });
 function updateZoom(dt) {
@@ -1980,7 +1981,7 @@ function setSlide(i) {
   activateSlide(slide);                                          // 只跑目前這頁的 widget 動畫
 }
 function showUI() { uiOn = true; ui.classList.add('on'); document.body.classList.add('ui-on'); navLockUntil = performance.now() + 900; if (ORBIT) ensureOrbit().show(screenRectPx()); else setSlide(0); if (!radio.playing) radio.play(); }   // 進入銀河就開始放音樂
-function hideUI() { uiOn = false; ui.classList.remove('on'); document.body.classList.remove('ui-on'); zoomGoal = 0; wheelLockUntil = performance.now() + 1000; if (ORBIT) { if (orbit) orbit.hide(); } else deactivate(); }
+function hideUI() { uiOn = false; ui.classList.remove('on'); document.body.classList.remove('ui-on'); zoomGoal = 0; wheelLockUntil = performance.now() + 400; if (ORBIT) { if (orbit) orbit.hide(); } else deactivate(); }
 function uiNav(dir) {
   if (ORBIT) { if (orbit) orbit.step(dir); return; }
   const now = performance.now(); if (now < navLockUntil) return; navLockUntil = now + 700;
