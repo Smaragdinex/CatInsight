@@ -64,11 +64,11 @@ function midnightWindow(ctx, out) {
 // 播放清單:Mixkit 免費授權的曲子(轉成 96k m4a,放在 ./music/);用 <audio> 串流(不用整首解碼進記憶體),接進 Web Audio 做淡入淡出和律動條
 const M = (f) => new URL('./music/' + f, import.meta.url).href;
 export const PLAYLIST = [
-  { title: 'Relax Beat', artist: 'Arulo', mood: 'Ambient beat', url: M('relax-beat.m4a') },
-  { title: 'Vastness', artist: 'Andrew Ev', mood: 'Ambient · Space', url: M('vastness.m4a') },
-  { title: 'Opalescent', artist: 'Eugenio Mininni', mood: 'Ambient', url: M('opalescent.m4a') },
-  { title: 'Finding Myself', artist: 'Michael Ramir C.', mood: 'Ambient · Warm', url: M('finding-myself.m4a') },
-  { title: 'Home', artist: 'Eugenio Mininni', mood: 'Ambient · Warm', url: M('home.m4a') },
+  { title: 'Relax Beat', artist: 'Arulo', mood: 'Ambient beat', url: M('relax-beat.m4a'), cover: ['#ff9a8b', '#ff6a88', '#ffd3a5'] },
+  { title: 'Vastness', artist: 'Andrew Ev', mood: 'Ambient · Space', url: M('vastness.m4a'), cover: ['#0f2027', '#2c5364', '#8ec5fc'] },
+  { title: 'Opalescent', artist: 'Eugenio Mininni', mood: 'Ambient', url: M('opalescent.m4a'), cover: ['#a18cd1', '#fbc2eb', '#8fd3f4'] },
+  { title: 'Finding Myself', artist: 'Michael Ramir C.', mood: 'Ambient · Warm', url: M('finding-myself.m4a'), cover: ['#f6d365', '#fda085', '#c471f5'] },
+  { title: 'Home', artist: 'Eugenio Mininni', mood: 'Ambient · Warm', url: M('home.m4a'), cover: ['#43e97b', '#38f9d7', '#4facfe'] },
 ];
 // 舊的合成曲(midnightWindow)留著,之後想放回清單可以加 { title: 'Midnight Window', ..., make: midnightWindow }
 void midnightWindow;
@@ -104,6 +104,10 @@ export function makeRadio(getCtx) {
     level() { if (!playing || !analyser) return 0; analyser.getByteFrequencyData(data); let s = 0; for (let i = 2; i < 40; i++) s += data[i]; return s / (38 * 255); },
     bands(n) { const out = new Array(n).fill(0); if (!playing || !analyser) return out; analyser.getByteFrequencyData(data); for (let i = 0; i < n; i++) { const a = 2 + Math.floor(i * 40 / n), b = 2 + Math.floor((i + 1) * 40 / n); let s = 0; for (let k = a; k < b; k++) s += data[k]; out[i] = s / ((b - a) * 255); } return out; },
     onChange(f) { listeners.add(f); },
+    // 播放進度(秒)與跳到某個位置(0~1)
+    time() { return el ? { cur: el.currentTime || 0, dur: isFinite(el.duration) ? el.duration : 0 } : { cur: 0, dur: 0 }; },
+    seek(f) { if (el && isFinite(el.duration)) el.currentTime = Math.max(0, Math.min(0.999, f)) * el.duration; },
+    go(i) { if (i === ix) return; api.skip(i - ix); },
   };
   return api;
 }

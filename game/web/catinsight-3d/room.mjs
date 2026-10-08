@@ -11,7 +11,7 @@ import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
 import { createOrbit } from './orbit.mjs?v=29';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
-import { makeRadio } from './radio.mjs?v=5';
+import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
 // 畫面濾鏡:發光物的光暈、調色、暗角、底片顆粒(預設開;網址加 ?nofx 看沒有濾鏡的樣子)
@@ -2005,7 +2005,7 @@ canvas.addEventListener('pointerup', (e) => {
     }
   }
   if (camRig && zoomT === 0 && raycaster.intersectObject(camRig, true).length) { camGreet.start(); uiSfx('hover'); return; }   // 點攝影機:打招呼
-  if (speaker.group && zoomT === 0 && raycaster.intersectObject(speaker.group, true).length) { radio.toggle(); return; }       // 點音響:播放 / 暫停
+  if (speaker.group && zoomT === 0 && raycaster.intersectObject(speaker.group, true).length) { if (!radio.playing) radio.play(); musicPanel.show(); return; }   // 點音響:打開中間的播放器(沒在播就開始播)
   if (raycaster.intersectObject(screenMesh).length) { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } }
   else if ((arcadeScreen && raycaster.intersectObject(arcadeScreen).length) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length)) { focusArcade = true; zoomGoal = 1; }
 });
@@ -2059,44 +2059,79 @@ document.addEventListener('visibilitychange', () => { if (!bgm.ctx) return; if (
 const radio = makeRadio(() => { bgmUnlock(); return bgm.ctx; });
 ['pointerup', 'touchend', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, () => radio.prime(), { capture: true, passive: true }));
 window.__radio = radio;
-const nowPlaying = (() => {
+// 點音響 → 畫面中間跳出播放器(像 Spotify):會轉的黑膠唱片(中間是這首歌的封面)、歌名 / 演出者、進度條(可以點)、上一首 / 播放暫停 / 下一首、右上角關閉
+const musicPanel = (() => {
   const st = document.createElement('style');
-  st.textContent = `.np { position: fixed; left: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 8; display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 12px; border-radius: 999px;
-      background: rgba(22,16,40,.62); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid rgba(255,255,255,.12); color: #fff;
-      font: 600 12px/1.2 "Avenir Next", "SF Pro Text", system-ui, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.25); transition: opacity .45s, transform .55s cubic-bezier(.2,.8,.2,1); }
-    .np.off { opacity: 0; transform: translateY(14px); pointer-events: none; }
-    .np .eq { display: flex; align-items: flex-end; gap: 2px; width: 18px; height: 16px; }
-    .np .eq i { flex: 1; height: 18%; border-radius: 1px; background: #ffb46b; transition: height .08s linear; }
-    .np .tt { display: flex; flex-direction: column; min-width: 0; max-width: 46vw; }
-    .np .tt b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .np .tt span { font-size: 10.5px; letter-spacing: .06em; opacity: .62; white-space: nowrap; }
-    .np button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; padding: 0; border-radius: 50%; background: transparent; color: #fff; cursor: pointer; opacity: .82; transition: background .2s, opacity .2s; }
-    .np button:hover { background: rgba(255,255,255,.12); opacity: 1; }
-    .np button.pp { background: #fff; color: #1a1430; opacity: 1; }
-    .np button[hidden] { display: none; }
-    @media (max-width: 640px) { .np { left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); } .np.off { transform: translate(-50%, 14px); } .np .tt { max-width: 52vw; } }
-    .np svg { width: 14px; height: 14px; fill: currentColor; }`;
+  st.textContent = `.mp-back { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(8,6,20,.45); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .35s; }
+    .mp-back.on { opacity: 1; pointer-events: auto; }
+    .mp { position: relative; width: min(360px, 100%); padding: 30px 26px 24px; border-radius: 28px; color: #fff; text-align: center; font-family: "Avenir Next", "SF Pro Text", system-ui, sans-serif;
+      background: linear-gradient(170deg, var(--c1, #3a2c5c) -20%, #15111f 55%); box-shadow: 0 40px 90px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12); transform: translateY(18px) scale(.97); transition: transform .45s cubic-bezier(.2,.8,.2,1), background .6s; }
+    .mp-back.on .mp { transform: none; }
+    .mp-x { position: absolute; z-index: 2; right: 14px; top: 14px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: #fff; font-size: 18px; line-height: 34px; cursor: pointer; transition: background .2s; }
+    .mp-x:hover { background: rgba(255,255,255,.2); }
+    .mp-k { padding: 0 40px; font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; opacity: .6; margin-bottom: 18px; }
+    .mp-disc { position: relative; width: 236px; height: 236px; margin: 0 auto 24px; border-radius: 50%; box-shadow: 0 22px 50px rgba(0,0,0,.55);
+      background: radial-gradient(circle, transparent 0 30%, rgba(255,255,255,.05) 30.5% 31%, transparent 31.5%), repeating-radial-gradient(circle, #121014 0 2px, #1d1a22 2px 3px), #111; animation: mpspin 6s linear infinite; animation-play-state: paused; }
+    .mp-disc.on { animation-play-state: running; }
+    .mp-disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 30deg, transparent 0 10%, rgba(255,255,255,.1) 14%, transparent 20% 60%, rgba(255,255,255,.07) 64%, transparent 70%); pointer-events: none; }
+    .mp-label { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; margin: -21% 0 0 -21%; border-radius: 50%; background-size: cover; background-position: center; box-shadow: 0 0 0 3px rgba(0,0,0,.4); }
+    .mp-label::after { content: ''; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #15111f; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+    @keyframes mpspin { to { transform: rotate(360deg); } }
+    .mp-t { font-size: 21px; font-weight: 800; letter-spacing: -.2px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mp-a { font-size: 14px; opacity: .65; margin-bottom: 20px; }
+    .mp-bar { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,.18); cursor: pointer; margin: 0 2px; }
+    .mp-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; background: #fff; }
+    .mp-bar i::after { content: ''; position: absolute; right: -6px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+    .mp-tm { display: flex; justify-content: space-between; font-size: 11px; opacity: .55; margin: 8px 2px 16px; font-variant-numeric: tabular-nums; }
+    .mp-c { display: flex; align-items: center; justify-content: center; gap: 26px; }
+    .mp-c button { border: 0; background: none; color: #fff; cursor: pointer; display: grid; place-items: center; padding: 0; opacity: .85; transition: opacity .2s, transform .15s; }
+    .mp-c button:hover { opacity: 1; } .mp-c button:active { transform: scale(.92); }
+    .mp-c svg { width: 26px; height: 26px; fill: currentColor; }
+    .mp-c .mp-pp { width: 62px; height: 62px; border-radius: 50%; background: #fff; color: #15111f; opacity: 1; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+    .mp-c .mp-pp svg { width: 26px; height: 26px; }
+    .mp-list { display: flex; justify-content: center; gap: 7px; margin-top: 18px; }
+    .mp-list i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.25); cursor: pointer; transition: width .3s, background .3s; }
+    .mp-list i.on { width: 20px; border-radius: 4px; background: #fff; }`;
   document.head.appendChild(st);
   const I = { prev: '<svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>', next: '<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>',
-    play: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>', pause: '<svg viewBox="0 0 24 24"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/></svg>' };
-  const el = document.createElement('div'); el.className = 'np off'; el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Music player');
-  el.innerHTML = `<div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="tt"><b></b><span></span></div>
-    <button type="button" class="pv" aria-label="Previous track">${I.prev}</button><button type="button" class="pp" aria-label="Play"></button><button type="button" class="nx" aria-label="Next track">${I.next}</button>`;
-  document.body.appendChild(el);
-  const bars = [...el.querySelectorAll('.eq i')], pp = el.querySelector('.pp');
-  el.querySelector('.pv').onclick = () => radio.skip(-1); el.querySelector('.nx').onclick = () => radio.skip(1); pp.onclick = () => radio.toggle();
-  let used = false;                                                                 // 第一次播放(按音響或進入銀河)之後才顯示
+    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', pause: '<svg viewBox="0 0 24 24"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/></svg>' };
+  // 每首歌的封面:用那首歌的三個顏色畫的漸層 + 柔光圓 + 細細的光環(程式畫,不用圖片檔)
+  const covers = new Map();
+  const coverOf = (tr) => { if (covers.has(tr.url)) return covers.get(tr.url); const [a, b, c] = tr.cover || ['#8b7cff', '#ff6fb5', '#5fd8ff'];
+    const cv = document.createElement('canvas'); cv.width = cv.height = 240; const g = cv.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 240, 240); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, 240, 240);
+    const rg = g.createRadialGradient(150, 90, 6, 150, 90, 120); rg.addColorStop(0, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = 0.85; g.fillStyle = rg; g.fillRect(0, 0, 240, 240); g.globalAlpha = 1;
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2; for (let r = 30; r < 120; r += 22) { g.beginPath(); g.arc(90, 160, r, 0, Math.PI * 2); g.stroke(); }
+    const url = cv.toDataURL('image/png'); covers.set(tr.url, url); return url; };
+  const back = document.createElement('div'); back.className = 'mp-back'; back.setAttribute('role', 'dialog'); back.setAttribute('aria-label', 'Music player');
+  back.innerHTML = `<div class="mp"><button class="mp-x" type="button" aria-label="Close">✕</button><div class="mp-k">Now playing · CatInsight FM</div>
+    <div class="mp-disc"><div class="mp-label"></div></div><div class="mp-t"></div><div class="mp-a"></div>
+    <div class="mp-bar"><i></i></div><div class="mp-tm"><span class="mp-cur">0:00</span><span class="mp-dur">0:00</span></div>
+    <div class="mp-c"><button class="mp-pv" type="button" aria-label="Previous track">${I.prev}</button><button class="mp-pp" type="button" aria-label="Play"></button><button class="mp-nx" type="button" aria-label="Next track">${I.next}</button></div>
+    <div class="mp-list"></div></div>`;
+  document.body.appendChild(back);
+  const $ = (q) => back.querySelector(q), card = $('.mp'), disc = $('.mp-disc'), pp = $('.mp-pp'), barI = $('.mp-bar i'), list = $('.mp-list');
+  const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  let open = false, raf = 0;
   const sync = () => {
-    used = used || radio.playing || radio.wanted;
-    el.querySelector('.tt b').textContent = radio.track.title; el.querySelector('.tt span').textContent = `${radio.track.artist} · ${radio.index + 1}/${radio.count}`;
+    const tr = radio.track; $('.mp-t').textContent = tr.title; $('.mp-a').textContent = tr.artist; $('.mp-label').style.backgroundImage = `url(${coverOf(tr)})`;
+    card.style.setProperty('--c1', (tr.cover || ['#3a2c5c'])[0]); disc.classList.toggle('on', radio.playing);
     pp.innerHTML = radio.playing ? I.pause : I.play; pp.setAttribute('aria-label', radio.playing ? 'Pause' : 'Play');
-    el.querySelectorAll('.pv, .nx').forEach((b) => { b.hidden = radio.count < 2; });   // 清單只有一首時先藏起來
+    if (list.children.length !== radio.count) list.innerHTML = Array.from({ length: radio.count }, (_, i) => `<i data-i="${i}"></i>`).join('');
+    [...list.children].forEach((d, i) => d.classList.toggle('on', i === radio.index));
   };
-  radio.onChange(sync); sync();
-  return { step(show) {
-    el.classList.toggle('off', !(show && used));
-    const b = radio.bands(4); bars.forEach((x, i) => { x.style.height = (18 + Math.min(82, b[i] * 160)) + '%'; });
-  } };
+  const tick = () => { if (!open) return; raf = requestAnimationFrame(tick); const { cur, dur } = radio.time(); barI.style.width = (dur ? cur / dur * 100 : 0) + '%'; $('.mp-cur').textContent = fmt(cur); $('.mp-dur').textContent = fmt(dur); };
+  const show = () => { open = true; back.classList.add('on'); sync(); cancelAnimationFrame(raf); tick(); };
+  const hide = () => { open = false; back.classList.remove('on'); cancelAnimationFrame(raf); };
+  $('.mp-x').onclick = hide; back.addEventListener('click', (e) => { if (e.target === back) hide(); });
+  pp.onclick = () => radio.toggle(); $('.mp-pv').onclick = () => radio.skip(-1); $('.mp-nx').onclick = () => radio.skip(1);
+  list.addEventListener('click', (e) => { const i = e.target.dataset && e.target.dataset.i; if (i !== undefined) radio.go(+i); });
+  $('.mp-bar').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); radio.seek((e.clientX - r.left) / r.width); });
+  window.addEventListener('keydown', (e) => { if (open && e.key === 'Escape') { e.stopImmediatePropagation(); hide(); } }, true);
+  // 播放器開著時,滾輪 / 點擊不要傳到後面的 3D 房間
+  back.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+  radio.onChange(sync);
+  return { show, hide, get open() { return open; } };
 })();
 // 音響本身的動作:燈、旋鈕、布網跟著低音輕輕鼓起來、飄音符
 { let lv = 0, nextNote = 0;
@@ -2171,12 +2206,10 @@ const hints = (() => {
   add(arcadeModel, 0, ARCADE_H + 0.16, 1.22, 'Play', () => { focusArcade = true; zoomGoal = 1; });
   add(screenMesh, 0.62, 0.36, 0.03, 'Explore', () => { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } });
   add(camHead, 0, 0.4, 0, 'Interact', () => { camGreet.start(); uiSfx('hover'); });
-  const musicHint = add(speaker.group, 0.12, 0.4, 0.06, 'Play music', () => radio.toggle());
-  radio.onChange(() => { const l = radio.playing ? 'Pause music' : 'Play music'; musicHint.querySelector('.lbl').textContent = l; musicHint.setAttribute('aria-label', l); });
+  add(speaker.group, 0.12, 0.4, 0.06, 'Music', () => { if (!radio.playing) radio.play(); musicPanel.show(); });
   const v = new THREE.Vector3();
   return { step(t) {
     const show = zoomT === 0 && !uiOn && !gameOn && !(story && story.active) && loadingEl.classList.contains('done');
-    nowPlaying.step(!gameOn && !(story && story.active));
     camera.updateMatrixWorld();                                    // 鏡頭這一格剛被 OrbitControls 動過,先更新矩陣再投影,點才不會晚一格
     for (const h of list) {
       h.anchor.getWorldPosition(v);
