@@ -1,104 +1,220 @@
-// orbit.mjs — 鏡頭飛進電腦螢幕後的畫面:中間一個真實配色的棒旋銀河,8 塊半透明玻璃面板(App 各功能介紹)圍成一圈繞著它。
-// 滾輪上 / 下、拖曳、‹ › 按鈕、方向鍵 → 轉到上一塊 / 下一塊;點旁邊的面板會轉到正前方;只有正前方那塊的 widget 會動(省 CPU)。
-// 球和星塵用自己的 WebGL canvas 畫,面板是 CSS3D(真的 HTML,字清楚、widget 可以操作);兩邊共用同一台相機。
+// orbit.mjs — 鏡頭飛進電腦螢幕後的畫面:一趟「銀河系 → 太陽系 → 地球」的旅程,最後 8 塊功能面板像衛星一樣繞著地球。
+// 往下捲動(或拖曳、‹ ›、方向鍵)= 往前飛;到了地球之後捲動 = 轉面板;在第一塊面板往上捲 = 往回飛到太空;在銀河再往上 = 回房間。
+// 三個場景各自用自己的尺度(銀河幾千單位、太陽系幾百、地球半徑 300),交接時讓畫面上的東西大小一致再交叉淡化,看起來就是一路連續拉近。
+// 面板是 CSS3D(真的 HTML,字清楚、widget 可以操作),和地球場景共用同一台相機。
 import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
+// 地球貼圖(NASA 藍色彈珠影像,three.js 範例附的版本);載不到時用程式畫的替代貼圖
+const TEX = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r174/examples/textures/planets/';
 
 export function createOrbit({ host, slides, mountWidget, onExit }) {
-  const N = slides.length, STEP = Math.PI * 2 / N, R = 1080, PW = 540, PH = 720, RY = -170;   // 面板圈的半徑、面板大小、面板圈的高度(比球低一點,球才露得出來)
+  const N = slides.length, STEP = Math.PI * 2 / N, R = 1080, PW = 540, PH = 720, RY = -170;   // 面板圈的半徑、面板大小、面板圈的高度
+  const ER = 300;                                                                            // 地球場景裡的地球半徑
+  // 旅程的進度 p(0 = 看著整個銀河、1 = 到地球、面板出現):各段的範圍
+  const G_END = 0.44, S_START = 0.34, S_END = 0.8, E_START = 0.76, REVEAL = 0.9, OVERVIEW = 0.56;
   // ---------- 外框 ----------
   const root = document.createElement('div'); root.className = 'orbit'; host.appendChild(root);
   const canvas = document.createElement('canvas'); canvas.className = 'orbit-gl'; root.appendChild(canvas);
   const cssLayer = document.createElement('div'); cssLayer.className = 'orbit-css'; root.appendChild(cssLayer);
   const chrome = document.createElement('div'); chrome.className = 'orbit-ui';
   chrome.innerHTML = `<div class="ot"><b>CatInsight</b> <span>Stock</span><i>· features</i></div>
-    <div class="ob"><div class="odots">${slides.map((s, i) => `<i data-i="${i}" style="--c:${s.color}"></i>`).join('')}</div>
-    <div class="ohint">Scroll or drag to explore · 滾動或拖曳瀏覽</div></div>`;
+    <div class="ob"><div class="ostages"><span>Milky Way · 銀河系</span><i></i><span>Solar System · 太陽系</span><i></i><span>Earth · 地球</span></div>
+    <div class="odots">${slides.map((s, i) => `<i data-i="${i}" style="--c:${s.color}"></i>`).join('')}</div>
+    <div class="ohint"></div></div>`;
   root.appendChild(chrome);
-  const dots = [...chrome.querySelectorAll('.odots i')];
-  dots.forEach((d) => d.addEventListener('click', (e) => { e.stopPropagation(); goTo(+d.dataset.i); }));
+  const dots = [...chrome.querySelectorAll('.odots i')], stageEls = [...chrome.querySelectorAll('.ostages span')], hintEl = chrome.querySelector('.ohint'), dotsEl = chrome.querySelector('.odots');
+  dots.forEach((d) => d.addEventListener('click', (e) => { e.stopPropagation(); if (atEarth()) goTo(+d.dataset.i); }));
+  stageEls.forEach((s, k) => { s.style.pointerEvents = 'auto'; s.style.cursor = 'pointer'; s.addEventListener('click', (e) => { e.stopPropagation(); pT = [0, OVERVIEW, 1][k]; }); });
 
-  // ---------- 三維:相機、銀河球、星塵、背景星空 ----------
+  // ---------- 共用 ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setClearColor(0x05060f, 1);
+  renderer.setClearColor(0x020309, 1); renderer.autoClear = false;
   const css = new CSS3DRenderer({ element: cssLayer });
-  const scene = new THREE.Scene(), cssScene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(40, 1, 10, 20000);
+  const camera = new THREE.PerspectiveCamera(40, 1, 1, 20000);
   const glow = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
     gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+  // 發光的粒子:每顆有自己的大小和閃爍;離相機太近的會淡掉(穿過銀河時不會變成一大團),大小有上限;uFade 給場景淡入淡出
+  const allPoints = [];
   const pointsMat = (sizeScale) => new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uMap: { value: glow }, uScale: { value: sizeScale }, uPR: { value: 1 } },
-    vertexShader: `attribute float aSize; attribute float aPh; attribute vec3 aCol; uniform float uTime, uScale, uPR; varying vec3 vCol; varying float vA;
+    uniforms: { uTime: { value: 0 }, uMap: { value: glow }, uScale: { value: sizeScale }, uPR: { value: 1 }, uFade: { value: 1 } },
+    vertexShader: `attribute float aSize; attribute float aPh; attribute vec3 aCol; uniform float uTime, uScale, uPR, uFade; varying vec3 vCol; varying float vA;
       void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv;
         float tw = 0.55 + 0.45 * sin(uTime * (0.8 + fract(aPh * 7.3) * 2.2) + aPh * 6.28);
-        gl_PointSize = aSize * uScale * uPR * (900.0 / -mv.z) * (0.75 + 0.25 * tw); vCol = aCol; vA = tw; }`,
+        gl_PointSize = min(aSize * uScale * uPR * (900.0 / -mv.z) * (0.75 + 0.25 * tw), 26.0 * uPR); vCol = aCol; vA = tw * uFade * smoothstep(1.5, 14.0, -mv.z); }`,
     fragmentShader: `uniform sampler2D uMap; varying vec3 vCol; varying float vA;
-      void main() { float a = texture2D(uMap, gl_PointCoord).a; gl_FragColor = vec4(vCol * (0.6 + 0.6 * vA), a * (0.55 + 0.45 * vA)); }`,
+      void main() { float a = texture2D(uMap, gl_PointCoord).a; gl_FragColor = vec4(vCol * (0.6 + 0.6 * vA), a * (0.55 + 0.45 * vA) * step(0.001, vA) * min(1.0, vA * 2.0)); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   });
-  // 真實銀河的配色:中心核球暖黃白(老恆星)、旋臂藍白(年輕恆星)、旋臂上零星粉紅的電離氫星雲、旋臂內緣一條暗的塵埃帶(那裡粒子很少)
-  const C = (h) => new THREE.Color(h);
-  const CORE = [C(0xfff6e2), C(0xffe2a8), C(0xffc278), C(0xf0a060)], ARM = [C(0xcfe0ff), C(0x9fc0ff), C(0xe8eeff), C(0xffffff)], HII = C(0xff7fb0), DUSTY = C(0xd9b88a);
-  const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
   const makePoints = (count, place, sizeScale) => {
     const pos = new Float32Array(count * 3), col = new Float32Array(count * 3), size = new Float32Array(count), ph = new Float32Array(count);
     const v = new THREE.Vector3(), c = new THREE.Color();
     for (let i = 0; i < count; i++) { const s = place(i, v, c); pos.set([v.x, v.y, v.z], i * 3); col.set([c.r, c.g, c.b], i * 3); size[i] = s; ph[i] = Math.random(); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
     g.setAttribute('aSize', new THREE.BufferAttribute(size, 1)); g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1));
-    const p = new THREE.Points(g, pointsMat(sizeScale)); p.frustumCulled = false; return p;
+    const p = new THREE.Points(g, pointsMat(sizeScale)); p.frustumCulled = false; allPoints.push(p); return p;
   };
-  const SR = 340;                                                                          // 核球的大小基準
-  const galaxy = new THREE.Group(); scene.add(galaxy);
-  const diskG = new THREE.Group(); diskG.rotation.set(0.5, 0, 0.16); galaxy.add(diskG);   // 整個銀河盤往前傾
-  // 核球:越中心越密越白,往外變黃、變橘;壓扁成橢球
-  const sphere = makePoints(9000, (i, v, c) => {
+  const starField = (r0, r1, count, sizeScale) => makePoints(count, (i, v, c) => { const u = Math.random() * 2 - 1, a = Math.random() * 6.283, r = r0 + Math.random() * (r1 - r0);
+    v.set(Math.sqrt(1 - u * u) * Math.cos(a) * r, u * r, Math.sqrt(1 - u * u) * Math.sin(a) * r); c.setHSL(0.58 + Math.random() * 0.12, 0.35, 0.75 + Math.random() * 0.25); return 1.5 + Math.random() * 3; }, sizeScale);
+  const sprite = (color, scale, opacity = 1) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); s.scale.setScalar(scale); s.userData.op = opacity; return s; };
+  const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  const ss = (a, b, x) => ease((x - a) / (b - a));
+  const lerpLog = (a, b, k) => Math.exp(Math.log(a) + (Math.log(b) - Math.log(a)) * k);
+
+  // =====================================================================
+  // 1. 銀河系(真實配色的棒旋星系)
+  // =====================================================================
+  const gScene = new THREE.Scene();
+  const C = (h) => new THREE.Color(h);
+  const CORE = [C(0xfff6e2), C(0xffe2a8), C(0xffc278), C(0xf0a060)], ARM = [C(0xcfe0ff), C(0x9fc0ff), C(0xe8eeff), C(0xffffff)], HII = C(0xff7fb0), DUSTY = C(0xd9b88a);
+  const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+  const SR = 340;
+  const diskG = new THREE.Group(); diskG.rotation.set(0.5, 0, 0.16); gScene.add(diskG);
+  const gPts = [];
+  gPts.push(makePoints(9000, (i, v, c) => {                                                   // 核球:中心白、往外黃橘、壓扁
     const r = SR * 0.62 * Math.min(2.4, -Math.log(1 - Math.random() * 0.98) * 0.55), u = Math.random() * 2 - 1, a = Math.random() * 6.283;
     v.set(Math.sqrt(1 - u * u) * Math.cos(a) * r * 1.15, u * r * 0.55, Math.sqrt(1 - u * u) * Math.sin(a) * r);
     const k = Math.min(1, r / (SR * 0.9)); c.copy(CORE[0]).lerp(CORE[1], Math.min(1, k * 1.8)).lerp(CORE[2], Math.max(0, k - 0.4)).lerp(CORE[3], Math.max(0, k - 0.8) * 1.5);
     return 1.1 + Math.random() * 2.0 * (1 - k * 0.5);
-  }, 1.8);
-  diskG.add(sphere);
-  // 中心棒狀結構(銀河系是棒旋星系)
-  const core = makePoints(3500, (i, v, c) => { const x = gauss() * SR * 0.75, r = Math.abs(x) / (SR * 0.75);
-    v.set(x, gauss() * SR * 0.08, gauss() * SR * 0.16); v.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.5); c.copy(CORE[1]).lerp(CORE[2], r); return 1 + Math.random() * 1.6; }, 1.6);
-  diskG.add(core);
-  const coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xffd9a0, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
-  coreGlow.scale.setScalar(SR * 2.6); galaxy.add(coreGlow);
-  // 旋臂:兩條主臂 + 兩條次臂,對數螺線(俯仰角約 13°);塵埃帶 = 臂內緣那一側粒子少、偏暗偏黃
+  }, 1.8));
+  gPts.push(makePoints(3500, (i, v, c) => { const x = gauss() * SR * 0.75, r = Math.abs(x) / (SR * 0.75);   // 中心的棒
+    v.set(x, gauss() * SR * 0.08, gauss() * SR * 0.16); v.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.5); c.copy(CORE[1]).lerp(CORE[2], r); return 1 + Math.random() * 1.6; }, 1.6));
+  // 旋臂:兩條主臂 + 兩條次臂(對數螺線);臂內緣的塵埃帶粒子少
   const PITCH = Math.tan(THREE.MathUtils.degToRad(13)), R0 = SR * 0.75, RMAX = SR * 3.1;
-  const disk = makePoints(26000, (i, v, c) => {
+  const armAngle = (arm, r) => arm * Math.PI / 2 + Math.log(r / R0) / PITCH * 0.42;
+  gPts.push(makePoints(26000, (i, v, c) => {
     const major = i % 4 < 2, arm = i % 4, t = Math.pow(Math.random(), 0.8), r = R0 + t * (RMAX - R0);
-    const th = arm * Math.PI / 2 + Math.log(r / R0) / PITCH * 0.42;
-    let off = gauss() * r * (major ? 0.2 : 0.26);                                        // 旋臂寬一點、邊緣鬆散
-    const dust = off < -r * 0.03 && off > -r * 0.09;                                     // 臂內緣的塵埃帶
-    if (dust && Math.random() < 0.75) off = -r * 0.12 + gauss() * r * 0.02;
-    const a = th + off / r;
+    let off = gauss() * r * (major ? 0.2 : 0.26);
+    if (off < -r * 0.03 && off > -r * 0.09 && Math.random() < 0.75) off = -r * 0.12 + gauss() * r * 0.02;
+    const a = armAngle(arm, r) + off / r;
     v.set(Math.cos(a) * r, gauss() * SR * 0.05 * (1 - t * 0.6), Math.sin(a) * r);
     c.copy(DUSTY).lerp(ARM[0], Math.min(1, t * 1.6)).lerp(ARM[(i >> 2) % 4], Math.random() * 0.5);
     let sz = (major ? 1.0 : 0.8) + Math.random() * 1.4 * (1 - t * 0.4);
-    if (Math.random() < 0.035 && Math.abs(off) < r * 0.05) { c.copy(HII); sz *= 1.8; }   // 粉紅星雲團
-    if (Math.random() < 0.02) { c.setRGB(1, 1, 1); sz *= 1.6; }                          // 幾顆亮的藍白巨星
+    if (Math.random() < 0.035 && Math.abs(off) < r * 0.05) { c.copy(HII); sz *= 1.8; }
+    if (Math.random() < 0.02) { c.setRGB(1, 1, 1); sz *= 1.6; }
     if (!major) c.multiplyScalar(0.75);
     return sz;
-  }, 1.5);
-  diskG.add(disk);
-  // 盤面的一層淡淡的漫射光(很多很暗的小點)
-  const haze = makePoints(9000, (i, v, c) => { const r = SR * 0.6 + Math.pow(Math.random(), 1.6) * RMAX, a = Math.random() * 6.283;
-    v.set(Math.cos(a) * r, gauss() * SR * 0.04, Math.sin(a) * r); c.copy(CORE[1]).lerp(ARM[0], Math.min(1, r / RMAX * 1.4)).multiplyScalar(0.45); return 0.8 + Math.random(); }, 1.3);
-  diskG.add(haze);
-  // 遠方星空
-  const stars = makePoints(2600, (i, v, c) => { const u = Math.random() * 2 - 1, a = Math.random() * 6.283, r = 5000 + Math.random() * 4000;
-    v.set(Math.sqrt(1 - u * u) * Math.cos(a) * r, u * r, Math.sqrt(1 - u * u) * Math.sin(a) * r); c.setHSL(0.6 + Math.random() * 0.2, 0.4, 0.75 + Math.random() * 0.25); return 1.5 + Math.random() * 3; }, 1);
-  scene.add(stars);
+  }, 1.5));
+  gPts.push(makePoints(9000, (i, v, c) => { const r = SR * 0.6 + Math.pow(Math.random(), 1.6) * RMAX, a = Math.random() * 6.283;   // 盤面漫射光
+    v.set(Math.cos(a) * r, gauss() * SR * 0.04, Math.sin(a) * r); c.copy(CORE[1]).lerp(ARM[0], Math.min(1, r / RMAX * 1.4)).multiplyScalar(0.45); return 0.8 + Math.random(); }, 1.3));
+  gPts.forEach((p) => diskG.add(p));
+  const gStars = starField(5000, 9000, 2600, 1); gScene.add(gStars); gPts.push(gStars);
+  const gCoreGlow = sprite(0xffd9a0, SR * 2.6, 0.8); gScene.add(gCoreGlow);
+  // 太陽在銀河裡的位置:主旋臂上、離中心約 6 成的地方(太陽系實際上在獵戶臂上)
+  const SUN_R = RMAX * 0.62, SUN_LOCAL = new THREE.Vector3(Math.cos(armAngle(0, SUN_R)) * SUN_R, 0, Math.sin(armAngle(0, SUN_R)) * SUN_R);
+  const sunMark = sprite(0xffe7b0, 10, 0); sunMark.position.copy(SUN_LOCAL); diskG.add(sunMark);
+  const sunW = new THREE.Vector3(), diskN = new THREE.Vector3();
+
+  // =====================================================================
+  // 2. 太陽系
+  // =====================================================================
+  const sScene = new THREE.Scene();
+  const sStars = starField(30000, 40000, 3000, 30); sScene.add(sStars);
+  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(22, 48, 32), new THREE.MeshBasicMaterial({ color: 0xfff0c8, transparent: true }));
+  sScene.add(sunMesh);
+  const sunGlow1 = sprite(0xffd38a, 140, 0.9), sunGlow2 = sprite(0xff9a4a, 520, 0.2); sScene.add(sunGlow1, sunGlow2);
+  sScene.add(new THREE.PointLight(0xfff2dd, 3.2, 0, 0)); sScene.add(new THREE.AmbientLight(0x334466, 0.25));
+  const bandTex = (stops, { noise = 0.15, spot = null, cap = false } = {}) => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 256); stops.forEach(([k, col]) => gr.addColorStop(k, col)); g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${Math.random() * noise})`; g.fillRect(Math.random() * 512, Math.random() * 256, 6 + Math.random() * 30, 1 + Math.random() * 3); }
+    if (spot) { g.fillStyle = spot; g.beginPath(); g.ellipse(330, 165, 26, 14, 0, 0, 7); g.fill(); }
+    if (cap) { g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(0, 0, 512, 14); g.fillRect(0, 244, 512, 12); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const PLANETS = [
+    { r: 2.4, d: 55, sp: 1.6, tex: bandTex([[0, '#8d8a86'], [1, '#6f6b66']], { noise: 0.3 }) },
+    { r: 4.6, d: 85, sp: 1.2, tex: bandTex([[0, '#e9d3a2'], [0.5, '#d9b878'], [1, '#e6cf9a']], { noise: 0.08 }) },
+    { r: 5, d: 125, earth: true },
+    { r: 3.3, d: 165, sp: 0.8, tex: bandTex([[0, '#c1643a'], [0.5, '#a9502c'], [1, '#c46b40']], { noise: 0.25, cap: true }) },
+    { r: 15, d: 255, sp: 0.4, tex: bandTex([[0, '#d9c3a0'], [0.2, '#b48a5e'], [0.3, '#ecdcc0'], [0.45, '#a8784e'], [0.55, '#efe2c8'], [0.7, '#b98f64'], [0.85, '#e5d4b4'], [1, '#c8a982']], { noise: 0.1, spot: '#c0583a' }) },
+    { r: 12, d: 345, sp: 0.3, ring: true, tex: bandTex([[0, '#e8d6a8'], [0.3, '#d6bd86'], [0.5, '#efe0b8'], [0.7, '#cdb27a'], [1, '#e6d3a4']], { noise: 0.06 }) },
+    { r: 7.5, d: 430, sp: 0.22, tex: bandTex([[0, '#bfe8ee'], [1, '#9ad3dd']], { noise: 0.04 }) },
+    { r: 7.2, d: 505, sp: 0.18, tex: bandTex([[0, '#5a7fe0'], [0.5, '#3f62c8'], [1, '#5577da']], { noise: 0.08 }) },
+  ];
+  // 地球固定在這個位置:從地球看太陽的方向 = 相機最後靠近地球的方向往右轉約 50°(白天在右、夜晚在左,看得到城市燈光)
+  const D_FINAL = new THREE.Vector3(0, 0.16, 1).normalize();
+  const SUN_DIR = new THREE.Vector3(Math.sin(0.9), 0, Math.cos(0.9));                        // 從地球看太陽(世界方向)
+  const EARTH_POS = SUN_DIR.clone().multiplyScalar(-125);
+  const sMats = [sunMesh.material];
+  const planetObjs = PLANETS.map((pl, i) => {
+    const g = new THREE.Group(); sScene.add(g); pl.a0 = Math.random() * 6.283;
+    if (!pl.earth) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(pl.r, 40, 24), new THREE.MeshStandardMaterial({ map: pl.tex, roughness: 0.9, transparent: true })); g.add(m); sMats.push(m.material);
+      if (pl.ring) { const rc = document.createElement('canvas'); rc.width = 256; rc.height = 4; const rg = rc.getContext('2d');
+        for (let x = 0; x < 256; x++) { const k = x / 256, a = (k < 0.08 || (k > 0.55 && k < 0.6)) ? 0 : 0.35 + 0.5 * Math.abs(Math.sin(k * 40)) * (1 - k * 0.5); rg.fillStyle = `rgba(230,210,170,${a})`; rg.fillRect(x, 0, 1, 4); }
+        const rt = new THREE.CanvasTexture(rc); rt.colorSpace = THREE.SRGBColorSpace;
+        const rgeo = new THREE.RingGeometry(pl.r * 1.3, pl.r * 2.3, 96, 1), uv = rgeo.attributes.uv, pos = rgeo.attributes.position;
+        for (let k = 0; k < pos.count; k++) { const rr = Math.hypot(pos.getX(k), pos.getY(k)); uv.setXY(k, (rr - pl.r * 1.3) / (pl.r * 1.0), 0.5); }
+        const ring = new THREE.Mesh(rgeo, new THREE.MeshBasicMaterial({ map: rt, transparent: true, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2 + 0.45; g.add(ring); sMats.push(ring.material); }
+    }
+    // 軌道線
+    const pts = []; for (let k = 0; k <= 160; k++) { const a = k / 160 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * pl.d, 0, Math.sin(a) * pl.d)); }
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: pl.earth ? 0x7fb6ff : 0x8fa0d8, transparent: true, opacity: pl.earth ? 0.4 : 0.18, depthWrite: false }));
+    line.material.userData.op = line.material.opacity; line.material.userData.line = true; sScene.add(line); sMats.push(line.material);
+    return { pl, g };
+  });
+  const belt = makePoints(2500, (i, v, c) => { const r = 195 + Math.random() * 35, a = Math.random() * 6.283; v.set(Math.cos(a) * r, gauss() * 3, Math.sin(a) * r); c.setRGB(0.6, 0.55, 0.5); return 0.5 + Math.random() * 0.7; }, 0.25);
+  sScene.add(belt);
+
+  // =====================================================================
+  // 3. 地球(白天 / 夜晚城市燈光 / 海面反光 / 雲 / 大氣光暈);太陽系裡那顆地球用同一套材質
+  // =====================================================================
+  const eScene = new THREE.Scene();
+  const eStars = starField(9000, 14000, 2600, 12); eScene.add(eStars);
+  const eSun = sprite(0xfff1d0, 1800, 0.9); eSun.position.copy(SUN_DIR).multiplyScalar(15000); eScene.add(eSun);
+  // 載不到 NASA 貼圖時的替代:程式畫的海洋 + 大陸
+  const fallbackDay = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#0d2d5c'; g.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 40; i++) { const x = Math.random() * 512, y = 40 + Math.random() * 176, rr = 10 + Math.random() * 40; g.fillStyle = ['#3d6b35', '#7a6a42', '#5b7a3a'][i % 3]; g.beginPath(); g.ellipse(x, y, rr, rr * 0.6, Math.random() * 3, 0, 7); g.fill(); }
+    g.fillStyle = '#e8eef5'; g.fillRect(0, 0, 512, 16); g.fillRect(0, 240, 512, 16); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const black = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); black.needsUpdate = true;
+  const earthU = { uDay: { value: fallbackDay }, uNight: { value: black }, uSpec: { value: black }, uClouds: { value: black }, uSun: { value: SUN_DIR }, uFade: { value: 1 } };
+  const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
+  const loadTex = (name, key, srgb) => loader.load(TEX + name, (t) => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; earthU[key].value = t; }, undefined, () => {});
+  let texLoaded = false;
+  const loadEarth = () => { if (texLoaded) return; texLoaded = true; loadTex('earth_atmos_2048.jpg', 'uDay', true); loadTex('earth_lights_2048.png', 'uNight', true); loadTex('earth_specular_2048.jpg', 'uSpec', false); loadTex('earth_clouds_1024.png', 'uClouds', false); };
+  const EV = `varying vec2 vUv; varying vec3 vN, vW; void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+  const earthMat = new THREE.ShaderMaterial({ uniforms: earthU, transparent: true, vertexShader: EV,
+    fragmentShader: `uniform sampler2D uDay, uNight, uSpec; uniform vec3 uSun; uniform float uFade; varying vec2 vUv; varying vec3 vN, vW;
+      void main() { vec3 N = normalize(vN), V = normalize(cameraPosition - vW); float ndl = dot(N, uSun);
+        vec3 day = texture2D(uDay, vUv).rgb, night = texture2D(uNight, vUv).rgb;
+        float dm = smoothstep(-0.12, 0.25, ndl);
+        vec3 col = day * (max(ndl, 0.0) * 1.25 + 0.02);
+        vec3 H = normalize(uSun + V); col += texture2D(uSpec, vUv).r * pow(max(dot(N, H), 0.0), 45.0) * vec3(1.0, 0.95, 0.85) * 0.7 * dm;
+        col = mix(night * vec3(1.0, 0.82, 0.55) * 1.6, col, dm);
+        float fr = pow(1.0 - max(dot(N, V), 0.0), 3.0); col += vec3(0.3, 0.6, 1.0) * fr * 0.55 * smoothstep(-0.3, 0.5, ndl);
+        gl_FragColor = vec4(col, uFade);
+        #include <colorspace_fragment>
+      }` });
+  const cloudMat = new THREE.ShaderMaterial({ uniforms: earthU, transparent: true, depthWrite: false, vertexShader: EV,
+    fragmentShader: `uniform sampler2D uClouds; uniform vec3 uSun; uniform float uFade; varying vec2 vUv; varying vec3 vN, vW;
+      void main() { vec3 N = normalize(vN); float ndl = dot(N, uSun); vec4 ct = texture2D(uClouds, vUv); float c = ct.a * dot(ct.rgb, vec3(0.333));   // 雲貼圖的形狀在 alpha
+        gl_FragColor = vec4(vec3(1.0) * (max(ndl, 0.0) * 1.1 + 0.03), c * 0.62 * uFade * (smoothstep(-0.25, 0.2, ndl) * 0.85 + 0.15));
+        #include <colorspace_fragment>
+      }` });
+  const atmoMat = new THREE.ShaderMaterial({ uniforms: earthU, transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending, vertexShader: EV,
+    fragmentShader: `uniform vec3 uSun; uniform float uFade; varying vec2 vUv; varying vec3 vN, vW;
+      void main() { vec3 N = normalize(vN), V = normalize(cameraPosition - vW); float k = pow(max(0.0, 0.72 + dot(N, V)), 3.5);
+        gl_FragColor = vec4(vec3(0.3, 0.6, 1.0) * k * (0.25 + 0.9 * smoothstep(-0.4, 0.5, dot(N, uSun))) * uFade, 1.0);
+        #include <colorspace_fragment>
+      }` });
+  const makeEarth = (rad) => {
+    const tilt = new THREE.Group(); tilt.rotation.z = 0.41;                                    // 地軸傾斜 23.5°
+    const spin = new THREE.Group(); tilt.add(spin);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(rad, 96, 64), earthMat); spin.add(e);
+    const cl = new THREE.Mesh(new THREE.SphereGeometry(rad * 1.012, 96, 64), cloudMat); cl.renderOrder = 1; tilt.add(cl);
+    const at = new THREE.Mesh(new THREE.SphereGeometry(rad * 1.07, 64, 48), atmoMat); at.renderOrder = 2; tilt.add(at);
+    return { tilt, spin, cl };
+  };
+  const EY = 140;                                                                            // 地球在最後構圖裡往上抬,不會被正前方的面板擋住
+  const bigEarth = makeEarth(ER); bigEarth.tilt.position.y = EY; eScene.add(bigEarth.tilt);
+  const smallEarth = makeEarth(PLANETS[2].r); smallEarth.tilt.position.copy(EARTH_POS); sScene.add(smallEarth.tilt);
+  planetObjs[2].g.position.copy(EARTH_POS);
   // 面板走的軌道:一圈很淡的光環
-  const ringLine = new THREE.Mesh(new THREE.TorusGeometry(R, 1.2, 6, 256), new THREE.MeshBasicMaterial({ color: 0x9fb8ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
-  ringLine.rotation.x = Math.PI / 2; ringLine.position.y = RY - PH / 2 - 30; scene.add(ringLine);
+  const ringLine = new THREE.Mesh(new THREE.TorusGeometry(R, 1.2, 6, 256), new THREE.MeshBasicMaterial({ color: 0x9fb8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ringLine.rotation.x = Math.PI / 2; ringLine.position.y = RY - PH / 2 - 30; eScene.add(ringLine);
 
   // ---------- 面板(CSS3D)----------
-  const ring = new THREE.Group(); cssScene.add(ring);
+  const cssScene = new THREE.Scene(), ring = new THREE.Group(); cssScene.add(ring);
   const panels = slides.map((sl, i) => {
     const el = document.createElement('div'); el.className = `opanel op-${sl.key}`; el.style.setProperty('--c', sl.color); el.style.width = PW + 'px'; el.style.height = PH + 'px';
     const head = sl.key === 'hero'
@@ -106,7 +222,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       : `<div class="oph"><div class="eyebrow">${String(i).padStart(2, '0')} · ${sl.eyebrow}</div><h3>${sl.title}</h3><p>${sl.text}</p><div class="zh">${sl.zh}</div>` +
         (sl.cta ? `<a class="store" href="${APP_STORE}"> Download on the App Store</a>` : '') + `</div>`;
     el.innerHTML = `${head}<div class="opw"><div class="wgin"></div></div><div class="opshine"></div>`;
-    el.addEventListener('click', () => { if (i !== cur()) goTo(i); });
+    el.addEventListener('click', () => { if (atEarth() && i !== cur()) goTo(i); });
     const obj = new CSS3DObject(el); const a = i * STEP;
     obj.position.set(Math.sin(a) * R, RY, Math.cos(a) * R); obj.rotation.y = a; ring.add(obj);
     return { el, obj, key: sl.key, host: el.querySelector('.wgin'), stop: null };
@@ -114,72 +230,146 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
 
   // ---------- 狀態 / 互動 ----------
   let open = false, angle = 0, target = 0, active = -1, t0 = performance.now(), last = t0, raf = 0, covering = false;
+  let p = 0, pT = 0, exitAcc = 0, lastRot = 0;
   const mouse = { x: 0, y: 0, sx: 0, sy: 0 };
+  const atEarth = () => pT >= 1 && p > 0.985;
   const cur = () => ((Math.round(-target / STEP) % N) + N) % N;
-  function goTo(i) { const k = Math.round(-target / STEP); let d = ((i - ((k % N) + N) % N) % N + N) % N; if (d > N / 2) d -= N; target = -(k + d) * STEP; }
-  function step(dir) { target = (Math.round(target / STEP) - dir) * STEP; }
+  const settled = () => Math.abs(target - Math.round(target / STEP) * STEP) < 1e-3 && Math.abs(angle - target) < 0.02;
+  function goTo(i) { const k = Math.round(-target / STEP); let d = ((i - ((k % N) + N) % N) % N + N) % N; if (d > N / 2) d -= N; target = -(k + d) * STEP; lastRot = performance.now(); }
+  function rotate(dir) { target = (Math.round(target / STEP) - dir) * STEP; lastRot = performance.now(); }
+  // ‹ › 按鈕 / 方向鍵:旅程中跳到下一站(銀河 → 太陽系全景 → 地球);在地球上轉面板,第一塊再往回 = 回太陽系;在銀河再往回 = 回房間
+  function step(dir) {
+    if (atEarth()) { if (dir < 0 && cur() === 0) { pT = OVERVIEW; return; } rotate(dir); return; }
+    const stops = [0, OVERVIEW, 1];
+    if (dir > 0) pT = stops.find((s) => s > pT + 0.01) ?? 1;
+    else { if (pT <= 0.01) { onExit && onExit(); return; } pT = [...stops].reverse().find((s) => s < pT - 0.01) ?? 0; }
+  }
   function setActive(i) {
     if (i === active) return;
     if (active >= 0 && panels[active].stop) { panels[active].stop(); panels[active].stop = null; panels[active].host.innerHTML = ''; }
-    active = i; const p = panels[i];
-    if (p.key !== 'hero' && p.key !== 'app') p.stop = mountWidget(p.key, p.host);
-    else if (p.key === 'app') p.host.innerHTML = `<div class="qr"><img src="/assets/icon-180.png" alt=""><span>App Store · free</span></div>`;
+    active = i; if (i < 0) { panels.forEach((q) => q.el.classList.remove('front')); return; }
+    const pp = panels[i];
+    if (pp.key !== 'hero' && pp.key !== 'app') pp.stop = mountWidget(pp.key, pp.host);
+    else if (pp.key === 'app') pp.host.innerHTML = `<div class="qr"><img src="/assets/icon-180.png" alt=""><span>App Store · free</span></div>`;
     panels.forEach((q, k) => q.el.classList.toggle('front', k === i)); dots.forEach((d, k) => d.classList.toggle('on', k === i));
   }
-  // 滾輪:累積成角度,停下來 160ms 後對齊最近一塊
+  // 滾輪:旅程中 = 往前 / 往後飛;到了地球 = 轉面板(停下來 160ms 後對齊最近一塊)
   let snapTimer = 0;
-  root.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-    target -= Math.max(-90, Math.min(90, d)) * 0.0032; clearTimeout(snapTimer); snapTimer = setTimeout(() => { target = Math.round(target / STEP) * STEP; }, 160); }, { passive: false });
-  // 拖曳:左右拖轉圈(手機上下滑也可以)
+  root.addEventListener('wheel', (e) => {
+    e.preventDefault(); e.stopPropagation(); const d = Math.max(-90, Math.min(90, Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX));
+    if (atEarth()) {
+      if (d < 0 && cur() === 0 && settled() && performance.now() - lastRot > 600) { pT = 0.995 + d / 2200; return; }   // 在第一塊再往上 → 離開地球
+      target -= d * 0.0032; lastRot = performance.now(); clearTimeout(snapTimer); snapTimer = setTimeout(() => { target = Math.round(target / STEP) * STEP; }, 160); return;
+    }
+    if (pT <= 0 && d < 0) { exitAcc += -d; if (exitAcc > 260) { exitAcc = 0; onExit && onExit(); } return; }
+    exitAcc = 0; pT = Math.max(0, Math.min(1, pT + d / 2200));
+  }, { passive: false });
+  // 拖曳:旅程中上下拖 = 往前 / 往後飛;在地球上左右拖 = 轉面板
   let drag = null;
-  root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs')) return; drag = { x: e.clientX, y: e.clientY, t: target, moved: false }; });
+  root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs, .ostages')) return; drag = { x: e.clientX, y: e.clientY, t: target, pT, moved: false, earth: atEarth() }; });
   window.addEventListener('pointermove', (e) => {
     mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1;
     if (!drag || !open) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
-    const d = Math.abs(dx) > Math.abs(dy) * 0.8 || e.pointerType !== 'touch' ? dx : -dy;
-    if (drag.moved) target = drag.t + d * 0.0042;
+    if (!drag.moved) return;
+    if (drag.earth) { const d = Math.abs(dx) > Math.abs(dy) * 0.8 || e.pointerType !== 'touch' ? dx : -dy; target = drag.t + d * 0.0042; lastRot = performance.now(); }
+    else pT = Math.max(0, Math.min(1, drag.pT - dy / (innerHeight * 2.2)));
   });
-  window.addEventListener('pointerup', () => { if (drag) { if (drag.moved) target = Math.round(target / STEP) * STEP; drag = null; } });
+  window.addEventListener('pointerup', () => { if (drag) { if (drag.moved && drag.earth) target = Math.round(target / STEP) * STEP; drag = null; } });
   root.addEventListener('click', (e) => { if (drag && drag.moved) e.stopPropagation(); }, true);
 
   function resize() {
     const w = innerWidth, h = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
     renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); css.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
-    [sphere, core, disk, haze, stars].forEach((p) => { p.material.uniforms.uPR.value = dpr; });
+    allPoints.forEach((pp) => { pp.material.uniforms.uPR.value = dpr; });
   }
   addEventListener('resize', () => { if (open) resize(); });
 
+  const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), look = new THREE.Vector3();
+  const setCam = (pos, tgt, near, far) => { camera.position.copy(pos); camera.near = near; camera.far = far; camera.updateProjectionMatrix(); camera.lookAt(tgt); };
+  const slerpDir = (a, b, k, out) => out.copy(a).lerp(b, k).normalize();
+  let galRot = 0, earthPose = null;
   function frame(now) {
     if (!open) return; raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now;
-    angle += (target - angle) * Math.min(1, dt * 6);
-    ring.rotation.y = angle;
-    setActive(cur());
-    // 每塊面板:越靠正前方越亮越清楚,轉到球後面就淡出(CSS 層在 WebGL 上面,不淡掉會蓋住球)
-    panels.forEach((p, i) => { const a = i * STEP + angle, f = Math.cos(a);
-      const op = f > -0.1 ? 0.35 + 0.65 * Math.pow((f + 0.1) / 1.1, 1.6) : Math.max(0, (f + 0.45) / 0.35) * 0.35;
-      p.el.style.opacity = op.toFixed(3); p.el.style.pointerEvents = op > 0.3 ? 'auto' : 'none'; p.obj.position.y = RY + Math.sin(t * 0.8 + i * 1.3) * 8; });
-    // 相機:依畫面比例拉遠(直式手機要退比較多),跟著滑鼠一點點視差
-    // 從比較高的地方往下看:球在畫面中上,正前方的面板在下半部,旁邊的面板沿著橢圓繞
-    // 直式手機:鏡頭拉近,讓正前方的面板佔畫面寬度約 86%(兩旁的面板會露一點邊),球在面板上方
-    const aspect = innerWidth / innerHeight, portrait = aspect < 0.8;
-    // 桌機:正前方面板佔畫面高度約 66%(寬度不超過約 46%);手機:佔寬度約 88%
-    const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const dist = R + (portrait ? PW / (0.88 * 2 * tanH * aspect) : Math.max(PH / (0.66 * 2 * tanH), PW / (0.44 * 2 * tanH * aspect)));
-    mouse.sx += (mouse.x - mouse.sx) * 0.05; mouse.sy += (mouse.y - mouse.sy) * 0.05;
-    if (portrait) { camera.position.set(mouse.sx * 40, 200, dist); camera.lookAt(0, RY - 90, 0); }
-    else { camera.position.set(mouse.sx * 90, 330 - mouse.sy * 50, dist); camera.lookAt(0, RY - 110, 0); }
-    diskG.rotation.y = t * 0.035; stars.rotation.y = t * 0.004;
-    [sphere, core, disk, haze, stars].forEach((p) => { p.material.uniforms.uTime.value = t; });
-    coreGlow.material.opacity = 0.65 + 0.08 * Math.sin(t * 1.3);
-    renderer.render(scene, camera); css.render(cssScene, camera);
+    p += (pT - p) * Math.min(1, dt * 2.2); if (Math.abs(pT - p) < 1e-4) p = pT;
+    const aspect = innerWidth / innerHeight, portrait = aspect < 0.8, fit = Math.max(1, 1.3 / aspect);
+    allPoints.forEach((pp) => { pp.material.uniforms.uTime.value = t; });
+    const gF = 1 - ss(S_START, G_END, p), sF = ss(S_START, G_END, p) * (1 - ss(E_START, S_END, p)), eF = ss(E_START, S_END, p), rv = ss(REVEAL, 1.0, p);
+    renderer.clear();
+    // ---- 1. 銀河:從遠處看整個銀河 → 飛向太陽所在的旋臂(從外側往內看,銀河中心在太陽後面)----
+    if (gF > 0.001) {
+      galRot += dt * 0.035 * (1 - ss(0, 0.15, p)); diskG.rotation.y = galRot;
+      diskG.updateMatrixWorld(true); sunW.copy(SUN_LOCAL).applyMatrix4(diskG.matrixWorld);
+      diskN.set(0, 1, 0).transformDirection(diskG.matrixWorld);
+      const gp = Math.min(1, p / G_END), k = ease(gp);
+      const start = v1.set(0, 900, 2700).multiplyScalar(fit);
+      const dirEnd = v2.copy(sunW).normalize().addScaledVector(diskN, 0.45).normalize();
+      const dir = slerpDir(start.clone().sub(sunW).normalize(), dirEnd, ss(0.1, 0.9, gp), new THREE.Vector3());
+      const dist = lerpLog(start.distanceTo(sunW), 2.5, k);
+      look.set(0, 0, 0).lerp(sunW, ss(0, 0.55, gp));
+      setCam(sunW.clone().addScaledVector(dir, dist), look, 0.3, 20000);
+      sunMark.material.opacity = ss(0.25, 0.9, gp) * gF; sunMark.scale.setScalar(Math.max(4, dist * 0.22));
+      gPts.forEach((pp) => { pp.material.uniforms.uFade.value = gF; }); gCoreGlow.material.opacity = 0.75 * gF;
+      gScene.rotation.set(0, 0, 0); gStars.rotation.y = t * 0.004;
+      renderer.render(gScene, camera);
+    }
+    // ---- 2. 太陽系:太陽從一個亮點開始 → 看到八大行星全景 → 飛向地球 ----
+    planetObjs.forEach(({ pl, g }) => { if (!pl.earth) { const a = pl.a0 + t * pl.sp * 0.05; g.position.set(Math.cos(a) * pl.d, 0, Math.sin(a) * pl.d); g.rotation.y = t * 0.3; } });
+    // 讓台灣 / 東亞在白天、正對鏡頭(貼圖經度 121°E 轉到相機方向偏向太陽一點),然後很慢地自轉
+    const spin = 2.91 + t * 0.006; smallEarth.spin.rotation.y = bigEarth.spin.rotation.y = spin; smallEarth.cl.rotation.y = bigEarth.cl.rotation.y = spin + t * 0.003;
+    if (sF > 0.001) {
+      const sp = Math.max(0, Math.min(1, (p - S_START) / (S_END - S_START))), a = Math.min(1, sp / 0.45), b = Math.max(0, (sp - 0.45) / 0.55);
+      const dirA = v1.set(0, 0.35, 1).normalize(), dirB = new THREE.Vector3(0.35, 0.75, 1).normalize(), ovDist = 1250 * fit;
+      let pos, tgt;
+      if (b <= 0) { pos = slerpDir(dirA, dirB, ease(a), new THREE.Vector3()).multiplyScalar(lerpLog(5000 * fit, ovDist, ease(a))); tgt = new THREE.Vector3(); }
+      else {
+        const ov = dirB.clone().multiplyScalar(ovDist), rel = ov.clone().sub(EARTH_POS), kb = ease(b);
+        const dir = slerpDir(rel.clone().normalize(), D_FINAL, ss(0.2, 1, b), new THREE.Vector3());
+        pos = EARTH_POS.clone().addScaledVector(dir, lerpLog(rel.length(), PLANETS[2].r * 5, kb));
+        tgt = new THREE.Vector3().lerp(EARTH_POS, ss(0, 0.45, b));
+      }
+      setCam(pos, tgt, 0.2, 60000);
+      const lineFade = 1 - ss(0.5, 0.9, b);                                            // 靠近地球時軌道線淡掉,不會橫過地球
+      sMats.forEach((m) => { m.opacity = (m.userData.op ?? 1) * sF * (m.userData.line ? lineFade : 1); });
+      sunGlow1.material.opacity = 0.9 * sF; sunGlow2.material.opacity = 0.2 * sF; sStars.material.uniforms.uFade.value = sF; belt.material.uniforms.uFade.value = sF;
+      earthU.uFade.value = sF; renderer.clearDepth(); renderer.render(sScene, camera);
+    }
+    // ---- 3. 地球:接手時地球在畫面上的大小和太陽系那顆一樣 → 拉回到最後的構圖,面板浮現 ----
+    if (eF > 0.001) {
+      const ep = Math.max(0, Math.min(1, (p - E_START) / (1 - E_START))), k = ss(0.15, 1, ep);
+      const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const dist = R + (portrait ? PW / (0.88 * 2 * tanH * aspect) : Math.max(PH / (0.66 * 2 * tanH), PW / (0.44 * 2 * tanH * aspect)));
+      mouse.sx += (mouse.x - mouse.sx) * 0.05; mouse.sy += (mouse.y - mouse.sy) * 0.05;
+      const fin = portrait ? new THREE.Vector3(mouse.sx * 40, 200, dist) : new THREE.Vector3(mouse.sx * 90 * rv, 330 - mouse.sy * 50 * rv, dist);
+      const finLook = new THREE.Vector3(0, portrait ? RY - 90 : RY - 110, 0);
+      const startPos = D_FINAL.clone().multiplyScalar(ER * 5); startPos.y += EY;
+      setCam(startPos.lerp(fin, k), new THREE.Vector3(0, EY, 0).lerp(finLook, k), 10, 60000);
+      earthU.uFade.value = eF; eStars.material.uniforms.uFade.value = eF; eSun.material.opacity = 0.9 * eF; ringLine.material.opacity = 0.35 * rv;
+      renderer.clearDepth(); renderer.render(eScene, camera);
+    }
+    // ---- 面板:到地球才出現 ----
+    angle += (target - angle) * Math.min(1, dt * 6); ring.rotation.y = angle;
+    if (rv > 0.001) {
+      cssLayer.style.visibility = 'visible';
+      if (rv > 0.95) setActive(cur()); else setActive(-1);
+      panels.forEach((pp, i) => { const a = i * STEP + angle, f = Math.cos(a);
+        const op = (f > -0.1 ? 0.35 + 0.65 * Math.pow((f + 0.1) / 1.1, 1.6) : Math.max(0, (f + 0.45) / 0.35) * 0.35) * rv;
+        pp.el.style.opacity = op.toFixed(3); pp.el.style.pointerEvents = op > 0.3 && rv > 0.95 ? 'auto' : 'none'; pp.obj.position.y = RY + Math.sin(t * 0.8 + i * 1.3) * 8 - (1 - rv) * 160; });
+      css.render(cssScene, camera);
+    } else { cssLayer.style.visibility = 'hidden'; setActive(-1); }
+    // ---- 介面:目前在哪一站、提示文字;面板的點點只在地球顯示 ----
+    const stage = p < (S_START + G_END) / 2 ? 0 : p < (E_START + S_END) / 2 ? 1 : 2;
+    stageEls.forEach((s, k) => s.classList.toggle('on', k === stage));
+    dotsEl.style.opacity = rv.toFixed(2); dotsEl.style.pointerEvents = rv > 0.95 ? 'auto' : 'none';
+    const hint = atEarth() ? 'Scroll or drag to explore · 滾動或拖曳瀏覽' : 'Scroll down to travel · 往下捲動前進';
+    if (hintEl.textContent !== hint) hintEl.textContent = hint;
   }
   return {
-    get open() { return open; }, get covering() { return covering; },
-    show() { if (open) return; open = true; root.classList.add('on'); resize(); target = angle = Math.round(angle / STEP) * STEP; active = -1; last = t0 = performance.now(); raf = requestAnimationFrame(frame); setTimeout(() => { if (open) covering = true; }, 700); },
-    hide() { open = false; covering = false; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((p) => { if (p.stop) { p.stop(); p.stop = null; } p.host.innerHTML = ''; }); active = -1; },
-    step, goTo, exit: onExit,
+    get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
+    show() { if (open) return; open = true; loadEarth(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now(); raf = requestAnimationFrame(frame); setTimeout(() => { if (open) covering = true; }, 700); },
+    hide() { open = false; covering = false; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
+    step, goTo, exit: onExit, travel(v) { pT = Math.max(0, Math.min(1, v)); },
   };
 }

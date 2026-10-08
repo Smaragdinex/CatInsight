@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=10';
+import { createOrbit } from './orbit.mjs?v=13';
 import { makeRadio } from './radio.mjs?v=1';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
@@ -1943,7 +1943,7 @@ let slide = 0, uiOn = false, navLockUntil = 0, wheelLockUntil = 0;
 // 進螢幕後的畫面:預設是銀河球 + 環繞的功能面板(orbit.mjs);?slides 用舊的一頁一頁版本;捲動版(?story)不用
 const ORBIT = !STORY && !new URLSearchParams(location.search).has('slides');
 const orbit = ORBIT ? createOrbit({ host: ui, slides: SLIDES, mountWidget, onExit: () => hideUI() }) : null;
-if (ORBIT) ui.classList.add('orbit-mode');
+if (ORBIT) { ui.classList.add('orbit-mode'); window.__orbit = orbit; }
 function setSlide(i) {
   slide = Math.max(0, Math.min(SLIDE_COUNT - 1, i));
   uiTrack.style.transform = `translateY(${-slide * 100}%)`;
