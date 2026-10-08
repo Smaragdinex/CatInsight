@@ -2147,6 +2147,10 @@ const musicPanel = (() => {
   const show = () => { open = true; back.classList.add('on'); sync(); cancelAnimationFrame(raf); tick(); };
   const hide = () => { open = false; back.classList.remove('on'); cancelAnimationFrame(raf); };
   $('.mp-x').onclick = hide; back.addEventListener('click', (e) => { if (e.target === back) hide(); });
+  // 滑鼠滑到按鈕(✕、上一首、播放、下一首)、歌曲小點、進度條上:「嘀」一聲(跟其他按鈕同一個聲音)
+  let mpHov = null;
+  back.addEventListener('pointerover', (e) => { if (e.pointerType !== 'mouse') return; const el = e.target.closest('button, .mp-list i, .mp-bar');
+    if (el && el !== mpHov && !(el.matches('.mp-list i') && el.classList.contains('on'))) ctaSfx('hover'); mpHov = el; });
   // 按鈕回饋音效(合成的短音,跟音響同一個 AudioContext;關掉音效時不響)
   const sfx = (kind) => { const c = bgm.ctx; if (!c || c.state !== 'running' || !bgm.on) return; const t = c.currentTime, out = c.createGain(); out.connect(c.destination);
     const tone = (f0, f1, at, dur, vol, type = 'sine') => { const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t + at); o.frequency.exponentialRampToValueAtTime(f1, t + at + dur);
