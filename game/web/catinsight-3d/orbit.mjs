@@ -4,7 +4,7 @@
 // 面板是 CSS3D(真的 HTML,字清楚、widget 可以操作),和地球場景共用同一台相機。
 import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
-import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
+import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
 // 地球貼圖(NASA 藍色彈珠影像,three.js 範例附的版本);載不到時用程式畫的替代貼圖
@@ -387,10 +387,10 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     // 旅程速度有上限:滑鼠滑很快也照正常速度飛(整趟至少約 8 秒),慢慢滑就跟著滑、尾端緩下來
     { const MAXV = 0.12, d = (pT - p) * Math.min(1, dt * 2.2); p += Math.max(-MAXV * dt, Math.min(MAXV * dt, d)); if (Math.abs(pT - p) < 1e-4) p = pT; }
     // 進場:一開始畫面只露出房間電腦螢幕那一塊(位置、大小一模一樣),鏡頭的視野也對齊那一塊;約 1.1 秒內擴大到整個畫面 → 像是穿進螢幕
-    const W = innerWidth, H = innerHeight; let camAspect = W / H;
+    const W = innerWidth, H = innerHeight; let camAspect = W / H, galH = renderer.domElement.height;
     if (intro) {
       const k = ease((now - intro.t0) / 1100), r = intro.rect, rx = r.x * (1 - k), ry = r.y * (1 - k), rw = r.w + (W - r.w) * k, rh = r.h + (H - r.h) * k;
-      camAspect = rw / rh; camera.aspect = camAspect; camera.setViewOffset(rw, rh, -rx, -ry, W, H);
+      camAspect = rw / rh; camera.aspect = camAspect; camera.setViewOffset(rw, rh, -rx, -ry, W, H); galH *= rh / H;   // 粒子大小照「銀河實際畫的高度」算,剛進來時和螢幕上一樣大
       root.style.clipPath = `inset(${ry.toFixed(1)}px ${(W - rx - rw).toFixed(1)}px ${(H - ry - rh).toFixed(1)}px ${rx.toFixed(1)}px round ${(8 * (1 - k)).toFixed(1)}px)`;
       if (k >= 1) { intro = null; camera.clearViewOffset(); camera.aspect = W / H; root.style.clipPath = ''; covering = true; readyAt = now; }
     }
@@ -401,7 +401,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     renderer.clear();
     // ---- 1. 銀河:從遠處看整個銀河 → 飛向太陽所在的旋臂(從外側往內看,銀河中心在太陽後面)----
     if (gF > 0.001) {
-      gal.update(now / 1000, gF, renderer.domElement.height);
+      gal.update(now / 1000, gF, galH);
       gal.root.updateMatrixWorld(true); sunW.copy(gal.sunLocal).applyMatrix4(gal.disk.matrixWorld);
       diskN.set(0, 1, 0).transformDirection(gal.disk.matrixWorld);
       const gp = Math.min(1, p / G_END), k = ease(gp);

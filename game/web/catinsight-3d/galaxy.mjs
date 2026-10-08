@@ -21,16 +21,17 @@ export function createGalaxy({ seed = 4414 } = {}) {
   // flow:盤面的星星沿著旋臂慢慢往內流(每顆有自己的週期,流到底淡出、從起點再淡入)→ 看得到銀河在轉、在流動,結構又不會被捲爛
   const pointsMat = (sizeScale, dust = false, flow = false) => { const m = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uMap: { value: glow }, uScale: { value: sizeScale }, uViewH: { value: 800 }, uFade: { value: 1 } },
-    vertexShader: `attribute float aSize; attribute float aPh; attribute vec3 aCol; uniform float uTime, uScale, uViewH, uFade; varying vec3 vCol; varying float vA;
+    vertexShader: `attribute float aSize; attribute float aPh; attribute vec3 aCol; uniform float uTime, uScale, uViewH, uFade; varying vec3 vCol; varying float vA, vE;
       void main() { vec3 P = position; float life = 1.0;
         ${flow ? `{ float r = length(P.xz), u = fract(uTime * 0.016 * (${(RD_ * 0.3).toFixed(1)} / (r + ${(RD_ * 0.08).toFixed(1)})) + aPh * 7.13);
           float d = -(u - 0.5) * 0.55, c = cos(d), s = sin(d), k2 = exp(${PITCH_.toFixed(4)} * d);
           P.xz = vec2(P.x * c - P.z * s, P.x * s + P.z * c) * k2; life = min(1.0, sin(3.14159 * u) * 1.6); }` : ''}
         vec4 mv = modelViewMatrix * vec4(P, 1.0); gl_Position = projectionMatrix * mv; float k = uViewH / 800.0;
         float tw = ${dust ? '1.0' : '0.6 + 0.4 * sin(uTime * (0.8 + fract(aPh * 7.3) * 2.2) + aPh * 6.28)'};
-        gl_PointSize = min(aSize * uScale * k * (900.0 / -mv.z) * (0.8 + 0.2 * tw), 26.0 * k); vCol = aCol; vA = tw * life * uFade * smoothstep(1.5, 14.0, -mv.z); }`,
-    fragmentShader: `uniform sampler2D uMap; varying vec3 vCol; varying float vA;
-      void main() { float a = texture2D(uMap, gl_PointCoord).a; ${dust ? 'gl_FragColor = vec4(vCol, a * 0.62 * vA);' : 'gl_FragColor = vec4(vCol * (0.65 + 0.5 * vA), a * (0.55 + 0.45 * vA) * min(1.0, vA * 2.0));'}
+        // 比 2px 小的點:畫成 2px、亮度照面積縮小 → 小張的螢幕貼圖和全螢幕畫出來的亮度、質感一樣(不然小圖上每顆都被放大成 1px,看起來像沙)
+        float s = min(aSize * uScale * k * (900.0 / -mv.z) * (0.8 + 0.2 * tw), 26.0 * k); vE = min(1.0, s * s / 4.0); gl_PointSize = max(s, 2.0); vCol = aCol; vA = tw * life * uFade * smoothstep(1.5, 14.0, -mv.z); }`,
+    fragmentShader: `uniform sampler2D uMap; varying vec3 vCol; varying float vA, vE;
+      void main() { float a = texture2D(uMap, gl_PointCoord).a * vE; ${dust ? 'gl_FragColor = vec4(vCol, a * 0.62 * vA);' : 'gl_FragColor = vec4(vCol * (0.65 + 0.5 * vA), a * (0.55 + 0.45 * vA) * min(1.0, vA * 2.0));'}
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
