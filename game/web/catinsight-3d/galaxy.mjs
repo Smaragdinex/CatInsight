@@ -16,13 +16,19 @@ export function createGalaxy({ seed = 4414 } = {}) {
   const glow = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
     gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
   // 粒子:大小用「畫面高度」換算(螢幕貼圖和全螢幕看起來一樣大);離相機太近的淡掉;uFade 做淡入淡出
+  const RD_ = 1150, PITCH_ = Math.tan(17 * Math.PI / 180);                            // 給 shader 用(和下面的 RD / PITCH 一樣)
   const mats = [];
-  const pointsMat = (sizeScale, dust = false) => { const m = new THREE.ShaderMaterial({
+  // flow:盤面的星星沿著旋臂慢慢往內流(每顆有自己的週期,流到底淡出、從起點再淡入)→ 看得到銀河在轉、在流動,結構又不會被捲爛
+  const pointsMat = (sizeScale, dust = false, flow = false) => { const m = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uMap: { value: glow }, uScale: { value: sizeScale }, uViewH: { value: 800 }, uFade: { value: 1 } },
     vertexShader: `attribute float aSize; attribute float aPh; attribute vec3 aCol; uniform float uTime, uScale, uViewH, uFade; varying vec3 vCol; varying float vA;
-      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float k = uViewH / 800.0;
+      void main() { vec3 P = position; float life = 1.0;
+        ${flow ? `{ float r = length(P.xz), u = fract(uTime * 0.016 * (${(RD_ * 0.3).toFixed(1)} / (r + ${(RD_ * 0.08).toFixed(1)})) + aPh * 7.13);
+          float d = -(u - 0.5) * 0.55, c = cos(d), s = sin(d), k2 = exp(${PITCH_.toFixed(4)} * d);
+          P.xz = vec2(P.x * c - P.z * s, P.x * s + P.z * c) * k2; life = min(1.0, sin(3.14159 * u) * 1.6); }` : ''}
+        vec4 mv = modelViewMatrix * vec4(P, 1.0); gl_Position = projectionMatrix * mv; float k = uViewH / 800.0;
         float tw = ${dust ? '1.0' : '0.6 + 0.4 * sin(uTime * (0.8 + fract(aPh * 7.3) * 2.2) + aPh * 6.28)'};
-        gl_PointSize = min(aSize * uScale * k * (900.0 / -mv.z) * (0.8 + 0.2 * tw), 26.0 * k); vCol = aCol; vA = tw * uFade * smoothstep(1.5, 14.0, -mv.z); }`,
+        gl_PointSize = min(aSize * uScale * k * (900.0 / -mv.z) * (0.8 + 0.2 * tw), 26.0 * k); vCol = aCol; vA = tw * life * uFade * smoothstep(1.5, 14.0, -mv.z); }`,
     fragmentShader: `uniform sampler2D uMap; varying vec3 vCol; varying float vA;
       void main() { float a = texture2D(uMap, gl_PointCoord).a; ${dust ? 'gl_FragColor = vec4(vCol, a * 0.62 * vA);' : 'gl_FragColor = vec4(vCol * (0.65 + 0.5 * vA), a * (0.55 + 0.45 * vA) * min(1.0, vA * 2.0));'}
         #include <tonemapping_fragment>
@@ -30,13 +36,13 @@ export function createGalaxy({ seed = 4414 } = {}) {
       }`,
     transparent: true, depthWrite: false, blending: dust ? THREE.NormalBlending : THREE.AdditiveBlending });
     mats.push(m); return m; };
-  const points = (count, place, sizeScale, dust) => {
+  const points = (count, place, sizeScale, dust, flow) => {
     const pos = new Float32Array(count * 3), col = new Float32Array(count * 3), size = new Float32Array(count), ph = new Float32Array(count);
     const v = new THREE.Vector3(), c = new THREE.Color(); let n = 0, guard = 0;
     while (n < count && guard++ < count * 40) { const sz = place(v, c); if (sz <= 0) continue; pos.set([v.x, v.y, v.z], n * 3); col.set([c.r, c.g, c.b], n * 3); size[n] = sz; ph[n] = rnd(); n++; }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos.subarray(0, n * 3), 3)); g.setAttribute('aCol', new THREE.BufferAttribute(col.subarray(0, n * 3), 3));
     g.setAttribute('aSize', new THREE.BufferAttribute(size.subarray(0, n), 1)); g.setAttribute('aPh', new THREE.BufferAttribute(ph.subarray(0, n), 1));
-    const p = new THREE.Points(g, pointsMat(sizeScale, dust)); p.frustumCulled = false; return p;
+    const p = new THREE.Points(g, pointsMat(sizeScale, dust, flow)); p.frustumCulled = false; return p;
   };
 
   const RD = 1150, SL = RD * 0.3;                                                       // 盤面半徑、指數盤的尺度長度
@@ -64,7 +70,7 @@ export function createGalaxy({ seed = 4414 } = {}) {
     let sz = 0.6 + rnd() * 1.0;
     if (x > 0.3 && w > 0.7 && rnd() < 0.05) { c.copy(BLUE2); sz *= 2.2; }
     else if (x > 0.25 && w > 0.75 && rnd() < 0.012) { c.copy(HII); sz *= 1.8; }
-    return sz; }, 1.4));
+    return sz; }, 1.4, false, true));
   // 3. 整片盤面的漫射光(很多很暗的點,讓星系看起來是一整片蓬鬆的光,不是一條條線)
   disk.add(points(18000, (v, c) => { const r = diskR(), th = rnd() * 6.283, x = r / RD;
     v.set(Math.cos(th) * r, gauss() * RD * 0.015, Math.sin(th) * r); c.copy(WARM[2]).lerp(BLUE, THREE.MathUtils.smoothstep(x, 0.15, 0.85)).multiplyScalar(0.16); return 1.6 + rnd() * 1.6; }, 1.5));
@@ -93,7 +99,7 @@ export function createGalaxy({ seed = 4414 } = {}) {
     scene, root, disk, stars, coreGlow, diskGlow, sunLocal, RD,
     // time:用 performance.now() 的秒數(兩份共用同一個時鐘);fade:淡入淡出;viewH:畫的那張圖的高度(px)
     update(time, fade = 1, viewH = 800) {
-      disk.rotation.y = time * 0.012;
+      disk.rotation.y = time * 0.03;                                                   // 整個盤面慢慢轉(順著旋臂拖曳的方向)
       mats.forEach((m) => { m.uniforms.uTime.value = time; m.uniforms.uFade.value = fade; m.uniforms.uViewH.value = viewH; });
       coreGlow.material.opacity = 0.7 * fade; diskGlow.material.opacity = fade;
     },

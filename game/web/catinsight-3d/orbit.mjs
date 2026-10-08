@@ -4,7 +4,7 @@
 // 面板是 CSS3D(真的 HTML,字清楚、widget 可以操作),和地球場景共用同一台相機。
 import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
-import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=3';
+import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
 // 地球貼圖(NASA 藍色彈珠影像,three.js 範例附的版本);載不到時用程式畫的替代貼圖
@@ -71,6 +71,23 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   const gal = createGalaxy(), gScene = gal.scene;
   const sunMark = sprite(0xffe7b0, 10, 0); sunMark.position.copy(gal.sunLocal); gal.disk.add(sunMark);
   const sunW = new THREE.Vector3(), diskN = new THREE.Vector3();
+  // 飛進銀河時的星塵:一團跟著相機的顆粒,從遠處畫面中心往外散開、從身邊飛過(往下捲越快,飛得越快、越明顯)
+  const warp = (() => { const N2 = 2200, pos = new Float32Array(N2 * 3), col = new Float32Array(N2 * 3), size = new Float32Array(N2);
+    const PAL = [[1, 0.93, 0.8], [0.8, 0.86, 1], [1, 0.82, 0.62], [0.55, 0.36, 0.24], [0.95, 0.97, 1]];
+    for (let i = 0; i < N2; i++) { const a = Math.random() * 6.283, r = 0.03 + Math.pow(Math.random(), 0.7) * 0.75; pos.set([Math.cos(a) * r, Math.sin(a) * r, -Math.random()], i * 3);
+      const c = PAL[Math.floor(Math.random() * PAL.length)], b = 0.5 + Math.random() * 0.6; col.set([c[0] * b, c[1] * b, c[2] * b], i * 3); size[i] = 0.6 + Math.random() * 1.8; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aCol', new THREE.BufferAttribute(col, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+    const m = new THREE.ShaderMaterial({ uniforms: { uOff: { value: 0 }, uAmt: { value: 0 }, uViewH: { value: 800 }, uMap: { value: glow } }, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+      vertexShader: `attribute float aSize; attribute vec3 aCol; uniform float uOff, uAmt, uViewH; varying vec3 vCol; varying float vA;
+        void main() { vec3 P = position; P.z = -1.0 + mod(P.z + 1.0 + uOff, 1.0); float d = max(-P.z, 0.015);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(P, 1.0); float k = uViewH / 800.0;
+          gl_PointSize = min(aSize * k * 2.2 / d, 30.0 * k); vCol = aCol; vA = uAmt * smoothstep(1.0, 0.7, d) * smoothstep(0.015, 0.09, d); }`,
+      fragmentShader: `uniform sampler2D uMap; varying vec3 vCol; varying float vA; void main() { float a = texture2D(uMap, gl_PointCoord).a; gl_FragColor = vec4(vCol, a * vA);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }` });
+    const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 5; gScene.add(pts); return { pts, m, spd: 0 }; })();
+  let pPrev = 0;
   // 銀河先畫進一張高精度的圖,再整張做一次 ACES 色調映射 + sRGB + 和房間一樣的調色 / 暗角 / 顆粒(房間的電腦螢幕就是這樣出來的,兩邊才會一模一樣)
   const galRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
   const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -96,50 +113,104 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   // =====================================================================
   const sScene = new THREE.Scene();
   const sStars = starField(30000, 40000, 3000, 30); sScene.add(sStars);
-  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(22, 48, 32), new THREE.MeshBasicMaterial({ color: 0xfff0c8, transparent: true }));
-  sScene.add(sunMesh);
-  const sunGlow1 = sprite(0xffd38a, 140, 0.9), sunGlow2 = sprite(0xff9a4a, 520, 0.2); sScene.add(sunGlow1, sunGlow2);
-  sScene.add(new THREE.PointLight(0xfff2dd, 3.2, 0, 0)); sScene.add(new THREE.AmbientLight(0x334466, 0.25));
-  const bandTex = (stops, { noise = 0.15, spot = null, cap = false } = {}) => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d');
-    const gr = g.createLinearGradient(0, 0, 0, 256); stops.forEach(([k, col]) => gr.addColorStop(k, col)); g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
-    for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${Math.random() * noise})`; g.fillRect(Math.random() * 512, Math.random() * 256, 6 + Math.random() * 30, 1 + Math.random() * 3); }
-    if (spot) { g.fillStyle = spot; g.beginPath(); g.ellipse(330, 165, 26, 14, 0, 0, 7); g.fill(); }
-    if (cap) { g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(0, 0, 512, 14); g.fillRect(0, 244, 512, 12); }
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  // 天空裡淡淡的一條銀河帶(太陽系和地球兩段都有)
+  const milkyBand = (rad, count, sizeScale) => makePoints(count, (i, v, c) => { const a = Math.random() * 6.283, lat = gauss() * 0.11 + gauss() * 0.04;
+    v.set(Math.cos(a) * Math.cos(lat), Math.sin(lat), Math.sin(a) * Math.cos(lat)).multiplyScalar(rad).applyAxisAngle(new THREE.Vector3(1, 0, 0), 1.05).applyAxisAngle(new THREE.Vector3(0, 0, 1), 0.5);
+    const core = Math.pow(Math.max(0, Math.cos(a - 1.2)), 6); c.setRGB(0.78 + 0.22 * core, 0.74 + 0.14 * core, 0.82 - 0.2 * core).multiplyScalar(0.3 + 0.45 * core + Math.random() * 0.25);
+    return 0.8 + Math.random() * 1.4 + core * 1.2; }, sizeScale);
+  const sBand = milkyBand(34000, 7000, 30); sScene.add(sBand);
+  // 太陽:表面有翻動的米粒組織、邊緣比較暗(臨邊昏暗)、偶爾幾塊太陽黑子;外面三層光暈
+  const NOISE_GLSL = `float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float vn3(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y), mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+    float fbm3(vec3 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn3(p); p *= 2.03; a *= 0.5; } return s; }`;
+  const sunMat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uFade: { value: 1 } }, transparent: true,
+    vertexShader: `varying vec3 vP, vN, vW; void main() { vP = position; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float uTime, uFade; varying vec3 vP, vN, vW; ${NOISE_GLSL}
+      void main() { vec3 q = normalize(vP); float g = fbm3(q * 6.0 + vec3(0.0, uTime * 0.05, uTime * 0.02)); float gr = vn3(q * 42.0 + uTime * 0.3);
+        float spots = smoothstep(0.63, 0.7, fbm3(q * 3.0 + 7.0)); float mu = max(dot(normalize(vN), normalize(cameraPosition - vW)), 0.0), limb = pow(mu, 0.45);
+        vec3 col = mix(vec3(1.0, 0.36, 0.05), vec3(1.0, 0.9, 0.62), limb) * (0.68 + 0.5 * g + 0.2 * gr) * (1.0 - spots * 0.6);
+        gl_FragColor = vec4(col * 1.3, uFade);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }` });
+  const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(22, 64, 48), sunMat); sScene.add(sunMesh);
+  const sunGlow1 = sprite(0xfff0d0, 90, 0.85), sunGlow2 = sprite(0xffb060, 230, 0.35), sunGlow3 = sprite(0xff8a3a, 650, 0.12); sScene.add(sunGlow1, sunGlow2, sunGlow3);
+  sScene.add(new THREE.PointLight(0xfff4e6, 3.4, 0, 0)); sScene.add(new THREE.AmbientLight(0x223355, 0.06));   // 環境光很弱 → 行星背光那面是暗的
+  // 行星表面:用 3D 雜訊在球面上畫(沒有接縫),依行星特徵上色;第一次用到前在閒置時間畫好
+  const pnoise = (() => { const P = new Uint8Array(512); let sd = 1234567; for (let i = 0; i < 256; i++) P[i] = i;
+    for (let i = 255; i > 0; i--) { sd = (sd * 16807) % 2147483647; const j = sd % (i + 1); [P[i], P[j]] = [P[j], P[i]]; } for (let i = 0; i < 256; i++) P[i + 256] = P[i];
+    const h = (i, j, k) => P[P[P[i & 255] + (j & 255)] + (k & 255)] / 255;
+    const n = (x, y, z) => { const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z); let xf = x - xi, yf = y - yi, zf = z - zi; xf = xf * xf * (3 - 2 * xf); yf = yf * yf * (3 - 2 * yf); zf = zf * zf * (3 - 2 * zf);
+      const l = (a, b, t) => a + (b - a) * t;
+      return l(l(l(h(xi, yi, zi), h(xi + 1, yi, zi), xf), l(h(xi, yi + 1, zi), h(xi + 1, yi + 1, zi), xf), yf), l(l(h(xi, yi, zi + 1), h(xi + 1, yi, zi + 1), xf), l(h(xi, yi + 1, zi + 1), h(xi + 1, yi + 1, zi + 1), xf), yf), zf); };
+    return (x, y, z, oct = 4) => { let a = 0.5, s2 = 0, f = 1; for (let o = 0; o < oct; o++) { s2 += a * n(x * f, y * f, z * f); f *= 2.03; a *= 0.5; } return s2 / (1 - Math.pow(0.5, oct)); }; })();
+  const hex = (hh) => [(hh >> 16 & 255) / 255, (hh >> 8 & 255) / 255, (hh & 255) / 255];
+  const mixc = (a, b, t) => a.map((v, i) => v + (b[i] - v) * Math.max(0, Math.min(1, t)));
+  const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const planetTex = (W, H, shade) => { const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
+    for (let y = 0; y < H; y++) { const lat = (0.5 - (y + 0.5) / H) * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat);
+      for (let x = 0; x < W; x++) { const lon = (x + 0.5) / W * Math.PI * 2, px = cl * Math.cos(lon), pz = cl * Math.sin(lon); const col = shade(px, sl, pz, lat, lon), i = (y * W + x) * 4;
+        d[i] = Math.min(255, col[0] * 255); d[i + 1] = Math.min(255, col[1] * 255); d[i + 2] = Math.min(255, col[2] * 255); d[i + 3] = 255; } }
+    g.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+  const SHADES = {
+    mercury: (x, y, z) => { const n = pnoise(x * 4, y * 4, z * 4), cr = pnoise(x * 18 + 5, y * 18, z * 18, 3); const v = 0.38 + 0.28 * n - (cr > 0.66 ? (cr - 0.66) * 1.6 : 0) + (cr < 0.3 ? 0.08 : 0); return [v * 1.02, v, v * 0.94]; },
+    venus: (x, y, z, lat) => { const q = pnoise(x * 2 + 3, y * 2, z * 2), band = 0.5 + 0.5 * Math.sin(lat * 7 + q * 5); return mixc(hex(0xd4ad6c), hex(0xf2dfb2), band).map((v) => v * (0.9 + 0.15 * pnoise(x * 8, y * 8, z * 8, 3))); },
+    mars: (x, y, z, lat) => { const n = pnoise(x * 3, y * 3, z * 3), dk = sm(0.5, 0.62, n), f = pnoise(x * 12, y * 12, z * 12, 3);
+      let c = mixc(hex(0xc8693c), hex(0x7d4228), dk).map((v) => v * (0.85 + 0.3 * f)); const cap = sm(1.22, 1.3, Math.abs(lat) + (pnoise(x * 9, y * 9, z * 9, 2) - 0.5) * 0.12); return mixc(c, [0.95, 0.93, 0.9], cap); },
+    jupiter: (x, y, z, lat, lon) => { const t = lat * 9 + (pnoise(x * 3, y * 3, z * 3) - 0.5) * 1.6, band = 0.5 + 0.5 * Math.sin(t * 2.3);
+      let c = mixc(hex(0xa8754a), hex(0xf0e2c4), band); c = mixc(c, hex(0xd8b588), 0.35 * (0.5 + 0.5 * Math.sin(t * 5.1))); c = c.map((v) => v * (0.9 + 0.18 * pnoise(x * 14, y * 14, z * 14, 3)));
+      const dx = (((lon - 1.0 + Math.PI) % (Math.PI * 2)) - Math.PI) * Math.cos(lat) / 0.17, dy = (lat + 0.38) / 0.085, e = dx * dx + dy * dy;
+      return e < 1 ? mixc(c, hex(0xc4603e), (1 - e) * 1.4) : c; },
+    saturn: (x, y, z, lat) => { const t = lat * 7 + (pnoise(x * 2, y * 2, z * 2) - 0.5) * 0.35, band = 0.5 + 0.5 * Math.sin(t * 2.2); return mixc(hex(0xcdb07a), hex(0xeedcae), band).map((v) => v * (0.95 + 0.08 * pnoise(x * 10, y * 10, z * 10, 2))); },
+    uranus: (x, y, z, lat) => hex(0x9fd8e0).map((v) => v * (0.95 + 0.05 * Math.sin(lat * 10))),
+    neptune: (x, y, z, lat, lon) => { let c = hex(0x3f62c8).map((v) => v * (0.9 + 0.12 * Math.sin(lat * 9 + pnoise(x * 3, y * 3, z * 3) * 2))); const dx = (((lon - 2.2 + Math.PI) % (Math.PI * 2)) - Math.PI) * Math.cos(lat) / 0.16, dy = (lat + 0.35) / 0.07; return dx * dx + dy * dy < 1 ? c.map((v) => v * 0.55) : c; },
+  };
   const PLANETS = [
-    { r: 2.4, d: 55, sp: 1.6, tex: bandTex([[0, '#8d8a86'], [1, '#6f6b66']], { noise: 0.3 }) },
-    { r: 4.6, d: 85, sp: 1.2, tex: bandTex([[0, '#e9d3a2'], [0.5, '#d9b878'], [1, '#e6cf9a']], { noise: 0.08 }) },
-    { r: 5, d: 125, earth: true },
-    { r: 3.3, d: 165, sp: 0.8, tex: bandTex([[0, '#c1643a'], [0.5, '#a9502c'], [1, '#c46b40']], { noise: 0.25, cap: true }) },
-    { r: 15, d: 255, sp: 0.4, tex: bandTex([[0, '#d9c3a0'], [0.2, '#b48a5e'], [0.3, '#ecdcc0'], [0.45, '#a8784e'], [0.55, '#efe2c8'], [0.7, '#b98f64'], [0.85, '#e5d4b4'], [1, '#c8a982']], { noise: 0.1, spot: '#c0583a' }) },
-    { r: 12, d: 345, sp: 0.3, ring: true, tex: bandTex([[0, '#e8d6a8'], [0.3, '#d6bd86'], [0.5, '#efe0b8'], [0.7, '#cdb27a'], [1, '#e6d3a4']], { noise: 0.06 }) },
-    { r: 7.5, d: 430, sp: 0.22, tex: bandTex([[0, '#bfe8ee'], [1, '#9ad3dd']], { noise: 0.04 }) },
-    { r: 7.2, d: 505, sp: 0.18, tex: bandTex([[0, '#5a7fe0'], [0.5, '#3f62c8'], [1, '#5577da']], { noise: 0.08 }) },
+    { name: 'mercury', r: 2.4, d: 55, sp: 1.6, col: 0x8d8a86 },
+    { name: 'venus', r: 4.6, d: 85, sp: 1.2, col: 0xe2c690 },
+    { name: 'earth', r: 5, d: 125, earth: true },
+    { name: 'mars', r: 3.3, d: 165, sp: 0.8, col: 0xb85e36 },
+    { name: 'jupiter', r: 15, d: 255, sp: 0.4, col: 0xd2b08a, big: true },
+    { name: 'saturn', r: 12, d: 345, sp: 0.3, col: 0xdcc394, big: true, ring: true },
+    { name: 'uranus', r: 7.5, d: 430, sp: 0.22, col: 0x9fd8e0 },
+    { name: 'neptune', r: 7.2, d: 505, sp: 0.18, col: 0x4466cc },
   ];
   // 地球固定在這個位置:從地球看太陽的方向 = 相機最後靠近地球的方向往右轉約 50°(白天在右、夜晚在左,看得到城市燈光)
   const D_FINAL = new THREE.Vector3(0, 0.16, 1).normalize();
   const SUN_DIR = new THREE.Vector3(Math.sin(0.9), 0, Math.cos(0.9));                        // 從地球看太陽(世界方向)
   const EARTH_POS = SUN_DIR.clone().multiplyScalar(-125);
-  const sMats = [sunMesh.material];
-  const planetObjs = PLANETS.map((pl, i) => {
+  const sMats = [sunMat];
+  const planetObjs = PLANETS.map((pl) => {
     const g = new THREE.Group(); sScene.add(g); pl.a0 = Math.random() * 6.283;
     if (!pl.earth) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(pl.r, 40, 24), new THREE.MeshStandardMaterial({ map: pl.tex, roughness: 0.9, transparent: true })); g.add(m); sMats.push(m.material);
-      if (pl.ring) { const rc = document.createElement('canvas'); rc.width = 256; rc.height = 4; const rg = rc.getContext('2d');
-        for (let x = 0; x < 256; x++) { const k = x / 256, a = (k < 0.08 || (k > 0.55 && k < 0.6)) ? 0 : 0.35 + 0.5 * Math.abs(Math.sin(k * 40)) * (1 - k * 0.5); rg.fillStyle = `rgba(230,210,170,${a})`; rg.fillRect(x, 0, 1, 4); }
+      const m = new THREE.Mesh(new THREE.SphereGeometry(pl.r, 64, 40), new THREE.MeshStandardMaterial({ color: pl.col, roughness: 1, metalness: 0, transparent: true })); m.rotation.z = pl.name === 'uranus' ? 1.7 : 0.05; g.add(m); sMats.push(m.material); pl.mesh = m;
+      if (pl.ring) {   // 土星環:C 環(淡)、B 環(最亮)、卡西尼縫、A 環 + 恩克縫
+        const RI = 1.24, RO = 2.27, rc = document.createElement('canvas'); rc.width = 1024; rc.height = 4; const rg = rc.getContext('2d');
+        for (let x2 = 0; x2 < 1024; x2++) { const rr = RI + (RO - RI) * x2 / 1024; let a = rr < 1.53 ? 0.18 : rr < 1.95 ? 0.85 : rr < 2.03 ? 0.04 : (rr > 2.2 && rr < 2.215) ? 0.05 : 0.6;
+          a *= 0.8 + 0.2 * Math.sin(rr * 160) * Math.sin(rr * 37); const k = (rr - RI) / (RO - RI); rg.fillStyle = `rgba(${230 - k * 20 | 0},${212 - k * 30 | 0},${176 - k * 40 | 0},${Math.max(0, a)})`; rg.fillRect(x2, 0, 1, 4); }
         const rt = new THREE.CanvasTexture(rc); rt.colorSpace = THREE.SRGBColorSpace;
-        const rgeo = new THREE.RingGeometry(pl.r * 1.3, pl.r * 2.3, 96, 1), uv = rgeo.attributes.uv, pos = rgeo.attributes.position;
-        for (let k = 0; k < pos.count; k++) { const rr = Math.hypot(pos.getX(k), pos.getY(k)); uv.setXY(k, (rr - pl.r * 1.3) / (pl.r * 1.0), 0.5); }
-        const ring = new THREE.Mesh(rgeo, new THREE.MeshBasicMaterial({ map: rt, transparent: true, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2 + 0.45; g.add(ring); sMats.push(ring.material); }
+        const rgeo = new THREE.RingGeometry(pl.r * RI, pl.r * RO, 160, 1), uv = rgeo.attributes.uv, pos = rgeo.attributes.position;
+        for (let k = 0; k < pos.count; k++) { const rr = Math.hypot(pos.getX(k), pos.getY(k)); uv.setXY(k, (rr / pl.r - RI) / (RO - RI), 0.5); }
+        const ring = new THREE.Mesh(rgeo, new THREE.MeshStandardMaterial({ map: rt, transparent: true, side: THREE.DoubleSide, depthWrite: false, roughness: 1, emissive: 0x6a5a40, emissiveIntensity: 0.25 }));
+        ring.rotation.x = -Math.PI / 2 + 0.47; g.add(ring); sMats.push(ring.material); }
     }
-    // 軌道線
-    const pts = []; for (let k = 0; k <= 160; k++) { const a = k / 160 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * pl.d, 0, Math.sin(a) * pl.d)); }
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: pl.earth ? 0x7fb6ff : 0x8fa0d8, transparent: true, opacity: pl.earth ? 0.4 : 0.18, depthWrite: false }));
+    // 軌道線(很細很淡)
+    const pts = []; for (let k = 0; k <= 200; k++) { const a = k / 200 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * pl.d, 0, Math.sin(a) * pl.d)); }
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: pl.earth ? 0x7fb6ff : 0x8fa0d8, transparent: true, opacity: pl.earth ? 0.28 : 0.1, depthWrite: false }));
     line.material.userData.op = line.material.opacity; line.material.userData.line = true; sScene.add(line); sMats.push(line.material);
     return { pl, g };
   });
-  const belt = makePoints(2500, (i, v, c) => { const r = 195 + Math.random() * 35, a = Math.random() * 6.283; v.set(Math.cos(a) * r, gauss() * 3, Math.sin(a) * r); c.setRGB(0.6, 0.55, 0.5); return 0.5 + Math.random() * 0.7; }, 0.25);
+  let planetTexDone = false;
+  const buildPlanetTex = () => { if (planetTexDone) return; planetTexDone = true;
+    PLANETS.forEach((pl) => { if (pl.earth) return; pl.mesh.material.map = planetTex(pl.big ? 512 : 256, pl.big ? 256 : 128, SHADES[pl.name]); pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }); };
+  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(buildPlanetTex, { timeout: 4000 });
+  const belt = makePoints(4000, (i, v, c) => { const r = 195 + Math.random() * 35, a = Math.random() * 6.283; v.set(Math.cos(a) * r, gauss() * 3, Math.sin(a) * r); c.setRGB(0.55, 0.5, 0.45).multiplyScalar(0.6 + Math.random() * 0.5); return 0.4 + Math.random() * 0.6; }, 0.22);
   sScene.add(belt);
+  // 月亮(three.js 範例附的月球貼圖):太陽系那段繞著地球、地球那段在左上方的遠處
+  const moonMat = new THREE.MeshStandardMaterial({ color: 0xbfbfbf, roughness: 1, metalness: 0, transparent: true }), eMoonMat = new THREE.MeshStandardMaterial({ color: 0xbfbfbf, roughness: 1, metalness: 0 });
+  new THREE.TextureLoader().setCrossOrigin('anonymous').load(TEX + 'moon_1024.jpg', (t) => { t.colorSpace = THREE.SRGBColorSpace; [moonMat, eMoonMat].forEach((m) => { m.map = t; m.color.set(0xffffff); m.needsUpdate = true; }); }, undefined, () => {});
+  const sMoon = new THREE.Mesh(new THREE.SphereGeometry(1.35, 48, 32), moonMat); sScene.add(sMoon); sMats.push(moonMat);
 
   // =====================================================================
   // 3. 地球(白天 / 夜晚城市燈光 / 海面反光 / 雲 / 大氣光暈);太陽系裡那顆地球用同一套材質
@@ -147,6 +218,9 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   const eScene = new THREE.Scene();
   const eStars = starField(9000, 14000, 2600, 12); eScene.add(eStars);
   const eSun = sprite(0xfff1d0, 1800, 0.9); eSun.position.copy(SUN_DIR).multiplyScalar(15000); eScene.add(eSun);
+  const eBand = milkyBand(12000, 7000, 12); eScene.add(eBand);
+  const eMoon = new THREE.Mesh(new THREE.SphereGeometry(82, 64, 40), eMoonMat); eMoon.position.set(-1750, 620, -1900); eScene.add(eMoon);
+  const eLight = new THREE.DirectionalLight(0xfff4e6, 3.2); eLight.position.copy(SUN_DIR).multiplyScalar(1000); eScene.add(eLight, new THREE.AmbientLight(0x223355, 0.05));
   // 載不到 NASA 貼圖時的替代:程式畫的海洋 + 大陸
   const fallbackDay = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#0d2d5c'; g.fillRect(0, 0, 512, 256);
     for (let i = 0; i < 40; i++) { const x = Math.random() * 512, y = 40 + Math.random() * 176, rr = 10 + Math.random() * 40; g.fillStyle = ['#3d6b35', '#7a6a42', '#5b7a3a'][i % 3]; g.beginPath(); g.ellipse(x, y, rr, rr * 0.6, Math.random() * 3, 0, 7); g.fill(); }
@@ -277,7 +351,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   let intro = null;
   function frame(now) {
     if (!open) return; raf = requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now;
+    const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now; pPrev = p;
     p += (pT - p) * Math.min(1, dt * 2.2); if (Math.abs(pT - p) < 1e-4) p = pT;
     // 進場:一開始畫面只露出房間電腦螢幕那一塊(位置、大小一模一樣),鏡頭的視野也對齊那一塊;約 1.1 秒內擴大到整個畫面 → 像是穿進螢幕
     const W = innerWidth, H = innerHeight; let camAspect = W / H;
@@ -303,6 +377,11 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       const dist = lerpLog(start.distanceTo(sunW), 2.5, k);
       look.set(0, 0, 0).lerp(sunW, ss(0, 0.55, gp));
       setCam(sunW.clone().addScaledVector(dir, dist), look, 0.3, 20000);
+      // 星塵:跟著相機;速度 = 這一幀旅程進度變化的快慢
+      const v = Math.abs(p - pPrev) / Math.max(dt, 1e-3); warp.spd += (v - warp.spd) * Math.min(1, dt * 4);
+      warp.pts.position.copy(camera.position); warp.pts.quaternion.copy(camera.quaternion); warp.pts.scale.setScalar(Math.max(3, dist * 0.9));
+      warp.m.uniforms.uOff.value += dt * (0.06 + warp.spd * 9); warp.m.uniforms.uViewH.value = renderer.domElement.height;
+      warp.m.uniforms.uAmt.value = Math.min(1, 0.15 + warp.spd * 14) * ss(0.02, 0.12, gp) * (1 - ss(0.88, 1, gp)) * gF;
       gal.coreGlow.material.opacity *= 1 - ss(0.15, 0.6, gp); gal.diskGlow.material.opacity *= 1 - ss(0.15, 0.6, gp);   // 靠近之後核心 / 盤面的柔光是一大片平面,淡掉(核心的星星還在)
       sunMark.material.opacity = ss(0.3, 0.9, gp) * gF; sunMark.scale.setScalar(dist * 0.045);          // 太陽:畫面上一直是一顆小亮星(約 2.5°),交接時剛好接上太陽系那顆
       if (galRT.width !== renderer.domElement.width || galRT.height !== renderer.domElement.height) galRT.setSize(renderer.domElement.width, renderer.domElement.height);
@@ -312,6 +391,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     // ---- 2. 太陽系:太陽從一個亮點開始 → 看到八大行星全景 → 飛向地球 ----
     planetObjs.forEach(({ pl, g }) => { if (!pl.earth) { const a = pl.a0 + t * pl.sp * 0.05; g.position.set(Math.cos(a) * pl.d, 0, Math.sin(a) * pl.d); g.rotation.y = t * 0.3; } });
     // 讓台灣 / 東亞在白天、正對鏡頭(貼圖經度 121°E 轉到相機方向偏向太陽一點),然後很慢地自轉
+    sMoon.position.copy(EARTH_POS).add(v2.set(Math.cos(t * 0.05 + 2.4) * 13, 1.5, Math.sin(t * 0.05 + 2.4) * 13)); sMoon.rotation.y = t * 0.05;
     const spin = 2.91 + t * 0.006; smallEarth.spin.rotation.y = bigEarth.spin.rotation.y = spin; smallEarth.cl.rotation.y = bigEarth.cl.rotation.y = spin + t * 0.003;
     if (sF > 0.001) {
       const sp = Math.max(0, Math.min(1, (p - S_START) / (S_END - S_START))), a = Math.min(1, sp / 0.45), b = Math.max(0, (sp - 0.45) / 0.55);
@@ -327,7 +407,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       setCam(pos, tgt, 0.2, 60000);
       const lineFade = 1 - ss(0.5, 0.9, b);                                            // 靠近地球時軌道線淡掉,不會橫過地球
       sMats.forEach((m) => { m.opacity = (m.userData.op ?? 1) * sF * (m.userData.line ? lineFade : 1); });
-      sunGlow1.material.opacity = 0.9 * sF; sunGlow2.material.opacity = 0.2 * sF; sStars.material.uniforms.uFade.value = sF; belt.material.uniforms.uFade.value = sF;
+      sunMat.uniforms.uTime.value = t; sunMat.uniforms.uFade.value = sF; sunGlow1.material.opacity = 0.85 * sF; sunGlow2.material.opacity = 0.35 * sF * (1 - ss(0.05, 0.5, b)); sunGlow3.material.opacity = 0.12 * sF * (1 - ss(0.05, 0.5, b));   // 飛向地球時太陽的大光暈淡掉,畫面才不會一片棕 sBand.material.uniforms.uFade.value = sF; sStars.material.uniforms.uFade.value = sF; belt.material.uniforms.uFade.value = sF;
       earthU.uFade.value = sF; renderer.clearDepth(); renderer.render(sScene, camera);
     }
     // ---- 3. 地球:接手時地球在畫面上的大小和太陽系那顆一樣 → 拉回到最後的構圖,面板浮現 ----
@@ -340,7 +420,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       const finLook = new THREE.Vector3(0, portrait ? RY - 90 : RY - 110, 0);
       const startPos = D_FINAL.clone().multiplyScalar(ER * 5); startPos.y += EY;
       setCam(startPos.lerp(fin, k), new THREE.Vector3(0, EY, 0).lerp(finLook, k), 10, 60000);
-      earthU.uFade.value = eF; eStars.material.uniforms.uFade.value = eF; eSun.material.opacity = 0.9 * eF; ringLine.material.opacity = 0.35 * rv;
+      earthU.uFade.value = eF; eStars.material.uniforms.uFade.value = eF; eBand.material.uniforms.uFade.value = eF; eMoon.visible = eF > 0.5; eSun.material.opacity = 0.9 * eF; ringLine.material.opacity = 0.35 * rv;
       renderer.clearDepth(); renderer.render(eScene, camera);
     }
     // ---- 面板:到地球才出現 ----
