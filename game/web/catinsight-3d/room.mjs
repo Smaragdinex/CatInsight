@@ -2091,7 +2091,9 @@ const musicPanel = (() => {
     .mp-c .mp-pp svg { width: 26px; height: 26px; }
     .mp-list { display: flex; justify-content: center; gap: 7px; margin-top: 18px; }
     .mp-list i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.25); cursor: pointer; transition: width .3s, background .3s; }
-    .mp-list i.on { width: 20px; border-radius: 4px; background: #fff; }`;
+    .mp-list i.on { width: 20px; border-radius: 4px; background: #fff; }
+    .mp-swipe { cursor: grab; user-select: none; -webkit-user-select: none; } .mp-swipe:active { cursor: grabbing; }
+    .mp-swipe .mp-disc { pointer-events: none; }`;
   document.head.appendChild(st);
   const I = { prev: '<svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>', next: '<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>',
     play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', pause: '<svg viewBox="0 0 24 24"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/></svg>' };
@@ -2128,6 +2130,23 @@ const musicPanel = (() => {
   list.addEventListener('click', (e) => { const i = e.target.dataset && e.target.dataset.i; if (i !== undefined) radio.go(+i); });
   $('.mp-bar').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); radio.seek((e.clientX - r.left) / r.width); });
   window.addEventListener('keydown', (e) => { if (open && e.key === 'Escape') { e.stopImmediatePropagation(); hide(); } }, true);
+  // 左右滑切歌(滑鼠拖、手機 / iPad 手指滑都可以):往左滑 = 下一首、往右滑 = 上一首;拖的時候唱片跟著手指移動,放開後滑出去再從另一邊滑回來
+  card.style.touchAction = 'pan-y';
+  const wrap = document.createElement('div'); wrap.className = 'mp-swipe'; disc.parentNode.insertBefore(wrap, disc); wrap.appendChild(disc);
+  ['.mp-t', '.mp-a'].forEach((q) => wrap.appendChild($(q)));
+  let sw = null;
+  card.addEventListener('pointerdown', (e) => { if (e.target.closest('button, .mp-bar, .mp-list')) return; sw = { x: e.clientX, y: e.clientY, id: e.pointerId, dx: 0, on: false }; });
+  window.addEventListener('pointermove', (e) => { if (!sw || e.pointerId !== sw.id) return; const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    if (!sw.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) { sw.on = true; try { card.setPointerCapture(e.pointerId); } catch (err) {} }
+    if (sw.on) { sw.dx = dx; wrap.style.transition = 'none'; wrap.style.transform = `translateX(${dx}px) rotate(${dx * 0.02}deg)`; wrap.style.opacity = String(1 - Math.min(0.6, Math.abs(dx) / 400)); } });
+  let swipedAt = 0;
+  const endSwipe = () => { if (!sw) return; const { dx, on } = sw; sw = null; if (!on) return; swipedAt = performance.now();
+    if (Math.abs(dx) > 60) { const dir = dx < 0 ? 1 : -1; wrap.style.transition = 'transform .22s ease-in, opacity .22s'; wrap.style.transform = `translateX(${-dir * 320}px)`; wrap.style.opacity = '0';
+      setTimeout(() => { radio.skip(dir); wrap.style.transition = 'none'; wrap.style.transform = `translateX(${dir * 320}px)`; requestAnimationFrame(() => { wrap.style.transition = 'transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s'; wrap.style.transform = ''; wrap.style.opacity = '1'; }); }, 220); }
+    else { wrap.style.transition = 'transform .3s cubic-bezier(.2,.8,.2,1), opacity .3s'; wrap.style.transform = ''; wrap.style.opacity = '1'; } };
+  window.addEventListener('pointerup', endSwipe); window.addEventListener('pointercancel', endSwipe);
+  // 拖曳結束時別被當成「點背景」關掉
+  back.addEventListener('click', (e) => { if (performance.now() - swipedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
   // 播放器開著時,滾輪 / 點擊不要傳到後面的 3D 房間
   back.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
   radio.onChange(sync);
