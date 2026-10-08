@@ -35,7 +35,7 @@
   .brand span { opacity: .65; font-weight: 500; }
   #loading {
     position: fixed; inset: 0; display: grid; place-items: center; z-index: 9; background: #2a1f4e;
-    transition: opacity .6s; opacity: .97;   /* 幾乎不透明:載入時在後面測畫質、切換也看不到 */
+    transition: opacity .6s; opacity: 1;   /* 完全蓋住:載入時在後面測畫質,房間完全看不到(畫面照樣在畫,測速不受影響) */
   }
   /* 載入畫面:一顆毛線球左右滾 + 百分比(動畫只用 transform,畫面在忙的時候也照樣順) */
   #loading .ld { display: grid; justify-items: center; gap: 10px; }
@@ -314,6 +314,6 @@
   <div class="yarn-floor"></div>
   <div class="lpct">0%</div>
 </div></div>
-<script type="module" src="./room.mjs?v=514"></script>
+<script type="module" src="./room.mjs?v=515"></script>
 </body>
 </html>
