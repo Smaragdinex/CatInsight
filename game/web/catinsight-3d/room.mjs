@@ -1212,7 +1212,7 @@ let camHead = null, camRig = null, camGreet = null;
   };
   // 打招呼:點一下觸發;動作期間轉向鏡頭、螢幕翻正、點頭兩下、歪頭,4.2 秒後混回原本的左右掃
   const _p = new THREE.Vector3(), GREET = 4.2;
-  camGreet = { t0: -99, start() { const now = performance.now() / 1000; if (now - this.t0 > GREET - 0.6) this.t0 = now; } };
+  camGreet = { t0: -99, start() { const now = performance.now() / 1000; if (now - this.t0 > GREET - 0.6) { this.t0 = now; robotHello(); } } };   // 開始打招呼時「嗶嗶啵」一段機器人聲
   idleAnims.push((tt) => {
     const now = performance.now() / 1000, g = now - camGreet.t0, on = g >= 0 && g < GREET;
     // 平常:左右掃 ±45°(兩端稍停)+ 一點點點頭
@@ -2016,7 +2016,7 @@ canvas.addEventListener('pointerup', (e) => {
       return;
     }
   }
-  if (camRig && zoomT === 0 && raycaster.intersectObject(camRig, true).length) { camGreet.start(); uiSfx('hover'); return; }   // 點攝影機:打招呼
+  if (camRig && zoomT === 0 && raycaster.intersectObject(camRig, true).length) { camGreet.start(); return; }   // 點攝影機:打招呼
   if (speaker.group && zoomT === 0 && raycaster.intersectObject(speaker.group, true).length) { if (!radio.playing) radio.play(); musicPanel.show(); return; }   // 點音響:打開中間的播放器(沒在播就開始播)
   if (raycaster.intersectObject(screenMesh).length) { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } }
   else if ((arcadeScreen && raycaster.intersectObject(arcadeScreen).length) || (arcadeModel && raycaster.intersectObject(arcadeModel, true).length)) { focusArcade = true; zoomGoal = 1; }
@@ -2228,6 +2228,25 @@ function ctaSfx(kind) {
   else if (kind === 'tick') tone(2200, 1800, 0, 0.035, 0.055);                                     // 分頁 / 小點:輕輕一下
   else { tone(520, 880, 0, 0.08, 0.1); tone(880, 1175, 0.05, 0.08, 0.05); }
 }
+// 攝影機打招呼的機器人聲(像 R2-D2 那種嗶嗶啵啵):幾個音高滑來滑去的短音 + 一點快速顫音,每次音高稍微不一樣
+function robotHello() {
+  const c = bgm.ctx; if (!c || !bgm.on) return;
+  if (c.state !== 'running') { c.resume().then(() => { if (c.state === 'running') robotHello(); }).catch(() => {}); return; }
+  const t = c.currentTime + 0.03, out = c.createGain(), bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1700; bp.Q.value = 0.7;
+  out.gain.value = 0.11; bp.connect(out); out.connect(c.destination);
+  const j = () => 0.92 + Math.random() * 0.16;
+  // [開始頻率, 結束頻率, 開始時間, 長度, 波形]
+  const seq = [[520, 980, 0, 0.09, 'square'], [1320, 990, 0.12, 0.07, 'sine'], [880, 1760, 0.22, 0.13, 'square'], [1760, 1480, 0.4, 0.05, 'sine'],
+    [1480, 2100, 0.47, 0.1, 'sine'], [700, 1250, 0.66, 0.16, 'square'], [1250, 1050, 0.84, 0.06, 'sine'], [1050, 1900, 0.92, 0.18, 'sine']];
+  for (const [f0, f1, at, dur, type] of seq) {
+    const o = c.createOscillator(), g = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), k = j();
+    o.type = type; o.frequency.setValueAtTime(f0 * k, t + at); o.frequency.exponentialRampToValueAtTime(f1 * k, t + at + dur);
+    lfo.frequency.value = 26 + Math.random() * 10; lg.gain.value = f0 * 0.03; lfo.connect(lg); lg.connect(o.frequency);   // 顫音:聽起來比較「電子」
+    const v = type === 'square' ? 0.35 : 0.8;
+    g.gain.setValueAtTime(0, t + at); g.gain.linearRampToValueAtTime(v, t + at + 0.008); g.gain.setValueAtTime(v, t + at + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+    o.connect(g); g.connect(bp); o.start(t + at); lfo.start(t + at); o.stop(t + at + dur + 0.02); lfo.stop(t + at + dur + 0.02);
+  }
+}
 document.querySelectorAll('.cta a').forEach((a) => {
   a.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') ctaSfx('hover'); });
   a.addEventListener('click', () => ctaSfx('click'));
@@ -2280,11 +2299,12 @@ const hints = (() => {
     const el = document.createElement('button'); el.className = 'ihint off'; el.type = 'button'; el.setAttribute('aria-label', label);
     el.innerHTML = `<span class="ring"></span><span class="ring"></span><span class="core"></span><span class="lbl">${label}</span>`;
     el.addEventListener('click', (e) => { e.stopPropagation(); act(); });
+    el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') ctaSfx('hover'); });   // 滑鼠滑到小點上:「嘀」一聲
     document.body.appendChild(el); list.push({ anchor, el, ph: list.length * 1.7 }); return el;
   };
   add(arcadeModel, 0, ARCADE_H + 0.16, 1.22, 'Play', () => { focusArcade = true; zoomGoal = 1; });
   add(screenMesh, 0.62, 0.36, 0.03, 'Explore', () => { if (story) story.goto(1); else { focusArcade = false; zoomGoal = 1; } });
-  add(camHead, 0, 0.4, 0, 'Interact', () => { camGreet.start(); uiSfx('hover'); });
+  add(camHead, 0, 0.4, 0, 'Interact', () => { camGreet.start(); });
   add(speaker.group, 0.12, 0.4, 0.06, 'Music', () => { if (!radio.playing) radio.play(); musicPanel.show(); });
   const v = new THREE.Vector3();
   return { step(t) {
