@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=8';
+import { createOrbit } from './orbit.mjs?v=10';
 import { makeRadio } from './radio.mjs?v=1';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
 const STORY = new URLSearchParams(location.search).has('story');
@@ -1815,42 +1815,44 @@ const PX_MIN = 220, PX_MAX = 300, PX_MID = 260;
 const stepPrice = (v, amp) => Math.max(PX_MIN, Math.min(PX_MAX, v + (Math.random() - 0.5) * amp + (PX_MID - v) * 0.02));
 let px = 250;
 for (let i = 0; i < 120; i++) { px = stepPrice(px, 3.2); series.push(px); }
-// 電腦螢幕:一顆慢慢轉的銀河粒子球(和飛進去之後的畫面同一顆),外圍一圈傾斜的螺旋星塵,背景零星星點
+// 電腦螢幕:一個慢慢轉、往前傾的棒旋銀河(和飛進去之後的畫面同一套真實配色):暖黃白的核球、藍白旋臂 + 粉紅星雲、旋臂內緣的暗塵埃帶
 const GAL = (() => {
-  const P = [], pal = [[95, 216, 255], [139, 124, 255], [255, 111, 181], [255, 255, 255], [75, 224, 122]];
+  const P = [], gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
   const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
-  for (let i = 0; i < 2600; i++) {                                        // 球殼
-    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = 1 + Math.pow(Math.random(), 3) * 0.16;
-    const x = Math.sqrt(1 - u * u) * Math.cos(a) * r, y = u * r, z = Math.sqrt(1 - u * u) * Math.sin(a) * r;
-    let c = mix(mix(pal[0], pal[1], 0.5 + 0.5 * Math.sin(y * 3.4 + Math.cos(x * 2.8) * 1.6)), pal[2], Math.max(0, Math.sin(z * 3.6 + x)) * 0.6);
-    if (Math.random() < 0.05) c = pal[3]; if (Math.random() < 0.012) c = pal[4];
-    P.push({ x, y, z, c, s: 0.8 + Math.random() * 1.4, ph: Math.random() * 6.28, disk: false });
+  const CORE = [[255, 246, 226], [255, 226, 168], [255, 194, 120]], ARM = [207, 224, 255], DUSTY = [217, 184, 138], HII = [255, 127, 176];
+  for (let i = 0; i < 1500; i++) {                                        // 核球
+    const r = Math.min(1.4, -Math.log(1 - Math.random() * 0.98) * 0.32), u = Math.random() * 2 - 1, a = Math.random() * 6.283;
+    const k = Math.min(1, r / 0.55);
+    P.push({ x: Math.sqrt(1 - u * u) * Math.cos(a) * r * 1.15, y: u * r * 0.55, z: Math.sqrt(1 - u * u) * Math.sin(a) * r, c: mix(mix(CORE[0], CORE[1], Math.min(1, k * 1.8)), CORE[2], Math.max(0, k - 0.4)), s: 1 + Math.random() * 1.3 });
   }
-  for (let i = 0; i < 1400; i++) {                                        // 螺旋星塵盤
-    const arm = i % 3, t = Math.random(), r = 1.3 + t * 1.6, a = arm * 2.094 + t * 4.2 + (Math.random() - 0.5) * 0.7;
-    P.push({ x: Math.cos(a) * r, y: (Math.random() - 0.5) * 0.06, z: Math.sin(a) * r, c: mix(pal[0], pal[2], t), s: 0.6 + Math.random() * 1.1 * (1 - t * 0.5), ph: Math.random() * 6.28, disk: true });
+  const PITCH = Math.tan(13 * Math.PI / 180), R0 = 0.45, RMAX = 1.9;
+  for (let i = 0; i < 4200; i++) {                                        // 旋臂
+    const major = i % 4 < 2, arm = i % 4, t = Math.pow(Math.random(), 0.8), r = R0 + t * (RMAX - R0), th = arm * Math.PI / 2 + Math.log(r / R0) / PITCH * 0.42;
+    let off = gauss() * r * (major ? 0.2 : 0.26); if (off < -r * 0.03 && off > -r * 0.09 && Math.random() < 0.75) off = -r * 0.12;
+    const a = th + off / r; let c = mix(DUSTY, ARM, Math.min(1, t * 1.6)), s = (major ? 0.9 : 0.7) + Math.random() * 1.0;
+    if (Math.random() < 0.035 && Math.abs(off) < r * 0.05) { c = HII; s *= 1.7; } else if (Math.random() < 0.02) c = [255, 255, 255];
+    if (!major) c = c.map((v) => v * 0.75);
+    P.push({ x: Math.cos(a) * r, y: gauss() * 0.03, z: Math.sin(a) * r, c, s });
   }
+  P.forEach((p) => { p.ph = Math.random() * 6.28; });
   const bg = Array.from({ length: 140 }, () => [Math.random(), Math.random(), Math.random() * 6.28]);
   return { P, bg };
 })();
 function drawScreen(t) {
   const g = screenCanvas.getContext('2d');
-  const W = screenCanvas.width, Hh = screenCanvas.height, cx = W / 2, cy = Hh / 2 - 6, S = 138;
-  g.globalCompositeOperation = 'source-over'; g.fillStyle = '#05060f'; g.fillRect(0, 0, W, Hh);
-  for (const [bx, by, ph] of GAL.bg) { g.fillStyle = `rgba(200,210,255,${0.25 + 0.25 * Math.sin(t * 1.3 + ph)})`; g.fillRect(bx * W, by * Hh, 1.5, 1.5); }
-  // 核心的光暈
-  const gr = g.createRadialGradient(cx, cy, 0, cx, cy, S * 1.7); gr.addColorStop(0, 'rgba(160,140,255,.55)'); gr.addColorStop(0.35, 'rgba(110,90,230,.22)'); gr.addColorStop(1, 'rgba(60,40,160,0)');
+  const W = screenCanvas.width, Hh = screenCanvas.height, cx = W / 2, cy = Hh / 2 - 6, S = 122;
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = '#04050b'; g.fillRect(0, 0, W, Hh);
+  for (const [bx, by, ph] of GAL.bg) { g.fillStyle = `rgba(220,225,255,${0.25 + 0.25 * Math.sin(t * 1.3 + ph)})`; g.fillRect(bx * W, by * Hh, 1.5, 1.5); }
+  const gr = g.createRadialGradient(cx, cy, 0, cx, cy, S * 0.9); gr.addColorStop(0, 'rgba(255,225,170,.6)'); gr.addColorStop(0.4, 'rgba(255,190,120,.18)'); gr.addColorStop(1, 'rgba(255,170,100,0)');
   g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
   g.globalCompositeOperation = 'lighter';
-  const ry = t * 0.25, cr = Math.cos(ry), sr = Math.sin(ry), dr = t * 0.12, cd = Math.cos(dr), sd = Math.sin(dr);
-  const tx = 0.42, ctx = Math.cos(tx), stx = Math.sin(tx);                // 盤面往前傾
+  const ry = t * 0.12, cr = Math.cos(ry), sr = Math.sin(ry), tx = 0.95, ctx = Math.cos(tx), stx = Math.sin(tx), tz = 0.16, cz = Math.cos(tz), sz2 = Math.sin(tz);
   for (const p of GAL.P) {
-    let x, y, z;
-    if (p.disk) { const x1 = p.x * cd - p.z * sd, z1 = p.x * sd + p.z * cd; x = x1; y = p.y * ctx - z1 * stx; z = p.y * stx + z1 * ctx; }
-    else { x = p.x * cr - p.z * sr; z = p.x * sr + p.z * cr; y = p.y; }
-    const k = 3.2 / (3.2 - z * 0.6), px = cx + x * S * k, py = cy - y * S * k;
-    const tw = 0.55 + 0.45 * Math.sin(t * 2 + p.ph), front = 0.45 + 0.55 * (z + 1) / 2;
-    const a = Math.min(1, tw * front * (p.disk ? 0.85 : 1.1)), sz = p.s * 1.25 * k * (0.7 + 0.3 * tw);
+    const x1 = p.x * cr - p.z * sr, z1 = p.x * sr + p.z * cr;           // 盤面自轉
+    const y2 = p.y * ctx - z1 * stx, z2 = p.y * stx + z1 * ctx;          // 往前傾
+    const x = x1 * cz - y2 * sz2, y = x1 * sz2 + y2 * cz, z = z2;
+    const k = 3.2 / (3.2 - z * 0.5), px = cx + x * S * k, py = cy - y * S * k;
+    const tw = 0.6 + 0.4 * Math.sin(t * 2 + p.ph), a = Math.min(1, tw * 0.95), sz = p.s * 1.2 * k * (0.75 + 0.25 * tw);
     g.fillStyle = `rgba(${p.c[0] | 0},${p.c[1] | 0},${p.c[2] | 0},${a.toFixed(3)})`; g.fillRect(px - sz / 2, py - sz / 2, sz, sz);
   }
   g.globalCompositeOperation = 'source-over';
