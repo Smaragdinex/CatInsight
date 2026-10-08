@@ -541,9 +541,10 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   return {
     get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
     show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyT = 0; warp.spd = 0; if (sWarp) sWarp.spd = 0; drag = null; clearTimeout(snapTimer);   // 上次離開時還在飛的速度歸零,不然進來會先衝一下
-      readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
+      readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
       intro = rect && rect.w > 20 ? { rect, t0: performance.now(), e: 0 } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
-      raf = requestAnimationFrame(frame); },
+      // 先把「這一次」的第一幀畫好(銀河起點、面板 / 按鈕藏好、clip-path 對齊螢幕),才把畫面打開 → 不會先閃出上次離開時的畫面(太陽系、地球、光速線…)
+      frame(last); root.classList.add('on'); },
     // 進場前先暖機:shader 在背景編譯(不卡畫面)、銀河 / 太陽系 / 地球各先畫一次 → 第一次飛進來不會卡一下、畫面不會跳
     texProgress: () => [texDone, texTotal],
     async warm() {
@@ -559,7 +560,9 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       renderer.render(postScene, postCam); renderer.render(sScene, camera); renderer.render(eScene, camera);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     },
-    hide() { closeDoc(); open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
+    hide() { closeDoc(); open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf);
+      // 離開時把畫面清掉(畫布、面板圈、按鈕、小點),下次進來不會殘留上次最後的畫面
+      renderer.setRenderTarget(null); renderer.setClearColor(0x020309, 1); renderer.clear(); dotsEl.style.opacity = '0'; if (cta) { cta.style.opacity = '0'; cta.style.pointerEvents = 'none'; cta.style.visibility = 'hidden'; } panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
     step, goTo, exit: onExit, travel(v) { pT = Math.max(0, Math.min(1, v)); },
   };
 }
