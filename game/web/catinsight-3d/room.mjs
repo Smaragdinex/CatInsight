@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=39';
+import { createOrbit } from './orbit.mjs?v=40';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -2225,6 +2225,7 @@ function ctaSfx(kind) {
     g.gain.setValueAtTime(0, t + at); g.gain.linearRampToValueAtTime(vol, t + at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur); o.connect(g); g.connect(c.destination); o.start(t + at); o.stop(t + at + dur + 0.02); };
   if (kind === 'hover') tone(1480, 1760, 0, 0.05, 0.05);
   else if (kind === 'close') tone(760, 420, 0, 0.1, 0.09);
+  else if (kind === 'tick') tone(2200, 1800, 0, 0.035, 0.055);                                     // 分頁 / 小點:輕輕一下
   else { tone(520, 880, 0, 0.08, 0.1); tone(880, 1175, 0.05, 0.08, 0.05); }
 }
 document.querySelectorAll('.cta a').forEach((a) => {

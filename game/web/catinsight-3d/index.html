@@ -166,6 +166,16 @@
   #screen-ui .cta .ghost[data-doc="support"]:hover, #screen-ui .cta .ghost[data-doc="support"].on { background: rgba(75,224,122,.26); border-color: rgba(120,240,160,.6); box-shadow: 0 0 22px rgba(75,224,122,.4); }
   #screen-ui .cta .primary:hover { background: #ff86a3; box-shadow: 0 0 26px rgba(255,111,145,.6); transform: translateY(-1px); }
   #screen-ui .cta a:active { transform: scale(.95); }
+  /* 透明卡上的按鈕:滑過去用這塊卡的主色(--c)、發光,按下去縮一下 */
+  #screen-ui .opanel .store { transition: background .2s, color .2s, box-shadow .25s, transform .15s; }
+  #screen-ui .opanel .store:hover { background: var(--c); color: #06120a; box-shadow: 0 0 28px color-mix(in srgb, var(--c) 70%, transparent); transform: translateY(-1px); }
+  #screen-ui .opanel .store:active { transform: scale(.95); }
+  #screen-ui .opanel .tabs span:hover { opacity: 1; background: color-mix(in srgb, var(--c) 22%, transparent); color: color-mix(in srgb, var(--c) 55%, white); }
+  #screen-ui .opanel .tabs span.on { background: color-mix(in srgb, var(--c) 32%, transparent); color: color-mix(in srgb, var(--c) 45%, white); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 35%, transparent); }
+  #screen-ui .opanel .tabs span:active { transform: scale(.92); }
+  #screen-ui .odots i:hover { background: color-mix(in srgb, var(--c) 70%, white); box-shadow: 0 0 10px var(--c); }
+  #screen-ui .odoc-body a { transition: color .2s, text-shadow .2s; }
+  #screen-ui .odoc-body a:hover { color: #fff; text-shadow: 0 0 12px var(--c); }
   /* Privacy / Support 的長面板:一樣在地球前面,面板圈淡出;面板是直的、裡面自己捲動 */
   #screen-ui .orbit-css { transition: opacity .45s; }
   #screen-ui .orbit.doc-on .orbit-css { opacity: 0; pointer-events: none; }
@@ -373,6 +383,6 @@
   <div class="yarn-floor"></div>
   <div class="lpct">0%</div>
 </div></div>
-<script type="module" src="./room.mjs?v=518"></script>
+<script type="module" src="./room.mjs?v=519"></script>
 </body>
 </html>

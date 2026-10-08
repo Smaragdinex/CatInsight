@@ -42,6 +42,13 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   if (cta) cta.querySelectorAll('a').forEach((a) => { const k = (a.getAttribute('href') || '').replace(/^\/|\.html$/g, ''); if (DOCS[k]) a.dataset.doc = k; });
   // 點 Privacy / Support(按鈕或面板裡的連結)= 打開 / 切換長面板
   chrome.addEventListener('click', (e) => { const a = e.target.closest('a[data-doc]'); if (!a) return; e.preventDefault(); if (a.closest('.cta') && docKey === a.dataset.doc) { closeDoc(); return; } openDoc(a.dataset.doc); });
+  // 透明卡上的按鈕(下載、線圖 / 漲幅的分頁、上面的小點、長面板裡的連結):滑過去「嘀」、按下去出聲(顏色在 index.html 的 CSS)
+  const HOT = '.opanel .store, .tabs span, .odots i, .odoc-x, .odoc-body a';
+  let hovEl = null;
+  root.addEventListener('pointerover', (e) => { if (e.pointerType !== 'mouse') return; const el = e.target.closest(HOT);
+    if (el && el !== hovEl && !(el.matches('.tabs span') && el.classList.contains('on'))) sfx && sfx('hover'); hovEl = el; });
+  root.addEventListener('click', (e) => { const el = e.target.closest(HOT); if (!el || el.matches('.odoc-x') || (drag && drag.moved)) return;
+    sfx && sfx(el.matches('.tabs span, .odots i') ? 'tick' : 'click'); });
   doc.querySelector('.odoc-x').addEventListener('click', () => { sfx && sfx('close'); closeDoc(); });
   doc.addEventListener('click', (e) => { if (e.target === doc) { sfx && sfx('close'); closeDoc(); } });   // 點面板外面也關
   // 長面板自己捲動:滾輪 / 拖曳不要傳到後面(不然會轉面板圈、往回飛)
