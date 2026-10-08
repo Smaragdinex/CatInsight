@@ -88,6 +88,20 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       }` });
     const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = 5; gScene.add(pts); return { pts, m, spd: 0 }; })();
   let pPrev = 0;
+  // 超空間光速線(像星際大戰跳躍):跟著相機的細長光線,從畫面中心往外拉長飛過;進入太陽系那一刻最強,在太陽系裡捲動時也會出現
+  const makeStreaks = (scene) => { const N2 = 1100, pos = new Float32Array(N2 * 6), end = new Float32Array(N2 * 2), col = new Float32Array(N2 * 6);
+    for (let i = 0; i < N2; i++) { const a = Math.random() * 6.283, r = 0.04 + Math.pow(Math.random(), 0.6) * 0.95, z = -Math.random(), b = 0.5 + Math.random() * 0.5, w = Math.random() < 0.7;
+      for (let e = 0; e < 2; e++) { pos.set([Math.cos(a) * r, Math.sin(a) * r, z], (i * 2 + e) * 3); end[i * 2 + e] = e; col.set(w ? [0.85 * b, 0.92 * b, 1.0 * b] : [1.0 * b, 0.9 * b, 0.75 * b], (i * 2 + e) * 3); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aEnd', new THREE.BufferAttribute(end, 1)); g.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.ShaderMaterial({ uniforms: { uOff: { value: 0 }, uAmt: { value: 0 }, uLen: { value: 0.05 } }, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+      vertexShader: `attribute float aEnd; attribute vec3 aCol; uniform float uOff, uAmt, uLen; varying vec3 vCol; varying float vA;
+        void main() { vec3 P = position; P.z = -1.0 + mod(P.z + 1.0 + uOff, 1.0); float head = -P.z; P.z -= aEnd * uLen;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(P, 1.0); vCol = aCol; vA = uAmt * smoothstep(1.0, 0.6, head) * smoothstep(0.02, 0.12, head) * (1.0 - aEnd * 0.85); }`,
+      fragmentShader: `varying vec3 vCol; varying float vA; void main() { gl_FragColor = vec4(vCol, vA);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }` });
+    const obj = new THREE.LineSegments(g, m); obj.frustumCulled = false; obj.renderOrder = 9; scene.add(obj); return { obj, m, spd: 0 }; };
   // 銀河先畫進一張高精度的圖,再整張做一次 ACES 色調映射 + sRGB + 和房間一樣的調色 / 暗角 / 顆粒(房間的電腦螢幕就是這樣出來的,兩邊才會一模一樣)
   const galRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
   const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -119,6 +133,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     const core = Math.pow(Math.max(0, Math.cos(a - 1.2)), 6); c.setRGB(0.78 + 0.22 * core, 0.74 + 0.14 * core, 0.82 - 0.2 * core).multiplyScalar(0.3 + 0.45 * core + Math.random() * 0.25);
     return 0.8 + Math.random() * 1.4 + core * 1.2; }, sizeScale);
   const sBand = milkyBand(34000, 7000, 30); sScene.add(sBand);
+  let sStreak = null;                                                                        // makeStreaks 在下面定義,建好再放進來
   // 太陽:表面有翻動的米粒組織、邊緣比較暗(臨邊昏暗)、偶爾幾塊太陽黑子;外面三層光暈
   const NOISE_GLSL = `float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
     float vn3(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -348,7 +363,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), look = new THREE.Vector3();
   const setCam = (pos, tgt, near, far) => { camera.position.copy(pos); camera.near = near; camera.far = far; camera.updateProjectionMatrix(); camera.lookAt(tgt); };
   const slerpDir = (a, b, k, out) => out.copy(a).lerp(b, k).normalize();
-  let intro = null;
+  let intro = null, earthSpin = 2.6;
   function frame(now) {
     if (!open) return; raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000), t = (now - t0) / 1000; last = now; pPrev = p;
@@ -392,7 +407,8 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     planetObjs.forEach(({ pl, g }) => { if (!pl.earth) { const a = pl.a0 + t * pl.sp * 0.05; g.position.set(Math.cos(a) * pl.d, 0, Math.sin(a) * pl.d); g.rotation.y = t * 0.3; } });
     // 讓台灣 / 東亞在白天、正對鏡頭(貼圖經度 121°E 轉到相機方向偏向太陽一點),然後很慢地自轉
     sMoon.position.copy(EARTH_POS).add(v2.set(Math.cos(t * 0.05 + 2.4) * 13, 1.5, Math.sin(t * 0.05 + 2.4) * 13)); sMoon.rotation.y = t * 0.05;
-    const spin = 2.91 + t * 0.006; smallEarth.spin.rotation.y = bigEarth.spin.rotation.y = spin; smallEarth.cl.rotation.y = bigEarth.cl.rotation.y = spin + t * 0.003;
+    if (p > 0.66) earthSpin += dt * 0.045;                                                  // 地球自轉(快到地球時開始轉,一圈約 2 分 20 秒),一開始台灣在正前方偏左,會慢慢轉過來
+    const spin = earthSpin; smallEarth.spin.rotation.y = bigEarth.spin.rotation.y = spin; smallEarth.cl.rotation.y = bigEarth.cl.rotation.y = spin + t * 0.003;
     if (sF > 0.001) {
       const sp = Math.max(0, Math.min(1, (p - S_START) / (S_END - S_START))), a = Math.min(1, sp / 0.45), b = Math.max(0, (sp - 0.45) / 0.55);
       const dirA = v1.set(0, 0.35, 1).normalize(), dirB = new THREE.Vector3(0.35, 0.75, 1).normalize(), ovDist = 1250 * fit;
@@ -405,6 +421,12 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
         tgt = new THREE.Vector3().lerp(EARTH_POS, ss(0, 0.45, b));
       }
       setCam(pos, tgt, 0.2, 60000);
+      // 光速線:跳進太陽系那一刻(p ≈ 0.41)最強;之後在太陽系裡捲得快也會出現
+      if (!sStreak) sStreak = makeStreaks(sScene);
+      const jump = Math.exp(-Math.pow((p - 0.41) / 0.045, 2)), sv = Math.abs(p - pPrev) / Math.max(dt, 1e-3); sStreak.spd += (sv - sStreak.spd) * Math.min(1, dt * 4);
+      const sAmt = Math.min(1, jump * 1.2 + sStreak.spd * 9) * sF;
+      sStreak.obj.visible = sAmt > 0.01; sStreak.obj.position.copy(camera.position); sStreak.obj.quaternion.copy(camera.quaternion); sStreak.obj.scale.setScalar(Math.max(4, pos.distanceTo(tgt) * 0.9));
+      sStreak.m.uniforms.uOff.value += dt * (0.08 + jump * 2.4 + sStreak.spd * 10); sStreak.m.uniforms.uLen.value = Math.min(0.55, 0.02 + jump * 0.45 + sStreak.spd * 3); sStreak.m.uniforms.uAmt.value = sAmt;
       const lineFade = 1 - ss(0.5, 0.9, b);                                            // 靠近地球時軌道線淡掉,不會橫過地球
       sMats.forEach((m) => { m.opacity = (m.userData.op ?? 1) * sF * (m.userData.line ? lineFade : 1); });
       sunMat.uniforms.uTime.value = t; sunMat.uniforms.uFade.value = sF; sunGlow1.material.opacity = 0.85 * sF; sunGlow2.material.opacity = 0.35 * sF * (1 - ss(0.05, 0.5, b)); sunGlow3.material.opacity = 0.12 * sF * (1 - ss(0.05, 0.5, b));   // 飛向地球時太陽的大光暈淡掉,畫面才不會一片棕 sBand.material.uniforms.uFade.value = sF; sStars.material.uniforms.uFade.value = sF; belt.material.uniforms.uFade.value = sF;
@@ -442,7 +464,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   }
   return {
     get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
-    show(rect) { if (open) return; open = true; loadEarth(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
+    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
       intro = rect && rect.w > 20 ? { rect, t0: performance.now() } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       raf = requestAnimationFrame(frame); },
     hide() { open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
