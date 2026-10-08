@@ -469,9 +469,9 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
       const dist = R + (portrait ? PW / (0.94 * 2 * tanH * aspect) : Math.max(PH / (0.66 * 2 * tanH), PW / (0.44 * 2 * tanH * aspect)));   // 手機:面板佔寬度 94%
       mouse.sx += (mouse.x - mouse.sx) * 0.05; mouse.sy += (mouse.y - mouse.sy) * 0.05;
       // 手機:鏡頭和面板同高、水平看過去 → 面板是正的,不會上寬下窄
-      const PY = RY + 80;
+      const PY = RY - 50;                                                                   // 鏡頭比面板中心低一點 → 面板在畫面上偏上
       const fin = portrait ? new THREE.Vector3(0, PY, dist) : new THREE.Vector3(mouse.sx * 90 * rv, 330 - mouse.sy * 50 * rv, dist);
-      const finLook = new THREE.Vector3(0, portrait ? PY : RY - 165, 0);              // 上方沒有文字了,鏡頭往下看一點 → 面板在畫面上移(手機看得到整塊)
+      const finLook = new THREE.Vector3(0, portrait ? PY : RY - 205, 0);              // 上方沒有文字了,鏡頭往下看一點 → 面板在畫面上移(手機看得到整塊)
       const startPos = D_FINAL.clone().multiplyScalar(ER * 5); startPos.y += EY;
       setCam(startPos.lerp(fin, k), new THREE.Vector3(0, EY, 0).lerp(finLook, k), 10, 60000);
       earthU.uFade.value = eF; eStars.material.uniforms.uFade.value = eF; eBand.material.uniforms.uFade.value = eF; eMoon.visible = eF > 0.5; eSun.material.opacity = 0.9 * eF; ringLine.material.opacity = 0.35 * rv;
