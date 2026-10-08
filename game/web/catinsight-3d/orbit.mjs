@@ -377,10 +377,11 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   let snapTimer = 0;
   root.addEventListener('wheel', (e) => {
     e.preventDefault(); e.stopPropagation();
-    // 進來時那一下滾動(含觸控板放開後的慣性)不算:要等滾輪停 0.35 秒以上、重新開始滾,才開始旅程 → 不會一進來就被慣性甩進去、顆粒亂噴
+    // 進來時那一下滾動(含觸控板放開後的慣性)不算:要等滾輪停 0.8 秒以上、重新開始滾,才開始旅程 → 不會一進來就被慣性甩進去、顆粒亂噴
     // 用事件本身的時間(真的滾動的時間)算間隔:剛進來第一幀會卡一下(編譯 shader),卡住期間累積的滾動會一次送進來,用處理時間算會誤判成「停過」
     const nowW = e.timeStamp || performance.now();
-    if (intro || wheelGate) { if (!intro && performance.now() - readyAt > 600 && nowW - lastWheel > 350) wheelGate = false; else { lastWheel = nowW; return; } }
+    // 滑鼠滾輪連續滾的時候,手指換位會停 0.3~0.5 秒 → 門檻放到 0.8 秒:進來那一串滾動(包含停一下又接著滾)全部不算,真的停下來再滾才開始飛
+    if (intro || wheelGate) { if (!intro && performance.now() - readyAt > 600 && nowW - lastWheel > 800) wheelGate = false; else { lastWheel = nowW; return; } }
     lastWheel = nowW;
     const d = Math.max(-90, Math.min(90, Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX));
     if (atEarth()) {
