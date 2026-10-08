@@ -456,7 +456,8 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       const v = Math.abs(p - pPrev) / Math.max(dt, 1e-3); warp.spd += (v - warp.spd) * Math.min(1, dt * 4);
       warp.pts.position.copy(camera.position); warp.pts.quaternion.copy(camera.quaternion); warp.pts.scale.setScalar(Math.max(3, dist * 0.9));
       warp.m.uniforms.uOff.value += dt * (0.06 + warp.spd * 9); warp.m.uniforms.uViewH.value = renderer.domElement.height;
-      warp.m.uniforms.uAmt.value = Math.min(1, 0.2 + warp.spd * 16) * (1 - ss(0.88, 1, gp)) * gF * ready;   // 停著的時候還是有一點顆粒在飄
+      // 第一幕(剛進來、還沒開始往前飛,p ≈ 0)完全不要星塵 —— 只有一個靜靜的銀河,跟電腦螢幕上一樣;開始往前飛之後才有顆粒(停下來時留一點在飄)
+      warp.m.uniforms.uAmt.value = Math.min(1, 0.2 * ss(0.005, 0.05, p) + warp.spd * 16) * (1 - ss(0.88, 1, gp)) * gF * ready;
       // 銀河段也有光速線:捲動時才出現,捲越快越長越亮
       if (!gStreak) gStreak = makeStreaks(gScene);
       const gAmt = Math.min(1, warp.spd * 12) * mv * (1 - ss(0.9, 1, gp)) * gF * ready;
@@ -539,7 +540,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   }
   return {
     get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
-    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyT = 0; warp.spd = 0; if (sWarp) sWarp.spd = 0;   // 上次離開時還在飛的速度歸零,不然進來會先衝一下
+    show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyT = 0; warp.spd = 0; if (sWarp) sWarp.spd = 0; drag = null; clearTimeout(snapTimer);   // 上次離開時還在飛的速度歸零,不然進來會先衝一下
       readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
       intro = rect && rect.w > 20 ? { rect, t0: performance.now(), e: 0 } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       raf = requestAnimationFrame(frame); },
