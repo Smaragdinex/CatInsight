@@ -1573,8 +1573,9 @@ const plantLeaves = [];   // (舊的彎曲仙人掌用;現在的仙人掌不會�
 // ---------- 貓 + 碗 ----------
 // 貓:程式產生的可愛橘貓(見下面);沒有骨架,所以「轉頭」用 vertex shader 做:脖子以上的頂點依高度加權繞垂直軸旋轉,尾巴同理。
 let catHead = null;            // 舊介面保留(不再使用)
-const catUniforms = { uHead: { value: 0 }, uTail: { value: 0 }, uNeck: { value: 0.44 }, uBlend: { value: 0.12 }, uPivot: { value: new THREE.Vector2(0.0, 0.05) } };   // 模型座標:脖子約 y=0.44~0.56,頭中心 xz≈(0, 0.05)
+const catUniforms = { uBlink: { value: 0 }, uHead: { value: 0 }, uTail: { value: 0 }, uNeck: { value: 0.44 }, uBlend: { value: 0.12 }, uPivot: { value: new THREE.Vector2(0.0, 0.05) } };   // 模型座標:脖子約 y=0.44~0.56,頭中心 xz≈(0, 0.05)
 let catModel = null;
+const blink = { next: 2, start: -9, twice: false };   // 貓咪眨眼的時間表
 {
   const b = group(2.25, 0, 2.45);
   // 貓窩:甜甜圈形的長毛絨窩:一圈胖胖的淡紫色靠邊 + 中間鼓鼓的奶油色坐墊(短毛紋理 + 凹凸),旁邊地上一顆粉紅毛線球
@@ -1608,16 +1609,18 @@ let catModel = null;
     const vec2 TAIL_PIVOT = vec2(0.14, -0.26);
     // 眼睛、鼻子、嘴附近不長毛
     float furMask(vec3 p) { return smoothstep(0.09, 0.13, distance(p, vec3(-0.118, 0.665, 0.32))) * smoothstep(0.09, 0.13, distance(p, vec3(0.118, 0.665, 0.32))) * smoothstep(0.05, 0.09, distance(p, vec3(0.0, 0.585, 0.37))); }`;
-  const patchKitty = (mat2, shell = null) => {
+  // eye = true:眼睛(眨眼時沿上下方向壓扁到眼睛中心 aEyeC,變成一條縫)
+  const patchKitty = (mat2, shell = null, eye = false) => {
     mat2.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, catUniforms);
       if (shell) sh.uniforms.uShell = { value: shell.k }, sh.uniforms.uFurLen = { value: shell.len };
       sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\n' + KG + (shell ? '\nuniform float uShell, uFurLen;' : ''))
+        .replace('#include <common>', '#include <common>\n' + KG + (shell ? '\nuniform float uShell, uFurLen;' : '') + (eye ? '\nattribute vec3 aEyeC; uniform float uBlink;' : ''))
         .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
           objectNormal.xz = headRot(position.y) * objectNormal.xz; objectNormal.xz = rot2(uTail * tailW(position)) * objectNormal.xz;`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>
           vCatPos = position; vFur = furMask(position);
+          ${eye ? 'transformed.y = aEyeC.y + (transformed.y - aEyeC.y) * (1.0 - uBlink * 0.94);' : ''}
           transformed.xz = uPivot + headRot(position.y) * (transformed.xz - uPivot);
           transformed.xz = TAIL_PIVOT + rot2(uTail * tailW(position)) * (transformed.xz - TAIL_PIVOT);
           ${shell ? 'transformed += normalize(objectNormal) * uFurLen * uShell * vFur; transformed.y -= uFurLen * 0.35 * uShell * uShell * vFur;' : ''}`);
@@ -1631,8 +1634,10 @@ let catModel = null;
             if (vFur < 0.15 || length(fq.xz) > rad) discard;
             diffuseColor.rgb *= mix(0.8, 1.1, uShell); }`);
       else sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCatPos; varying float vFur;');
+      if (eye) sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uBlink;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= mix(1.0, 0.18, smoothstep(0.35, 0.95, uBlink));');   // 閉起來時是一條深色的線
     };
-    mat2.customProgramCacheKey = () => 'kitty-' + (shell ? 'fur' : 'base') + (mat2.map ? '-map' : '') + (mat2.vertexColors ? '-vc' : '');
+    mat2.customProgramCacheKey = () => 'kitty-' + (eye ? 'eye-' : '') + (shell ? 'fur' : 'base') + (mat2.map ? '-map' : '') + (mat2.vertexColors ? '-vc' : '');
     mat2.needsUpdate = true; return mat2;
   };
   { // ---- 形狀(模型座標:臉朝 +z,y 朝上,腳底 y = 0)----
@@ -1694,7 +1699,9 @@ let catModel = null;
     const SHELLS = matchMedia('(pointer: coarse)').matches ? 5 : 8;
     for (let i = 1; i <= SHELLS; i++) { const sh2 = new THREE.Mesh(geo, patchKitty(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, ...FILL }), { k: i / SHELLS, len: 0.034 })); sh2.receiveShadow = false; sh2.frustumCulled = false; m.add(sh2); }
     // ---- 小零件(頂點直接放在模型座標,和身體吃同一段頭轉變形)----
-    const part = (g0, mat2, p0, q0, s0) => { const g2 = g0.clone(); g2.applyMatrix4(new THREE.Matrix4().compose(p0, q0 || new THREE.Quaternion(), s0 || V3(1, 1, 1))); const o = new THREE.Mesh(g2, patchKitty(mat2)); o.frustumCulled = false; m.add(o); return o; };
+    const part = (g0, mat2, p0, q0, s0, eyeC = null) => { const g2 = g0.clone(); g2.applyMatrix4(new THREE.Matrix4().compose(p0, q0 || new THREE.Quaternion(), s0 || V3(1, 1, 1)));
+      if (eyeC) { const n = g2.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) a.set([eyeC.x, eyeC.y, eyeC.z], i * 3); g2.setAttribute('aEyeC', new THREE.BufferAttribute(a, 3)); }
+      const o = new THREE.Mesh(g2, patchKitty(mat2, null, !!eyeC)); o.frustumCulled = false; m.add(o); return o; };
     // 大眼睛:深棕 → 琥珀的虹膜佔滿、大大的圓瞳孔、兩顆白色反光點;外面一層亮亮的角膜
     const eyeTex = (() => { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d'); g.fillStyle = '#fbf6ee'; g.fillRect(0, 0, 512, 256);
       const cx = 128, cy = 128, R = 82, gr = g.createRadialGradient(cx, cy + 10, 8, cx, cy, R); gr.addColorStop(0, '#d98b3a'); gr.addColorStop(0.55, '#a8601f'); gr.addColorStop(0.85, '#5e3110'); gr.addColorStop(1, '#2a1406');
@@ -1708,8 +1715,8 @@ let catModel = null;
     for (const sx of [-1, 1]) {
       // 眼球往頭裡縮,只露出前面一片(露出來的幾乎都是虹膜)
       const nv = V3(sx * 0.16, 0.05, 1).normalize(), cv = V3(sx * 0.118, 0.665, 0.272), q = new THREE.Quaternion().setFromUnitVectors(V3(0, 0, 1), nv);
-      part(new THREE.SphereGeometry(0.084, 40, 28), eyeM, cv, q, V3(1, 1.06, 1));
-      part(new THREE.SphereGeometry(0.087, 40, 28), corneaM, cv, q, V3(1, 1.06, 1));
+      part(new THREE.SphereGeometry(0.084, 40, 28), eyeM, cv, q, V3(1, 1.06, 1), cv);
+      part(new THREE.SphereGeometry(0.087, 40, 28), corneaM, cv, q, V3(1, 1.06, 1), cv);
     }
     // 粉紅小鼻子(圓圓的倒三角)+ ω 嘴
     part(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshStandardMaterial({ color: 0xf6a3a3, roughness: 0.45 }), V3(0, 0.592, 0.352), null, V3(0.022, 0.014, 0.012));
@@ -2332,6 +2339,10 @@ function loop() {
     const look = 0.55 * Math.sin(t * 0.7) * Math.sin(t * 0.23 + 1.0) + 0.25 * Math.sin(t * 1.9 + 0.5) * Math.max(0, Math.sin(t * 0.31));
     catUniforms.uHead.value += (look - catUniforms.uHead.value) * Math.min(1, dt * 3);   // 平滑跟上
     catUniforms.uTail.value = -0.08 + 0.22 * Math.sin(t * 1.6) + 0.06 * Math.sin(t * 3.7 + 1.0);   // 尾巴左右搖(偏向外側,不打到腳)
+    // 眨眼:每 2.5~6 秒一次(閉上 0.07 秒、張開 0.1 秒),四分之一的機率連眨兩下
+    if (t > blink.next) { blink.start = t; blink.next = t + 2.5 + Math.random() * 3.5; blink.twice = Math.random() < 0.25; }
+    { const one = (x) => (x < 0 ? 0 : x < 0.07 ? x / 0.07 : x < 0.17 ? 1 - (x - 0.07) / 0.1 : 0), bt = t - blink.start;
+      catUniforms.uBlink.value = Math.max(one(bt), blink.twice ? one(bt - 0.24) : 0); }
   }
 
   // 仙人掌彎曲:把時間餵給每根的著色器
