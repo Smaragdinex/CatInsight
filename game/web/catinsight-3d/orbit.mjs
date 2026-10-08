@@ -201,7 +201,7 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
   const SUN_DIR = new THREE.Vector3(Math.sin(0.9), 0, Math.cos(0.9));                        // 從地球看太陽(世界方向)
   const EARTH_POS = SUN_DIR.clone().multiplyScalar(-125);
   const PLANET_DIR = new URL('./planets/', import.meta.url).href, ploader = new THREE.TextureLoader();
-  const loadReal = (file, cb) => ploader.load(PLANET_DIR + file, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; cb(t); }, undefined, () => {});
+  const loadReal = (file, cb, fail) => ploader.load(PLANET_DIR + file, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; cb(t); }, undefined, () => { if (fail) fail(); });
   const sMats = [sunMat];
   const planetObjs = PLANETS.map((pl) => {
     const g = new THREE.Group(); sScene.add(g); pl.a0 = Math.random() * 6.283;
@@ -225,11 +225,9 @@ export function createOrbit({ host, slides, mountWidget, onExit }) {
     return { pl, g };
   });
   // 行星貼圖:Solar System Scope(CC BY 4.0,放在 ./planets/);載不到的行星用下面程式畫的表面
-  PLANETS.forEach((pl) => { if (pl.file) loadReal(pl.file, (t) => { pl.real = true; pl.mesh.material.map = t; pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }); });
-  let planetTexDone = false;
-  const buildPlanetTex = () => { if (planetTexDone) return; planetTexDone = true;
-    PLANETS.forEach((pl) => { if (pl.earth || pl.real) return; pl.mesh.material.map = planetTex(pl.big ? 512 : 256, pl.big ? 256 : 128, SHADES[pl.name]); pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }); };
-  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(buildPlanetTex, { timeout: 4000 });
+  // 載不到真實貼圖的那顆才用程式畫(不再一開始就在閒置時間把每顆都畫一遍)
+  PLANETS.forEach((pl) => { if (pl.file) loadReal(pl.file, (t) => { pl.real = true; pl.mesh.material.map = t; pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; },
+    () => { pl.mesh.material.map = planetTex(pl.big ? 512 : 256, pl.big ? 256 : 128, SHADES[pl.name]); pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }); });
   const belt = makePoints(4000, (i, v, c) => { const r = 195 + Math.random() * 35, a = Math.random() * 6.283; v.set(Math.cos(a) * r, gauss() * 3, Math.sin(a) * r); c.setRGB(0.55, 0.5, 0.45).multiplyScalar(0.6 + Math.random() * 0.5); return 0.4 + Math.random() * 0.6; }, 0.22);
   sScene.add(belt);
   // 月亮(three.js 範例附的月球貼圖):太陽系那段繞著地球、地球那段在左上方的遠處

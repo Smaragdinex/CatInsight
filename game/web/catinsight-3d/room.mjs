@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=34';
+import { createOrbit } from './orbit.mjs?v=35';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=4';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -1913,6 +1913,7 @@ function updateZoom(dt) {
   } else if (pillEl.style.bottom) pillEl.style.bottom = '';
   setBgm((zoomGoal >= 1 && focusArcade) || gameOn);   // 點了街機(選語言 / PLAY 的畫面)就開始放遊戲音樂,離開街機才停
   document.body.classList.toggle('arcade-on', zoomGoal >= 1 && focusArcade && zoomT > 0.5);   // 螢幕放到最大時,房間的 logo 和右下按鈕會蓋在上面 → 收起來
+  if (zoomGoal >= 1 && !focusArcade && ORBIT && !orbit && !(story && story.active)) ensureOrbit();   // 開始往電腦螢幕飛 → 這時才建立銀河旅程、開始下載行星貼圖
   if (zoomGoal >= 1 && zoomT > 0.985 && !focusArcade && !uiOn) showUI();     // 鏡頭到電腦螢幕 → 淡入介紹介面
 }
 
@@ -1924,8 +1925,10 @@ for (let i = 0; i < SLIDE_COUNT; i++) { const d = document.createElement('i'); d
 let slide = 0, uiOn = false, navLockUntil = 0, wheelLockUntil = 0;
 // 進螢幕後的畫面:預設是銀河球 + 環繞的功能面板(orbit.mjs);?slides 用舊的一頁一頁版本;捲動版(?story)不用
 const ORBIT = !STORY && !new URLSearchParams(location.search).has('slides');
-const orbit = ORBIT ? createOrbit({ host: ui, slides: SLIDES, mountWidget, onExit: () => hideUI() }) : null;
-if (ORBIT) { ui.classList.add('orbit-mode'); window.__orbit = orbit; }
+// 銀河旅程(第二份銀河、太陽系、地球、行星貼圖…)開網頁時先不建,等鏡頭開始往電腦螢幕飛(點螢幕 / 中間鍵 / 滾輪)才建立,網頁打開比較快
+let orbit = null;
+function ensureOrbit() { if (ORBIT && !orbit) { orbit = createOrbit({ host: ui, slides: SLIDES, mountWidget, onExit: () => hideUI() }); window.__orbit = orbit; } return orbit; }
+if (ORBIT) ui.classList.add('orbit-mode');
 function setSlide(i) {
   slide = Math.max(0, Math.min(SLIDE_COUNT - 1, i));
   uiTrack.style.transform = `translateY(${-slide * 100}%)`;
@@ -1933,18 +1936,18 @@ function setSlide(i) {
   [...uiDots.children].forEach((d, k) => d.classList.toggle('on', k === slide));
   activateSlide(slide);                                          // 只跑目前這頁的 widget 動畫
 }
-function showUI() { uiOn = true; ui.classList.add('on'); document.body.classList.add('ui-on'); navLockUntil = performance.now() + 900; if (orbit) orbit.show(screenRectPx()); else setSlide(0); if (!radio.playing) radio.play(); }   // 進入銀河就開始放音樂
-function hideUI() { uiOn = false; ui.classList.remove('on'); document.body.classList.remove('ui-on'); zoomGoal = 0; wheelLockUntil = performance.now() + 1000; if (orbit) orbit.hide(); else deactivate(); }
+function showUI() { uiOn = true; ui.classList.add('on'); document.body.classList.add('ui-on'); navLockUntil = performance.now() + 900; if (ORBIT) ensureOrbit().show(screenRectPx()); else setSlide(0); if (!radio.playing) radio.play(); }   // 進入銀河就開始放音樂
+function hideUI() { uiOn = false; ui.classList.remove('on'); document.body.classList.remove('ui-on'); zoomGoal = 0; wheelLockUntil = performance.now() + 1000; if (ORBIT) { if (orbit) orbit.hide(); } else deactivate(); }
 function uiNav(dir) {
-  if (orbit) { orbit.step(dir); return; }
+  if (ORBIT) { if (orbit) orbit.step(dir); return; }
   const now = performance.now(); if (now < navLockUntil) return; navLockUntil = now + 700;
   if (dir > 0) { if (slide < SLIDE_COUNT - 1) setSlide(slide + 1); }
   else { if (slide > 0) setSlide(slide - 1); else hideUI(); }
 }
-ui.addEventListener('wheel', (e) => { if (story || orbit) return; e.preventDefault(); if (Math.abs(e.deltaY) < 6) return; uiNav(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+ui.addEventListener('wheel', (e) => { if (story || ORBIT) return; e.preventDefault(); if (Math.abs(e.deltaY) < 6) return; uiNav(e.deltaY > 0 ? 1 : -1); }, { passive: false });
 let touchY0 = null;
 ui.addEventListener('touchstart', (e) => { touchY0 = e.touches[0].clientY; }, { passive: true });
-ui.addEventListener('touchend', (e) => { if (story || orbit || touchY0 === null) return; const dy = touchY0 - e.changedTouches[0].clientY; touchY0 = null; if (Math.abs(dy) > 40) uiNav(dy > 0 ? 1 : -1); });
+ui.addEventListener('touchend', (e) => { if (story || ORBIT || touchY0 === null) return; const dy = touchY0 - e.changedTouches[0].clientY; touchY0 = null; if (Math.abs(dy) > 40) uiNav(dy > 0 ? 1 : -1); });
 // 底部控制列:‹ / › 等於滾輪往回 / 往前,中間鍵在房間 ↔ 螢幕之間切換
 // 在房間裡:點一下 = 像滾一格(前進 1/3),按住不放 = 持續慢慢靠近/退遠;在介紹頁:點一下翻一頁
 function holdButton(id, dir) {
