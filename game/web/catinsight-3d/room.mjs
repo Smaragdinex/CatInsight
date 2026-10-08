@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=38';
+import { createOrbit } from './orbit.mjs?v=39';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -1936,7 +1936,7 @@ const ORBIT = !STORY && !new URLSearchParams(location.search).has('slides');
 // 銀河旅程(第二份銀河、太陽系、地球、行星貼圖…)開網頁時先不建,等鏡頭開始往電腦螢幕飛(點螢幕 / 中間鍵 / 滾輪)才建立,網頁打開比較快
 let orbit = null;
 // 下載那塊併進第一塊(WELCOME);Privacy / Support / Get the App 按鈕搬到地球那頁
-function ensureOrbit() { if (ORBIT && !orbit) { orbit = createOrbit({ host: ui, slides: SLIDES.filter((s) => s.key !== 'app'), cta: document.querySelector('.cta'), mountWidget, onExit: () => hideUI() }); window.__orbit = orbit; } return orbit; }
+function ensureOrbit() { if (ORBIT && !orbit) { orbit = createOrbit({ host: ui, slides: SLIDES.filter((s) => s.key !== 'app'), cta: document.querySelector('.cta'), sfx: ctaSfx, mountWidget, onExit: () => hideUI() }); window.__orbit = orbit; } return orbit; }
 if (ORBIT) ui.classList.add('orbit-mode');
 function setSlide(i) {
   slide = Math.max(0, Math.min(SLIDE_COUNT - 1, i));
@@ -2217,6 +2217,20 @@ const musicPanel = (() => {
     }
   });
 }
+// 地球那頁右下的 Privacy / Support / Get the App:滑過去「嘀」一聲、按下去「啵」一聲(合成音,跟音樂播放器同一種)
+function ctaSfx(kind) {
+  const c = bgm.ctx; if (!c || c.state !== 'running' || !bgm.on) return;
+  const t = c.currentTime;
+  const tone = (f0, f1, at, dur, vol) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t + at); o.frequency.exponentialRampToValueAtTime(f1, t + at + dur);
+    g.gain.setValueAtTime(0, t + at); g.gain.linearRampToValueAtTime(vol, t + at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur); o.connect(g); g.connect(c.destination); o.start(t + at); o.stop(t + at + dur + 0.02); };
+  if (kind === 'hover') tone(1480, 1760, 0, 0.05, 0.05);
+  else if (kind === 'close') tone(760, 420, 0, 0.1, 0.09);
+  else { tone(520, 880, 0, 0.08, 0.1); tone(880, 1175, 0.05, 0.08, 0.05); }
+}
+document.querySelectorAll('.cta a').forEach((a) => {
+  a.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') ctaSfx('hover'); });
+  a.addEventListener('click', () => ctaSfx('click'));
+});
 // 機台螢幕按鈕的小音效(和遊戲裡一樣用合成音):hover 一聲「嘀」、按下一聲「嗒」
 function uiSfx(kind) {
   if (!bgm.ctx || !bgm.on || bgm.ctx.state !== 'running') return;

@@ -5,12 +5,13 @@
 import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
+import { DOCS } from './legal.mjs?v=1';
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
 // 地球貼圖(NASA 藍色彈珠影像,three.js 範例附的版本);載不到時用程式畫的替代貼圖
 const TEX = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r174/examples/textures/planets/';
 
-export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
+export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   const N = slides.length, STEP = Math.PI * 2 / N, R = 1080, PW = 540, PH = 720, RY = -170;   // 面板圈的半徑、面板大小、面板圈的高度
   const ER = 300;                                                                            // 地球場景裡的地球半徑
   // 旅程的進度 p(0 = 看著整個銀河、1 = 到地球、面板出現):各段的範圍
@@ -26,7 +27,32 @@ export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
     <div class="ohint"></div></div>
     <div class="ocredit">Planet textures © Solar System Scope (CC BY 4.0) · Earth & Moon: NASA</div>`;
   root.appendChild(chrome);
-  if (cta) chrome.appendChild(cta);                                                          // 房間右下的 Privacy / Support / Get the App 搬進來,到地球(面板那頁)才出現
+  if (cta) chrome.appendChild(cta);
+  // Privacy / Support:不換頁 —— 一樣在地球這裡,面板圈收起來,中間打開一塊直的、可以捲動的長面板(✕ / Esc 回到面板圈)
+  const doc = document.createElement('div'); doc.className = 'odoc';
+  doc.innerHTML = `<div class="odoc-panel"><button class="odoc-x" aria-label="Close">✕</button><div class="odoc-body"></div></div>`;
+  chrome.appendChild(doc);
+  const docBody = doc.querySelector('.odoc-body'), docPanel = doc.querySelector('.odoc-panel'); let docKey = null;
+  function openDoc(key) {
+    if (!DOCS[key]) return; if (docKey !== key) { docBody.innerHTML = DOCS[key].html; docBody.scrollTop = 0; }
+    docKey = key; docPanel.style.setProperty('--c', DOCS[key].color); root.classList.add('doc-on'); drag = null;
+    if (cta) cta.querySelectorAll('a').forEach((a) => a.classList.toggle('on', a.dataset.doc === key));
+  }
+  function closeDoc() { if (!docKey) return; docKey = null; root.classList.remove('doc-on'); if (cta) cta.querySelectorAll('a').forEach((a) => a.classList.remove('on')); }
+  if (cta) cta.querySelectorAll('a').forEach((a) => { const k = (a.getAttribute('href') || '').replace(/^\/|\.html$/g, ''); if (DOCS[k]) a.dataset.doc = k; });
+  // 點 Privacy / Support(按鈕或面板裡的連結)= 打開 / 切換長面板
+  chrome.addEventListener('click', (e) => { const a = e.target.closest('a[data-doc]'); if (!a) return; e.preventDefault(); if (a.closest('.cta') && docKey === a.dataset.doc) { closeDoc(); return; } openDoc(a.dataset.doc); });
+  doc.querySelector('.odoc-x').addEventListener('click', () => { sfx && sfx('close'); closeDoc(); });
+  doc.addEventListener('click', (e) => { if (e.target === doc) { sfx && sfx('close'); closeDoc(); } });   // 點面板外面也關
+  // 長面板自己捲動:滾輪 / 拖曳不要傳到後面(不然會轉面板圈、往回飛)
+  doc.addEventListener('wheel', (e) => e.stopPropagation());
+  doc.addEventListener('pointerdown', (e) => e.stopPropagation());
+  window.addEventListener('keydown', (e) => {
+    if (!docKey || !open) return;
+    if (e.key === 'Escape') { e.stopImmediatePropagation(); closeDoc(); return; }
+    const d = { ArrowDown: 60, ArrowUp: -60, PageDown: docBody.clientHeight * 0.9, PageUp: -docBody.clientHeight * 0.9, ' ': docBody.clientHeight * 0.9 }[e.key];
+    if (d) { e.preventDefault(); e.stopImmediatePropagation(); docBody.scrollBy({ top: d, behavior: 'smooth' }); }
+  }, true);                                                          // 房間右下的 Privacy / Support / Get the App 搬進來,到地球(面板那頁)才出現
   const dots = [...chrome.querySelectorAll('.odots i')], stageEls = [...chrome.querySelectorAll('.ostages span')], hintEl = chrome.querySelector('.ohint'), dotsEl = chrome.querySelector('.odots');
   dots.forEach((d) => d.addEventListener('click', (e) => { e.stopPropagation(); if (atEarth()) goTo(+d.dataset.i); }));
   stageEls.forEach((s, k) => { s.style.pointerEvents = 'auto'; s.style.cursor = 'pointer'; s.addEventListener('click', (e) => { e.stopPropagation(); pT = [0, OVERVIEW, 1][k]; }); });
@@ -313,6 +339,7 @@ export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
   });
 
   // ---------- 狀態 / 互動 ----------
+  let drag = null;
   let open = false, angle = 0, target = 0, active = -1, t0 = performance.now(), last = t0, raf = 0, covering = false;
   let p = 0, pT = 0, exitAcc = 0, lastRot = 0;
   const mouse = { x: 0, y: 0, sx: 0, sy: 0 };
@@ -324,6 +351,7 @@ export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
   // ‹ › 按鈕 / 方向鍵:旅程中跳到下一站(銀河 → 太陽系全景 → 地球);在地球上轉面板,第一塊再往回 = 回太陽系;在銀河再往回 = 回房間
   function step(dir) {
     if (intro) return;
+    if (docKey) { closeDoc(); return; }                                                    // 長面板開著:‹ › 先關掉它
     if (atEarth()) { if (dir < 0 && cur() === 0) { pT = OVERVIEW; return; } rotate(dir); return; }
     const stops = [0, OVERVIEW, 1];
     if (dir > 0) pT = stops.find((s) => s > pT + 0.01) ?? 1;
@@ -356,7 +384,6 @@ export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
     exitAcc = 0; pT = Math.max(0, Math.min(1, Math.max(p - 0.3, Math.min(p + 0.3, pT + d / 2200))));   // 目標最多領先目前位置 0.3,不會一次衝到底
   }, { passive: false });
   // 拖曳:旅程中上下拖 = 往前 / 往後飛;在地球上左右拖 = 轉面板
-  let drag = null;
   root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs, .ostages')) return; if (intro) return; drag = { x: e.clientX, y: e.clientY, t: target, pT, moved: false, earth: atEarth() }; });
   window.addEventListener('pointermove', (e) => {
     mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1;
@@ -493,6 +520,7 @@ export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
     const stage = p < (S_START + G_END) / 2 ? 0 : p < (E_START + S_END) / 2 ? 1 : 2;
     stageEls.forEach((s, k) => s.classList.toggle('on', k === stage));
     dotsEl.style.opacity = rv.toFixed(2); dotsEl.style.pointerEvents = rv > 0.95 ? 'auto' : 'none';
+    if (docKey && rv < 0.5) closeDoc();
     if (cta) { cta.style.opacity = rv.toFixed(2); cta.style.pointerEvents = rv > 0.95 ? 'auto' : 'none'; cta.style.visibility = rv > 0.01 ? 'visible' : 'hidden'; }
     const hint = atEarth() ? 'Scroll or drag to explore · 滾動或拖曳瀏覽' : 'Scroll down to travel · 往下捲動前進';
     if (hintEl.textContent !== hint) hintEl.textContent = hint;
@@ -502,7 +530,7 @@ export function createOrbit({ host, slides, cta, mountWidget, onExit }) {
     show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); root.classList.add('on'); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
       intro = rect && rect.w > 20 ? { rect, t0: performance.now() } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       raf = requestAnimationFrame(frame); },
-    hide() { open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
+    hide() { closeDoc(); open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf); panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
     step, goTo, exit: onExit, travel(v) { pT = Math.max(0, Math.min(1, v)); },
   };
 }
