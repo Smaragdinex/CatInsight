@@ -403,7 +403,11 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     if (drag.earth) { const d = Math.abs(dx) > Math.abs(dy) * 0.8 || e.pointerType !== 'touch' ? dx : -dy; target = drag.t + d * 0.0042; lastRot = performance.now(); }
     else pT = Math.max(0, Math.min(1, drag.pT - dy / (innerHeight * 2.2)));
   });
-  window.addEventListener('pointerup', () => { if (drag) { if (drag.moved && drag.earth) target = Math.round(target / STEP) * STEP; drag = null; } });
+  window.addEventListener('pointerup', (e) => { if (drag) {
+    if (drag.moved && drag.earth) target = Math.round(target / STEP) * STEP;
+    // 手機 / 平板:在銀河起點(還沒開始飛)手指往下滑 = 回到房間(跟滾輪往回、‹ 一樣)
+    else if (drag.moved && open && !intro && e.pointerType === 'touch' && drag.pT <= 0.01 && p <= 0.01) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (dy > 80 && dy > Math.abs(dx) * 1.5) { drag = null; onExit && onExit(); return; } }
+    drag = null; } });
   root.addEventListener('click', (e) => { if (drag && drag.moved) e.stopPropagation(); }, true);
 
   function resize() {

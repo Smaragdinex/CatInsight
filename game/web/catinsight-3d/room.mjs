@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=48';
+import { createOrbit } from './orbit.mjs?v=49';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -2032,8 +2032,18 @@ window.addEventListener('keydown', (e) => {
 });
 // 點螢幕也能進去(手機沒有滾輪)
 const raycaster = new THREE.Raycaster(); const ndc = new THREE.Vector2(); let pd = null;
-canvas.addEventListener('pointerdown', (e) => { pd = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerdown', (e) => { pd = { x: e.clientX, y: e.clientY, t: performance.now() }; });
 canvas.addEventListener('pointerup', (e) => {
+  // 手機 / 平板:手指往上滑 = 跟滾輪往前、› 一樣直接飛進電腦螢幕;往下滑 = 退回房間(在街機前面時)
+  if (pd && e.pointerType === 'touch' && !(story && story.active) && !uiOn && !gameOn) {
+    const dx = e.clientX - pd.x, dy = e.clientY - pd.y;
+    if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.5 && performance.now() - pd.t < 800) {
+      pd = null;
+      if (dy < 0) { if (zoomGoal === 0 || !focusArcade) enterScreen(); }
+      else if (zoomGoal > 0 && !pushGoal) zoomGoal = 0;
+      return;
+    }
+  }
   if (story && story.active) { pd = null; return; }                       // 捲動版離開房間後,點畫面不做房間的事
   if (!pd || Math.hypot(e.clientX - pd.x, e.clientY - pd.y) > 6 || !screenMesh) { pd = null; return; }
   pd = null;
