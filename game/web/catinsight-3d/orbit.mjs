@@ -494,9 +494,10 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       // 星塵:跟著相機;速度 = 這一幀旅程進度變化的快慢
       const v = Math.abs(p - pPrev) / Math.max(dt, 1e-3); warp.spd += (v - warp.spd) * Math.min(1, dt * 4);
       warp.pts.position.copy(camera.position); warp.pts.quaternion.copy(camera.quaternion); warp.pts.scale.setScalar(Math.max(3, dist * 0.9));
-      warp.m.uniforms.uOff.value += dt * (0.06 + warp.spd * 9); warp.m.uniforms.uViewH.value = renderer.domElement.height;
-      // 第一幕(剛進來、還沒開始往前飛,p ≈ 0)完全不要星塵 —— 只有一個靜靜的銀河,跟電腦螢幕上一樣;開始往前飛之後才有顆粒(停下來時留一點在飄)
-      warp.m.uniforms.uAmt.value = Math.min(1, 0.2 * ss(0.005, 0.05, p) + warp.spd * 16) * (1 - ss(0.88, 1, gp)) * gF * ready;
+      // 停著的時候:星塵很慢很慢地往鏡頭飄(像在太空裡慢慢前進);一滾動就照速度加快
+      warp.m.uniforms.uOff.value += dt * (0.012 + warp.spd * 9); warp.m.uniforms.uViewH.value = renderer.domElement.height;
+      // 停著的時候也有一層很淡、很慢的星塵(放大完成後 3 秒慢慢浮現,不會一進來就冒出一堆);滾動時照速度變多變快
+      warp.m.uniforms.uAmt.value = Math.min(1, 0.2 * ss(0, 3000, readyT) + warp.spd * 16 * ready) * (1 - ss(0.88, 1, gp)) * gF;
       // 銀河段也有光速線:捲動時才出現,捲越快越長越亮
       if (!gStreak) gStreak = makeStreaks(gScene);
       const gAmt = Math.min(1, warp.spd * 12) * mv * (1 - ss(0.9, 1, gp)) * gF * ready;
