@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { DOCS } from './legal.mjs?v=2';
-import { createSatellites } from './satellites.mjs?v=2';
+import { createSatellites } from './satellites.mjs?v=4';
 const SAT = new URLSearchParams(location.search).has('sat');   // 試做:地球那頁改成「衛星」版(網址加 ?sat)
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
@@ -394,7 +394,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     if (intro || wheelGate) { const since = performance.now() - readyAt; if (!intro && since > 400 && (nowW - lastWheel > 250 || since > 1000)) wheelGate = false; else { lastWheel = nowW; return; } }
     lastWheel = nowW;
     const d = Math.max(-90, Math.min(90, Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX));
-    if (atEarth() && SAT) {   // 衛星版:滾一格 = 下一顆 / 上一顆(滑很快也最多約 0.4 秒換一次,中間的直接跳過);第一顆再往上 = 離開地球
+    if (atEarth() && SAT) {   // 衛星版:滾一格 = 轉盤轉到下一顆 / 上一顆(滑很快也最多約 0.4 秒轉一格)
       satAcc += d; clearTimeout(satAccT); satAccT = setTimeout(() => { satAcc = 0; }, 260);
       const now = performance.now();
       if (Math.abs(satAcc) > 50 && now - satLast > 420) { const dir = Math.sign(satAcc); satAcc = 0; satLast = now; if (!sat.step(dir) && dir < 0) pT = 0.995 + d / 2200; }
@@ -419,15 +419,15 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     if (!drag || !open) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
     if (!drag.moved) return;
-    if (drag.earth && SAT) return;
+    if (drag.earth && SAT) { if (!sat.dragging) sat.dragStart(); sat.dragMove(Math.abs(dx) > Math.abs(dy) * 0.8 || e.pointerType !== 'touch' ? dx : -dy); return; }   // 衛星版:拖曳 = 轉衛星轉盤
     if (drag.earth) { const d = Math.abs(dx) > Math.abs(dy) * 0.8 || e.pointerType !== 'touch' ? dx : -dy; target = drag.t + d * 0.0042; lastRot = performance.now(); }
     else pT = Math.max(0, Math.min(1, drag.pT - dy / (innerHeight * 2.2)));
   });
   window.addEventListener('pointerup', (e) => { if (drag) {
     if (SAT && drag.earth && open) {   // 衛星版:點衛星 = 打開它;左右 / 上下滑 = 下一顆 / 上一顆
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      if (!drag.moved && !drag.onDeck) { const h = sat.pick(e.clientX, e.clientY); if (h >= 0) { sat.go(h); sfx && sfx('click'); } }
-      else if (Math.max(Math.abs(dx), Math.abs(dy)) > 45) sat.step(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : -1) : (dy < 0 ? 1 : -1));
+      if (sat.dragging) sat.dragEnd();                                                            // 放開:對齊最近的一顆
+      else if (!drag.moved && !drag.onDeck) { const h = sat.pick(e.clientX, e.clientY); if (h >= 0) { sat.go(h); sfx && sfx('click'); } }
       drag = null; return;
     }
     if (drag.moved && drag.earth) target = Math.round(target / STEP) * STEP;
