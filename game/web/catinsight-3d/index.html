@@ -67,6 +67,9 @@
   .pill button.mid .home { display: none; }
   body.ui-on .pill button.mid .mouse { display: none; }
   body.ui-on .pill button.mid .home { display: block; }
+  /* 首頁(房間)只留中間的按鈕:‹ › 拿掉(要進螢幕用中間鍵、Explore 小點、滾輪或手指往上滑);進到銀河後 ‹ › 才出現 */
+  body:not(.ui-on) .pill #prev, body:not(.ui-on) .pill #next { display: none; }
+  body:not(.ui-on) .pill { padding: 8px; }
   /* 街機遊戲:點街機後淡入,中間是嵌入貓咪瑪利歐小遊戲的 iframe(960×544,依視窗縮放) */
   #game-ui { position: fixed; inset: 0; z-index: 6; background: #c9e8b8; opacity: 0; pointer-events: none; transition: opacity .55s ease; display: grid; place-items: center; }
   #game-ui.on { opacity: 1; pointer-events: auto; }
@@ -383,6 +386,6 @@
   <div class="yarn-floor"></div>
   <div class="lpct">0%</div>
 </div></div>
-<script type="module" src="./room.mjs?v=532"></script>
+<script type="module" src="./room.mjs?v=533"></script>
 </body>
 </html>
