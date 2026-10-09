@@ -66,6 +66,11 @@ export const DOCS = {
       <p>Market data, fundamentals, analyst figures and news are sourced from third-party financial data providers and may be delayed.</p>
       <p class="q">How is my data handled?</p>
       <p>Please see our <a class="link" href="/privacy" data-doc="privacy">Privacy Policy</a>.</p>
+    </div>
+    <div class="dcard">
+      <h2>Credits</h2>
+      <p>Planet and Sun textures © <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener">Solar System Scope</a>, licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.</p>
+      <p>Earth and Moon imagery: NASA. 3D rendering with three.js. Music from Mixkit.</p>
     </div>`,
   },
 };

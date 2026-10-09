@@ -180,6 +180,11 @@
   #screen-ui .satlabel i { width: 1px; height: 20px; background: linear-gradient(color-mix(in srgb, var(--c) 80%, white), transparent); }
   #screen-ui .satlabel span { color: color-mix(in srgb, var(--c) 55%, white); text-shadow: 0 0 12px var(--c), 0 1px 6px #000; white-space: nowrap; }
   #screen-ui .orbit.doc-on .satdeck, #screen-ui .orbit.doc-on .satlabel { visibility: hidden !important; }
+  /* 版權小字搬到 Support 面板的 Credits(CC BY 4.0 的標示還在,只是不放在畫面底部) */
+  #screen-ui .ocredit { display: none; }
+  /* 衛星版:上面的小點不要(點衛星就好);手機的按鈕列往上貼,卡片也跟著往上 */
+  #screen-ui .orbit.sat .odots { display: none; }
+  @media (max-width: 640px) { #screen-ui .orbit.sat .cta { top: calc(14px + env(safe-area-inset-top, 0px)); } }
   /* 按鈕:滑過去變色、發光,按下去縮一下;Privacy / Support 打開時也保持亮著 */
   #screen-ui .cta a { transition: background .2s, color .2s, box-shadow .25s, transform .15s; border: 1px solid transparent; }
   #screen-ui .cta .ghost:hover, #screen-ui .cta .ghost.on { background: rgba(123,156,255,.32); border-color: rgba(160,185,255,.6); box-shadow: 0 0 22px rgba(123,156,255,.45); }
@@ -407,6 +412,6 @@
   <div class="yarn-floor"></div>
   <div class="lpct">0%</div>
 </div></div>
-<script type="module" src="./room.mjs?v=538"></script>
+<script type="module" src="./room.mjs?v=539"></script>
 </body>
 </html>

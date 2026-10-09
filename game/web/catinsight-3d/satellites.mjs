@@ -68,7 +68,7 @@ export function createSatellites({ THREE, scene, center, ER, slides, deck, panel
   function layout(W, H, reserve, portrait) {
     const PW = 540, PH = 720;
     if (portrait) {
-      const top = reserve.top, split = top + Math.max(190, H * 0.3), bot = H - Math.max(14, reserve.bot - 10);
+      const top = reserve.top, split = top + Math.max(170, H * 0.27), bot = H - Math.max(14, reserve.bot - 10);
       const cardS = Math.min((W * 0.94) / PW, (bot - split) / PH), cw = PW * cardS;
       L = { W, H, portrait, cx: W / 2, cy: (top + split) / 2, rw: W * 0.96, rh: split - top, cardS, cardX: (W - cw) / 2, cardY: split };
     } else {

@@ -5,8 +5,8 @@
 import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
-import { DOCS } from './legal.mjs?v=1';
-import { createSatellites } from './satellites.mjs?v=1';
+import { DOCS } from './legal.mjs?v=2';
+import { createSatellites } from './satellites.mjs?v=2';
 const SAT = new URLSearchParams(location.search).has('sat');   // 試做:地球那頁改成「衛星」版(網址加 ?sat)
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
@@ -21,7 +21,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   // ---------- 外框 ----------
   // 行星 / 太陽 / 月亮 / 地球貼圖都經過這個 manager → 載入畫面可以等它們下載完(texProgress)
   let texDone = 0, texTotal = 0; const texLM = new THREE.LoadingManager(); texLM.onProgress = (u, l, t) => { texDone = l; texTotal = t; };
-  const root = document.createElement('div'); root.className = 'orbit'; host.appendChild(root);
+  const root = document.createElement('div'); root.className = SAT ? 'orbit sat' : 'orbit'; host.appendChild(root);   // .sat:衛星版(上面的小點不顯示,點衛星就好)
   const canvas = document.createElement('canvas'); canvas.className = 'orbit-gl'; root.appendChild(canvas);
   const cssLayer = document.createElement('div'); cssLayer.className = 'orbit-css'; root.appendChild(cssLayer);
   const chrome = document.createElement('div'); chrome.className = 'orbit-ui';
