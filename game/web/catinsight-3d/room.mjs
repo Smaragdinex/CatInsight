@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 import { buildSlides, activateSlide, deactivate, mountWidget, SLIDES } from './intro.mjs?v=12';
-import { createOrbit } from './orbit.mjs?v=49';
+import { createOrbit } from './orbit.mjs?v=50';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { makeRadio } from './radio.mjs?v=6';
 // 捲動版介紹(網址加 ?story):往下捲 = 往前播,桌上的手機當主角(story.mjs)。沒加就是原本「飛到電腦螢幕 → 一頁一頁」的版本
@@ -2293,6 +2293,13 @@ function robotHello() {
     o.connect(g); g.connect(bp); o.start(t + at); lfo.start(t + at); o.stop(t + at + dur + 0.02); lfo.stop(t + at + dur + 0.02);
   }
 }
+// 回到 3D 房間:地球那頁(Privacy 左邊)的「3D Room」、街機前面的「3D Room」按鈕(下面的控制列拿掉了)
+const roomBack = document.getElementById('room-back');
+if (roomBack) {
+  roomBack.addEventListener('click', () => { ctaSfx('close'); focusArcade = true; zoomGoal = 0; });
+  roomBack.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') ctaSfx('hover'); });
+}
+document.querySelectorAll('.cta a[data-room]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (uiOn) hideUI(); }));
 document.querySelectorAll('.cta a').forEach((a) => {
   a.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') ctaSfx('hover'); });
   a.addEventListener('click', () => ctaSfx('click'));
@@ -2536,6 +2543,7 @@ function loop() {
   }
   tickSeries(performance.now());
   drawScreen(t);
+  if (roomBack) roomBack.classList.toggle('on', focusArcade && zoomGoal >= 1 && zoomT > 0.9 && !gameOn && !uiOn);   // 街機選單畫面才出現
   if (arcadeScreen && (frameNo++ % 2 === 0)) { drawArcadeScreen(t); arcadeScreenTex.needsUpdate = true; }   // 街機螢幕每 2 幀更新
   if (livePoster && (liveN++ % 2 === 1)) livePoster(t);                                                       // 會動的照片每 2 幀更新(和街機錯開)
   if (story && !focusArcade && zoomT === 0) {

@@ -410,11 +410,17 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     drag = null; } });
   root.addEventListener('click', (e) => { if (drag && drag.moved) e.stopPropagation(); }, true);
 
+  // 手機版面:上面按鈕列(Privacy / Support…)佔掉的高度,面板要放在它下面,不能被擋住
+  let reserve = { top: 40, bot: 24 };
+  function measureReserve() { let top = 40, bot = 24; const d = dotsEl.getBoundingClientRect(); if (d.height) top = Math.max(top, d.bottom + 10);
+    if (cta) { const r = cta.getBoundingClientRect(); if (r.height) { if (r.top < innerHeight / 2) top = Math.max(top, r.bottom + 14); else bot = Math.max(bot, innerHeight - r.top + 14); } }
+    reserve = { top, bot }; }
   function resize() {
     const w = innerWidth, h = innerHeight, dpr = Math.min(devicePixelRatio || 1, window.__qPR || 2);   // 低階電腦時解析度上限跟房間一樣
     renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); css.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
     allPoints.forEach((pp) => { pp.material.uniforms.uPR.value = dpr; });
+    measureReserve();
   }
   addEventListener('resize', () => { if (open) resize(); });
 
@@ -511,10 +517,14 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     if (eF > 0.001) {
       const ep = Math.max(0, Math.min(1, (p - E_START) / (1 - E_START))), k = ss(0.15, 1, ep);
       const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      const dist = R + (portrait ? PW / (0.94 * 2 * tanH * aspect) : Math.max(PH / (0.66 * 2 * tanH), PW / (0.44 * 2 * tanH * aspect)));   // 手機:面板佔寬度 94%
+      // 手機:面板佔寬度 94%,而且整塊要放得進「上面按鈕列下面 ~ 畫面底部」之間(reserve 在 resize 時量),放不下就退遠一點
+      const availH = Math.max(200, H - reserve.top - reserve.bot);
+      const dP = Math.max(PW / (0.94 * 2 * tanH * aspect), PH * H / (2 * tanH * availH * 0.96));
+      const dist = R + (portrait ? dP : Math.max(PH / (0.66 * 2 * tanH), PW / (0.44 * 2 * tanH * aspect)));
       mouse.sx += (mouse.x - mouse.sx) * 0.05; mouse.sy += (mouse.y - mouse.sy) * 0.05;
       // 手機:鏡頭和面板同高、水平看過去 → 面板是正的,不會上寬下窄
-      const PY = RY - 50;                                                                   // 鏡頭比面板中心低一點 → 面板在畫面上偏上
+      // 手機:面板中心對準「按鈕列下面到畫面底部」那一段的正中間(下面的控制列拿掉了,面板可以往下)
+      const PY = RY + ((reserve.top + (H - reserve.bot)) / 2 - H / 2) * (2 * tanH * dP / H);
       const fin = portrait ? new THREE.Vector3(0, PY, dist) : new THREE.Vector3(mouse.sx * 90 * rv, 330 - mouse.sy * 50 * rv, dist);
       const finLook = new THREE.Vector3(0, portrait ? PY : RY - 330, 0);              // 上方沒有文字了,鏡頭往下看一點 → 面板在畫面上移(手機看得到整塊)
       const startPos = D_FINAL.clone().multiplyScalar(ER * 5); startPos.y += EY;

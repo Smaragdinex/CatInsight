@@ -67,9 +67,15 @@
   .pill button.mid .home { display: none; }
   body.ui-on .pill button.mid .mouse { display: none; }
   body.ui-on .pill button.mid .home { display: block; }
-  /* 下面只留中間的按鈕(房間 ↔ 螢幕):‹ › 在房間和銀河裡都拿掉(進螢幕用中間鍵、Explore 小點、滾輪或手指往上滑;銀河裡用滾輪 / 拖曳 / 上面的小點) */
-  .pill #prev, .pill #next { display: none; }
-  .pill { padding: 8px; }
+  /* 下面的控制列整個拿掉(進螢幕用 Explore 小點、點螢幕、滾輪或手指往上滑);回房間:街機前面有「3D Room」按鈕,地球那頁在 Privacy 左邊 */
+  .pill { display: none !important; }
+  #room-back { position: fixed; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); z-index: 8; transform: translate(-50%, 12px); display: flex; align-items: center; gap: 8px;
+    padding: 11px 20px 11px 16px; border: 0; border-radius: 999px; background: #fff; color: #2a1f4e; font: 600 15px/1 -apple-system, "SF Pro Text", system-ui, sans-serif; box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s, background .2s, color .2s, box-shadow .25s; -webkit-tap-highlight-color: transparent; }
+  #room-back.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+  #room-back:hover { background: #7b5cf5; color: #fff; box-shadow: 0 0 26px rgba(123,92,245,.6); }
+  #room-back:active { transform: translate(-50%, 0) scale(.95); }
+  #room-back svg { width: 18px; height: 18px; }
   /* 街機遊戲:點街機後淡入,中間是嵌入貓咪瑪利歐小遊戲的 iframe(960×544,依視窗縮放) */
   #game-ui { position: fixed; inset: 0; z-index: 6; background: #c9e8b8; opacity: 0; pointer-events: none; transition: opacity .55s ease; display: grid; place-items: center; }
   #game-ui.on { opacity: 1; pointer-events: auto; }
@@ -167,6 +173,7 @@
   #screen-ui .cta a { transition: background .2s, color .2s, box-shadow .25s, transform .15s; border: 1px solid transparent; }
   #screen-ui .cta .ghost:hover, #screen-ui .cta .ghost.on { background: rgba(123,156,255,.32); border-color: rgba(160,185,255,.6); box-shadow: 0 0 22px rgba(123,156,255,.45); }
   #screen-ui .cta .ghost[data-doc="support"]:hover, #screen-ui .cta .ghost[data-doc="support"].on { background: rgba(75,224,122,.26); border-color: rgba(120,240,160,.6); box-shadow: 0 0 22px rgba(75,224,122,.4); }
+  #screen-ui .cta .room:hover { background: rgba(123,92,245,.4); border-color: rgba(190,175,255,.65); box-shadow: 0 0 22px rgba(123,92,245,.5); }
   #screen-ui .cta .primary:hover { background: #ff86a3; box-shadow: 0 0 26px rgba(255,111,145,.6); transform: translateY(-1px); }
   #screen-ui .cta a:active { transform: scale(.95); }
   /* 透明卡上的按鈕:滑過去用這塊卡的主色(--c)、發光,按下去縮一下 */
@@ -224,7 +231,8 @@
   }
   @media (max-width: 640px) {
     #screen-ui .cta { right: auto; left: 50%; transform: translateX(-50%); bottom: auto; top: calc(40px + env(safe-area-inset-top, 0px)); gap: 8px; }
-    #screen-ui .cta a { padding: 7px 12px; font-size: 12px; border-radius: 10px; white-space: nowrap; }
+    #screen-ui .cta a { padding: 7px 11px; font-size: 12px; border-radius: 10px; white-space: nowrap; }
+    #screen-ui .cta { gap: 6px; max-width: calc(100vw - 24px); }
   }
   /* 上方的標題、三個站名、提示文字都不顯示(面板才能往上、手機看得完整);只留面板的小點 */
   #screen-ui .orbit-ui .ot, #screen-ui .ostages, #screen-ui .ohint { display: none; }
@@ -348,8 +356,10 @@
 <canvas id="c"></canvas>
 <a class="brand" id="brand" href="/catinsight-3d/" aria-label="CatInsight Stock 3D room"><img src="/assets/icon-180.png" alt=""><b>CatInsight</b><span>Stock</span></a>
 <div class="cta">
+  <a class="ghost room" href="./" data-room>3D Room</a>
   <a class="primary" href="https://apps.apple.com/app/id6763914049">Get the App</a>
 </div>
+<button id="room-back" type="button" aria-label="Back to the 3D room"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>3D Room</button>
 <div id="screen-ui">
   <div class="track"></div>
   <div class="num"></div>
@@ -386,6 +396,6 @@
   <div class="yarn-floor"></div>
   <div class="lpct">0%</div>
 </div></div>
-<script type="module" src="./room.mjs?v=534"></script>
+<script type="module" src="./room.mjs?v=535"></script>
 </body>
 </html>
