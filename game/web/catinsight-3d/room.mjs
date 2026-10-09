@@ -1739,12 +1739,12 @@ const ARC_COLORS = ['#ff8fc0', '#8b7cff', '#4f8ef0', '#ffd24a', '#f5b942', '#f27
 // 機台螢幕上的按鈕位置(畫布座標 520x385),畫和點擊判定共用
 // 版面:格子圈占滿整個螢幕,標題、骰子、按鈕(左邊語言切換、右邊 PLAY)都在圈裡面;
 // 房間的 ‹ 🖱 › 導覽列也搬進圈裡、排在按鈕下面(ARC_PILL_Y)
-const ARC_BTN = { zh: { x: 104, y: 218, w: 70, h: 32 }, en: { x: 176, y: 218, w: 70, h: 32 }, play: { x: 276, y: 215, w: 140, h: 38 } };
+const ARC_BTN = { zh: { x: 104, y: 218, w: 70, h: 32 }, en: { x: 176, y: 218, w: 70, h: 32 }, play: { x: 276, y: 215, w: 140, h: 38 }, home: { x: 226, y: 270, w: 64, h: 34 } };   // home:回房間,在語言和 PLAY 下面、置中
 function arcadeButtonAt(x, y) {
   for (const k in ARC_BTN) { const b = ARC_BTN[k]; if (x >= b.x - 6 && x <= b.x + b.w + 6 && y >= b.y - 8 && y <= b.y + b.h + 8) return k; }
   return null;
 }
-let arcadeMenu = false, pushT = 0, pushGoal = 0, arcHover = null;   // arcHover:滑鼠現在停在機台螢幕的哪顆按鈕上(zh / en / play)
+let arcadeMenu = false, pushT = 0, pushGoal = 0, arcHover = null;   // arcHover:滑鼠現在停在機台螢幕的哪顆按鈕上(zh / en / play / home)
 const ARC_PILL_Y = 342, pillV = new THREE.Vector3(), pillEl = document.querySelector('.pill');   // 導覽列在街機螢幕上的位置(畫布 y)
 let gameLang = (() => { let v = null; try { v = localStorage.getItem('css.lang'); } catch (e) {} return (v || navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'; })();
 function setGameLang(code) { gameLang = code; try { localStorage.setItem('css.lang', code); } catch (e) {} prewarmGame(); }
@@ -1815,7 +1815,17 @@ function drawArcadeScreen(t, cv = arcadeCanvas, zoom = 1) {
     g.fillStyle = hvP ? '#c94a30' : '#d4553a'; g.beginPath(); g.roundRect(-p.w / 2, -p.h / 2 + 4, p.w, p.h, 19); g.fill();
     g.fillStyle = hvP ? '#ff9a7c' : '#ff7a59'; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.roundRect(-p.w / 2, -p.h / 2, p.w, p.h, 19); g.fill(); g.stroke();
     g.fillStyle = '#fff'; g.font = '900 17px Menlo, "PingFang TC", monospace'; g.fillText(gameLang === 'zh' ? '▶ 開始' : '▶ PLAY', 0, 1);
-    g.restore(); g.textBaseline = 'alphabetic';
+    g.restore();
+    // 回房間鍵:跟 PLAY 同一個樣式(橘色、白框、下面一層深色),中間畫房子
+    { const h = ARC_BTN.home, hvH = arcHover === 'home', sH = hvH ? 1.1 : 1;
+      g.save(); g.translate(h.x + h.w / 2, h.y + h.h / 2); g.scale(sH, sH);
+      g.fillStyle = hvH ? '#c94a30' : '#d4553a'; g.beginPath(); g.roundRect(-h.w / 2, -h.h / 2 + 4, h.w, h.h, 17); g.fill();
+      g.fillStyle = hvH ? '#ff9a7c' : '#ff7a59'; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.roundRect(-h.w / 2, -h.h / 2, h.w, h.h, 17); g.fill(); g.stroke();
+      g.strokeStyle = '#fff'; g.lineWidth = 2.6; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.beginPath(); g.moveTo(-9, -1); g.lineTo(0, -9); g.lineTo(9, -1); g.stroke();
+      g.beginPath(); g.moveTo(-6.5, -3); g.lineTo(-6.5, 8); g.lineTo(6.5, 8); g.lineTo(6.5, -3); g.stroke();
+      g.restore(); }
+    g.textBaseline = 'alphabetic';
   }
   g.restore();
   // 掃描線,有點 CRT 味
@@ -2054,7 +2064,7 @@ canvas.addEventListener('pointerup', (e) => {
     if (hit && hit.uv) {
       const b = arcadeButtonAt(hit.uv.x * 520, (1 - hit.uv.y) * 385);
       if (b) uiSfx('click');
-      if (b === 'play') startGame(); else if (b) setGameLang(b);
+      if (b === 'play') startGame(); else if (b === 'home') zoomGoal = 0; else if (b) setGameLang(b);   // home:退回房間
       return;
     }
   }
@@ -2543,7 +2553,6 @@ function loop() {
   }
   tickSeries(performance.now());
   drawScreen(t);
-  if (roomBack) roomBack.classList.toggle('on', focusArcade && zoomGoal >= 1 && zoomT > 0.9 && !gameOn && !uiOn);   // 街機選單畫面才出現
   if (arcadeScreen && (frameNo++ % 2 === 0)) { drawArcadeScreen(t); arcadeScreenTex.needsUpdate = true; }   // 街機螢幕每 2 幀更新
   if (livePoster && (liveN++ % 2 === 1)) livePoster(t);                                                       // 會動的照片每 2 幀更新(和街機錯開)
   if (story && !focusArcade && zoomT === 0) {
