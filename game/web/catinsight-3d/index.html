@@ -70,12 +70,14 @@
   /* 下面的控制列整個拿掉(進螢幕用 Explore 小點、點螢幕、滾輪或手指往上滑);回房間:街機前面有「3D Room」按鈕,地球那頁在 Privacy 左邊 */
   .pill { display: none !important; }
   #room-back { position: fixed; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); z-index: 8; transform: translate(-50%, 12px); display: flex; align-items: center; gap: 8px;
-    padding: 11px 20px 11px 16px; border: 0; border-radius: 999px; background: #fff; color: #2a1f4e; font: 600 15px/1 -apple-system, "SF Pro Text", system-ui, sans-serif; box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    width: 52px; height: 52px; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: #fff; color: #2a1f4e; font: 600 15px/1 -apple-system, "SF Pro Text", system-ui, sans-serif; box-shadow: 0 12px 40px rgba(0,0,0,.35);
     cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s, background .2s, color .2s, box-shadow .25s; -webkit-tap-highlight-color: transparent; }
   #room-back.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
   #room-back:hover { background: #7b5cf5; color: #fff; box-shadow: 0 0 26px rgba(123,92,245,.6); }
   #room-back:active { transform: translate(-50%, 0) scale(.95); }
-  #room-back svg { width: 18px; height: 18px; }
+  #room-back svg { width: 22px; height: 22px; }
+  #screen-ui .cta .room { display: inline-flex; align-items: center; justify-content: center; padding-left: 12px; padding-right: 12px; }
+  #screen-ui .cta .room svg { width: 1.2em; height: 1.2em; display: block; }
   /* 街機遊戲:點街機後淡入,中間是嵌入貓咪瑪利歐小遊戲的 iframe(960×544,依視窗縮放) */
   #game-ui { position: fixed; inset: 0; z-index: 6; background: #c9e8b8; opacity: 0; pointer-events: none; transition: opacity .55s ease; display: grid; place-items: center; }
   #game-ui.on { opacity: 1; pointer-events: auto; }
@@ -356,10 +358,10 @@
 <canvas id="c"></canvas>
 <a class="brand" id="brand" href="/catinsight-3d/" aria-label="CatInsight Stock 3D room"><img src="/assets/icon-180.png" alt=""><b>CatInsight</b><span>Stock</span></a>
 <div class="cta">
-  <a class="ghost room" href="./" data-room>3D Room</a>
+  <a class="ghost room" href="./" data-room aria-label="Back to the 3D room" title="Back to the 3D room"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg></a>
   <a class="primary" href="https://apps.apple.com/app/id6763914049">Get the App</a>
 </div>
-<button id="room-back" type="button" aria-label="Back to the 3D room"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>3D Room</button>
+<button id="room-back" type="button" aria-label="Back to the 3D room"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg></button>
 <div id="screen-ui">
   <div class="track"></div>
   <div class="num"></div>
@@ -396,6 +398,6 @@
   <div class="yarn-floor"></div>
   <div class="lpct">0%</div>
 </div></div>
-<script type="module" src="./room.mjs?v=535"></script>
+<script type="module" src="./room.mjs?v=536"></script>
 </body>
 </html>
