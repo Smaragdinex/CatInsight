@@ -426,7 +426,8 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     if (!intro) readyT += dt * 1000;
     const ready = intro ? 0 : ss(0, 1500, readyT);
     // 旅程速度有上限:滑鼠滑很快也照正常速度飛(整趟至少約 8 秒),慢慢滑就跟著滑、尾端緩下來
-    { const MAXV = 0.12, d = (pT - p) * Math.min(1, dt * 2.2); p += Math.max(-MAXV * dt, Math.min(MAXV * dt, d)); if (Math.abs(pT - p) < 1e-4) p = pT; }
+    // 銀河那段再慢一半(最快 0.06/秒,飛完銀河至少約 7 秒);出了銀河之後回到原本的速度上限
+    { const MAXV = 0.06 + 0.06 * ss(G_END - 0.04, G_END + 0.04, p), d = (pT - p) * Math.min(1, dt * 2.2); p += Math.max(-MAXV * dt, Math.min(MAXV * dt, d)); if (Math.abs(pT - p) < 1e-4) p = pT; }
     // 進場:一開始畫面只露出房間電腦螢幕那一塊(位置、大小一模一樣),鏡頭的視野也對齊那一塊;約 1.1 秒內擴大到整個畫面 → 像是穿進螢幕
     const W = innerWidth, H = innerHeight; let camAspect = W / H, galH = renderer.domElement.height;
     if (intro) {
