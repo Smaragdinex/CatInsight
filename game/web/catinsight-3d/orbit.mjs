@@ -7,7 +7,7 @@ import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { DOCS } from './legal.mjs?v=2';
 import { createSatellites } from './satellites.mjs?v=4';
-const SAT = new URLSearchParams(location.search).has('sat');   // 試做:地球那頁改成「衛星」版(網址加 ?sat)
+const SAT = !new URLSearchParams(location.search).has('ring');   // 地球那頁預設是「衛星轉盤」版;網址加 ?ring 可以看舊的一圈大卡片
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
 // 地球貼圖(NASA 藍色彈珠影像,three.js 範例附的版本);載不到時用程式畫的替代貼圖
