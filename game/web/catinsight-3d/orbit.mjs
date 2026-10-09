@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { createGalaxy, GAL_CAM } from './galaxy.mjs?v=5';
 import { DOCS } from './legal.mjs?v=1';
+import { createSatellites } from './satellites.mjs?v=1';
+const SAT = new URLSearchParams(location.search).has('sat');   // 試做:地球那頁改成「衛星」版(網址加 ?sat)
 
 const APP_STORE = 'https://apps.apple.com/app/id6763914049';
 // 地球貼圖(NASA 藍色彈珠影像,three.js 範例附的版本);載不到時用程式畫的替代貼圖
@@ -333,6 +335,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
 
   // ---------- 面板(CSS3D)----------
   const cssScene = new THREE.Scene(), ring = new THREE.Group(); cssScene.add(ring);
+  const deck = document.createElement('div'); deck.className = 'satdeck'; if (SAT) root.insertBefore(deck, chrome);   // 衛星版:卡片是一般的 2D 畫面,從衛星的位置展開
   const panels = slides.map((sl, i) => {
     const el = document.createElement('div'); el.className = `opanel op-${sl.key}`; el.style.setProperty('--c', sl.color); el.style.width = PW + 'px'; el.style.height = PH + 'px';
     const head = sl.key === 'hero'
@@ -341,11 +344,15 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       : `<div class="oph"><div class="eyebrow">${String(i).padStart(2, '0')} · ${sl.eyebrow}</div><h3>${sl.title}</h3><p>${sl.text}</p><div class="zh">${sl.zh}</div>` +
         (sl.cta ? `<a class="store" href="${APP_STORE}"> Download on the App Store</a>` : '') + `</div>`;
     el.innerHTML = `${head}<div class="opw"><div class="wgin"></div></div><div class="opshine"></div>`;
-    el.addEventListener('click', () => { if (atEarth() && i !== cur()) goTo(i); });
-    const obj = new CSS3DObject(el); const a = i * STEP;
-    obj.position.set(Math.sin(a) * R, RY, Math.cos(a) * R); obj.rotation.order = 'YXZ'; obj.rotation.y = a; ring.add(obj);
+    el.addEventListener('click', () => { if (!SAT && atEarth() && i !== cur()) goTo(i); });
+    let obj = null;
+    if (SAT) { el.style.display = 'none'; deck.appendChild(el); }
+    else { obj = new CSS3DObject(el); const a = i * STEP;
+      obj.position.set(Math.sin(a) * R, RY, Math.cos(a) * R); obj.rotation.order = 'YXZ'; obj.rotation.y = a; ring.add(obj); }
     return { el, obj, key: sl.key, host: el.querySelector('.wgin'), stop: null };
   });
+  const sat = SAT ? createSatellites({ THREE, scene: eScene, center: new THREE.Vector3(0, EY, 0), ER, slides, deck, panels, labelHost: chrome, onShow: (i) => setActive(i) }) : null;
+  if (SAT) { ringLine.visible = false; window.__sat = sat; }
 
   // ---------- 狀態 / 互動 ----------
   let drag = null;
@@ -355,12 +362,13 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   const atEarth = () => pT >= 1 && p > 0.985;
   const cur = () => ((Math.round(-target / STEP) % N) + N) % N;
   const settled = () => Math.abs(target - Math.round(target / STEP) * STEP) < 1e-3 && Math.abs(angle - target) < 0.02;
-  function goTo(i) { const k = Math.round(-target / STEP); let d = ((i - ((k % N) + N) % N) % N + N) % N; if (d > N / 2) d -= N; target = -(k + d) * STEP; lastRot = performance.now(); }
+  function goTo(i) { if (SAT) { sat.go(i); return; } const k = Math.round(-target / STEP); let d = ((i - ((k % N) + N) % N) % N + N) % N; if (d > N / 2) d -= N; target = -(k + d) * STEP; lastRot = performance.now(); }
   function rotate(dir) { target = (Math.round(target / STEP) - dir) * STEP; lastRot = performance.now(); }
   // ‹ › 按鈕 / 方向鍵:旅程中跳到下一站(銀河 → 太陽系全景 → 地球);在地球上轉面板,第一塊再往回 = 回太陽系;在銀河再往回 = 回房間
   function step(dir) {
     if (intro) return;
     if (docKey) { closeDoc(); return; }                                                    // 長面板開著:‹ › 先關掉它
+    if (atEarth() && SAT) { if (!sat.step(dir) && dir < 0) pT = OVERVIEW; return; }
     if (atEarth()) { if (dir < 0 && cur() === 0) { pT = OVERVIEW; return; } rotate(dir); return; }
     const stops = [0, OVERVIEW, 1];
     if (dir > 0) pT = stops.find((s) => s > pT + 0.01) ?? 1;
@@ -376,7 +384,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     panels.forEach((q, k) => q.el.classList.toggle('front', k === i)); dots.forEach((d, k) => d.classList.toggle('on', k === i));
   }
   // 滾輪:旅程中 = 往前 / 往後飛;到了地球 = 轉面板(停下來 160ms 後對齊最近一塊)
-  let snapTimer = 0;
+  let snapTimer = 0, satAcc = 0, satAccT = 0, satLast = 0;
   root.addEventListener('wheel', (e) => {
     e.preventDefault(); e.stopPropagation();
     // 進來時那一下滾動(含觸控板放開後的慣性)不算:放大到全螢幕之後才開始算 → 不會一進來就被慣性甩進去、顆粒亂噴
@@ -386,6 +394,12 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     if (intro || wheelGate) { const since = performance.now() - readyAt; if (!intro && since > 400 && (nowW - lastWheel > 250 || since > 1000)) wheelGate = false; else { lastWheel = nowW; return; } }
     lastWheel = nowW;
     const d = Math.max(-90, Math.min(90, Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX));
+    if (atEarth() && SAT) {   // 衛星版:滾一格 = 下一顆 / 上一顆(滑很快也最多約 0.4 秒換一次,中間的直接跳過);第一顆再往上 = 離開地球
+      satAcc += d; clearTimeout(satAccT); satAccT = setTimeout(() => { satAcc = 0; }, 260);
+      const now = performance.now();
+      if (Math.abs(satAcc) > 50 && now - satLast > 420) { const dir = Math.sign(satAcc); satAcc = 0; satLast = now; if (!sat.step(dir) && dir < 0) pT = 0.995 + d / 2200; }
+      return;
+    }
     if (atEarth()) {
       if (d < 0 && cur() === 0 && settled() && performance.now() - lastRot > 600) { pT = 0.995 + d / 2200; return; }   // 在第一塊再往上 → 離開地球
       target -= d * 0.0032; lastRot = performance.now(); clearTimeout(snapTimer); snapTimer = setTimeout(() => { target = Math.round(target / STEP) * STEP; }, 160); return;
@@ -394,16 +408,28 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     exitAcc = 0; pT = Math.max(0, Math.min(1, Math.max(p - 0.3, Math.min(p + 0.3, pT + d / 2200))));   // 目標最多領先目前位置 0.3,不會一次衝到底
   }, { passive: false });
   // 拖曳:旅程中上下拖 = 往前 / 往後飛;在地球上左右拖 = 轉面板
-  root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs, .ostages')) return; if (intro) return; drag = { x: e.clientX, y: e.clientY, t: target, pT, moved: false, earth: atEarth() }; });
+  // onDeck:衛星版在卡片上滑也可以換下一顆(點卡片本身不算點衛星)
+  root.addEventListener('pointerdown', (e) => { if (e.target.closest('a, button, canvas.wgc, .tabs, .ostages')) return; if (intro) return; drag = { x: e.clientX, y: e.clientY, t: target, pT, moved: false, earth: atEarth(), onDeck: !!e.target.closest('.satdeck') }; });
   window.addEventListener('pointermove', (e) => {
     mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1;
+    if (SAT && open && !drag && e.pointerType === 'mouse') {   // 衛星版:滑鼠移到衛星上 → 變大、浮出名稱、那層軌道亮起來
+      const h = atEarth() && !e.target.closest('.satdeck, .cta, .odoc, .odots') ? sat.pick(e.clientX, e.clientY) : -1;
+      if (sat.hover(h) && h >= 0) sfx && sfx('hover'); root.style.cursor = h >= 0 ? 'pointer' : '';
+    }
     if (!drag || !open) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
     if (!drag.moved) return;
+    if (drag.earth && SAT) return;
     if (drag.earth) { const d = Math.abs(dx) > Math.abs(dy) * 0.8 || e.pointerType !== 'touch' ? dx : -dy; target = drag.t + d * 0.0042; lastRot = performance.now(); }
     else pT = Math.max(0, Math.min(1, drag.pT - dy / (innerHeight * 2.2)));
   });
   window.addEventListener('pointerup', (e) => { if (drag) {
+    if (SAT && drag.earth && open) {   // 衛星版:點衛星 = 打開它;左右 / 上下滑 = 下一顆 / 上一顆
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && !drag.onDeck) { const h = sat.pick(e.clientX, e.clientY); if (h >= 0) { sat.go(h); sfx && sfx('click'); } }
+      else if (Math.max(Math.abs(dx), Math.abs(dy)) > 45) sat.step(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : -1) : (dy < 0 ? 1 : -1));
+      drag = null; return;
+    }
     if (drag.moved && drag.earth) target = Math.round(target / STEP) * STEP;
     // 手機 / 平板:在銀河起點(還沒開始飛)手指往下滑 = 回到房間(跟滾輪往回、‹ 一樣)
     else if (drag.moved && open && !intro && e.pointerType === 'touch' && drag.pT <= 0.01 && p <= 0.01) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (dy > 80 && dy > Math.abs(dx) * 1.5) { drag = null; onExit && onExit(); return; } }
@@ -421,6 +447,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
     camera.aspect = w / h; camera.updateProjectionMatrix();
     allPoints.forEach((pp) => { pp.material.uniforms.uPR.value = dpr; });
     measureReserve();
+    if (sat) sat.layout(w, h, reserve, w / h < 0.8);
   }
   addEventListener('resize', () => { if (open) resize(); });
 
@@ -446,6 +473,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       root.style.clipPath = `inset(${ry.toFixed(1)}px ${(W - rx - rw).toFixed(1)}px ${(H - ry - rh).toFixed(1)}px ${rx.toFixed(1)}px round ${(8 * (1 - k)).toFixed(1)}px)`;
       if (k >= 1) { intro = null; camera.clearViewOffset(); camera.aspect = W / H; root.style.clipPath = ''; covering = true; readyAt = now; readyT = 0; }
     }
+    if (SAT && !intro) camera.clearViewOffset();                                          // 衛星版在地球段會偏移畫面,其他段先清掉
     const aspect = W / H, portrait = aspect < 0.8, fit = Math.max(1, 1.3 / camAspect);
     { const vNow = Math.abs(p - pPrev) / Math.max(dt, 1e-3), target2 = ss(0.004, 0.03, vNow); mv += (target2 - mv) * Math.min(1, dt * (target2 > mv ? 8 : 5)); }
     allPoints.forEach((pp) => { pp.material.uniforms.uTime.value = t; });
@@ -528,15 +556,22 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       const fin = portrait ? new THREE.Vector3(0, PY, dist) : new THREE.Vector3(mouse.sx * 90 * rv, 330 - mouse.sy * 50 * rv, dist);
       const finLook = new THREE.Vector3(0, portrait ? PY : RY - 330, 0);              // 上方沒有文字了,鏡頭往下看一點 → 面板在畫面上移(手機看得到整塊)
       const startPos = D_FINAL.clone().multiplyScalar(ER * 5); startPos.y += EY;
-      setCam(startPos.lerp(fin, k), new THREE.Vector3(0, EY, 0).lerp(finLook, k), 10, 60000);
+      if (SAT) {   // 衛星版:從斜上方看地球和三層軌道;地球在畫面左邊(手機在上面),右邊(手機下面)留給卡片
+        const F = sat.fit(tanH), el = portrait ? 0.34 : 0.28, az = mouse.sx * 0.06 * rv;
+        const satFin = new THREE.Vector3(Math.sin(az) * Math.cos(el) * F.dist, EY + Math.sin(el) * F.dist - mouse.sy * 30 * rv, Math.cos(az) * Math.cos(el) * F.dist);
+        camera.setViewOffset(W, H, F.offX * k, F.offY * k, W, H);
+        setCam(startPos.lerp(satFin, k), new THREE.Vector3(0, EY, 0), 10, 60000);
+      } else setCam(startPos.lerp(fin, k), new THREE.Vector3(0, EY, 0).lerp(finLook, k), 10, 60000);
       // 桌機:鏡頭從上面往下看,面板往後仰同樣的角度 → 正對鏡頭,不會上寬下窄(手機鏡頭是水平的,不用仰)
       panelTilt = portrait ? 0 : -Math.atan2(camera.position.y - RY, Math.max(1, camera.position.z - R));
       earthU.uFade.value = eF; eStars.material.uniforms.uFade.value = eF; eBand.material.uniforms.uFade.value = eF; eMoon.visible = eF > 0.5; eSun.material.opacity = 0.9 * eF; ringLine.material.opacity = 0.35 * rv;
+      if (SAT) { camera.updateMatrixWorld(); sat.update(t, dt, camera, rv, atEarth()); }
       renderer.clearDepth(); renderer.render(eScene, camera);
     }
     // ---- 面板:到地球才出現 ----
     angle += (target - angle) * Math.min(1, dt * 6); ring.rotation.y = angle;
-    if (rv > 0.001) {
+    if (SAT) { cssLayer.style.visibility = 'hidden'; if (eF <= 0.001) sat.update(t, dt, camera, 0, false); }
+    else if (rv > 0.001) {
       cssLayer.style.visibility = 'visible';
       if (rv > 0.95) setActive(cur()); else setActive(-1);
       panels.forEach((pp, i) => { const a = i * STEP + angle, f = Math.cos(a);
@@ -556,7 +591,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
   return {
     get open() { return open; }, get covering() { return covering; }, get progress() { return p; },
     show(rect) { if (open) return; open = true; loadEarth(); earthSpin = 2.6; mv = 0; readyT = 0; warp.spd = 0; if (sWarp) sWarp.spd = 0; drag = null; clearTimeout(snapTimer);   // 上次離開時還在飛的速度歸零,不然進來會先衝一下
-      readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now();
+      readyAt = performance.now(); wheelGate = true; lastWheel = performance.now(); resize(); p = pT = 0; exitAcc = 0; target = angle = 0; active = -1; last = t0 = performance.now(); if (sat) sat.reset();
       intro = rect && rect.w > 20 ? { rect, t0: performance.now(), e: 0 } : null; if (!intro) setTimeout(() => { if (open) covering = true; }, 700);
       // 先把「這一次」的第一幀畫好(銀河起點、面板 / 按鈕藏好、clip-path 對齊螢幕),才把畫面打開 → 不會先閃出上次離開時的畫面(太陽系、地球、光速線…)
       frame(last); root.classList.add('on'); },
@@ -575,7 +610,7 @@ export function createOrbit({ host, slides, cta, sfx, mountWidget, onExit }) {
       renderer.render(postScene, postCam); renderer.render(sScene, camera); renderer.render(eScene, camera);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     },
-    hide() { closeDoc(); open = false; covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf);
+    hide() { closeDoc(); open = false; if (sat) sat.reset(); covering = false; intro = null; camera.clearViewOffset(); root.style.clipPath = ''; root.classList.remove('on'); cancelAnimationFrame(raf);
       // 離開時把畫面清掉(畫布、面板圈、按鈕、小點),下次進來不會殘留上次最後的畫面
       renderer.setRenderTarget(null); renderer.setClearColor(0x020309, 1); renderer.clear(); dotsEl.style.opacity = '0'; if (cta) { cta.style.opacity = '0'; cta.style.pointerEvents = 'none'; cta.style.visibility = 'hidden'; } panels.forEach((pp) => { if (pp.stop) { pp.stop(); pp.stop = null; } pp.host.innerHTML = ''; }); active = -1; },
     step, goTo, exit: onExit, travel(v) { pT = Math.max(0, Math.min(1, v)); },
